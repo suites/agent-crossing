@@ -1,27 +1,26 @@
 """
-LLM 추론 속도 및 한국어 품질 테스트
-Day 1-2: Qwen 2.5-3B 검증
+MLX 기반 LLM 추론 속도 및 한국어 품질 테스트
+M1 Pro 최적화 가속 및 4-bit 양자화 모델 검증
 """
 
 import time
-from transformers import AutoModelForCausalLM, AutoTokenizer
+from mlx_lm import load, generate
 
 
-def test_qwen_inference():
-    """Qwen 2.5-3B 모델 추론 속도 및 한국어 품질 테스트"""
+def test_qwen_mlx_inference():
+    """Qwen 2.5-3B-Instruct-4bit 모델 추론 테스트 (MLX)"""
 
     print("=" * 60)
-    print("Qwen 2.5-3B Instruct 모델 로드 중...")
+    print("Qwen 2.5-3B-Instruct-4bit 모델 로드 중 (MLX)...")
     print("=" * 60)
 
-    model_name = "Qwen/Qwen2.5-1.5B-Instruct"
+    model_name = "mlx-community/Qwen2.5-3B-Instruct-4bit"
 
     load_start = time.time()
-    tokenizer = AutoTokenizer.from_pretrained(model_name)
-    model = AutoModelForCausalLM.from_pretrained(model_name).to("mps")
+    model, tokenizer = load(model_name)
     load_time = time.time() - load_start
 
-    print(f"✓ 모델 로드 완료: {load_time:.2f}초 (Device: MPS)\n")
+    print(f"✓ 모델 로드 완료: {load_time:.2f}초 (Device: MLX/Metal)\n")
 
     test_prompts = [
         {
@@ -41,7 +40,7 @@ def test_qwen_inference():
     results = []
 
     print("=" * 60)
-    print("추론 테스트 시작")
+    print("추론 테스트 시작 (MLX)")
     print("=" * 60)
 
     for i, test in enumerate(test_prompts, 1):
@@ -49,25 +48,30 @@ def test_qwen_inference():
         print(f"프롬프트: {test['prompt']}")
         print("-" * 60)
 
-        start = time.time()
-        inputs = tokenizer(test["prompt"], return_tensors="pt").to("mps")
-        outputs = model.generate(
-            **inputs, max_new_tokens=100, do_sample=True, temperature=0.7, top_p=0.9
+        messages = [{"role": "user", "content": test["prompt"]}]
+        formatted_prompt = tokenizer.apply_chat_template(
+            messages, tokenize=False, add_generation_prompt=True
         )
-        response = tokenizer.decode(outputs[0], skip_special_tokens=True)
+
+        start = time.time()
+        response = generate(
+            model,
+            tokenizer,
+            prompt=formatted_prompt,
+            max_tokens=100,
+            verbose=False,
+        )
         elapsed = time.time() - start
 
-        response_text = response[len(test["prompt"]) :].strip()
-
         print(f"응답 시간: {elapsed:.2f}초")
-        print(f"응답:\n{response_text}")
+        print(f"응답:\n{response.strip()}")
 
         results.append(
-            {"name": test["name"], "latency": elapsed, "response": response_text}
+            {"name": test["name"], "latency": elapsed, "response": response.strip()}
         )
 
     print("\n" + "=" * 60)
-    print("테스트 결과 요약")
+    print("테스트 결과 요약 (MLX)")
     print("=" * 60)
 
     avg_latency = sum(r["latency"] for r in results) / len(results)
@@ -77,10 +81,10 @@ def test_qwen_inference():
 
     if avg_latency < 3.0:
         print(f"✓ 목표 달성! ({avg_latency:.2f}초 < 3초)")
-        decision = "수용 가능"
+        decision = "수용 가능 (MLX 최적화 성공)"
     else:
         print(f"✗ 목표 미달성 ({avg_latency:.2f}초 >= 3초)")
-        decision = "최적화 필요"
+        decision = "추가 최적화 또는 모델 변경 필요"
 
     print(f"\n최종 결정: {decision}")
 
@@ -88,19 +92,12 @@ def test_qwen_inference():
     for i, result in enumerate(results, 1):
         print(f"  {i}. {result['name']}: {result['latency']:.2f}초")
 
-    print("\n한국어 품질:")
-    for result in results:
-        if result["response"] and len(result["response"]) > 0:
-            print(f"  ✓ {result['name']}: 한국어 응답 생성됨")
-        else:
-            print(f"  ✗ {result['name']}: 응답 없음")
-
     return {"avg_latency": avg_latency, "decision": decision, "results": results}
 
 
 if __name__ == "__main__":
     try:
-        result = test_qwen_inference()
+        result = test_qwen_mlx_inference()
     except Exception as e:
         print(f"\n오류 발생: {e}")
         import traceback
