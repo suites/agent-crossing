@@ -76,27 +76,14 @@
 |---|------|----------|------|
 | 1 | LLM 추론 속도 검증 | 2-4h | 3초 초과 시 아키텍처 재검토 |
 | 2 | CLI 에이전트 브레인 POC | 1-2d | UI 없이 핵심 로직 검증 |
-| 3 | Vector DB 벤치마크 | 4h | ChromaDB vs Qdrant vs LanceDB |
-| 4 | Phaser 3 프로토타입 | 4-6h | 기본 상호작용 테스트 |
-| 5 | Monorepo 설정 | 1-2h | pnpm workspace 구성 |
+| 3 | Vector DB 벤치마크 | 4h | Pinecone (Cloud) 기반 메모리 인덱스 구축 |
 
-**타임라인**: Week 1 (1-3) → Week 2 (4-5)
+...
 
----
-
-## 📅 Week 1 체크리스트
-
-### Day 1-2: LLM 검증
-- [x] Qwen 2.5-3B 로드 및 100 토큰 생성 (Transformers 기준 12s+ 확인 -> 최적화 필요)
-- [x] MLX 프레임워크 도입 및 M1 Pro 최적화 가속 (평균 2.04초 달성)
-- [x] Qwen 2.5-3B 4-bit 양자화 모델 검증 (목표: <3초 달성)
-- [x] 한국어 품질 테스트 (가독성 우수, 단 페르소나 강화 프롬프트 필요)
-- [x] 레이턴시 수용 가능 여부 결정 (MLX 사용 확정)
-
-### Day 3: Vector DB
-- [ ] ChromaDB 설치 및 초기화
-- [ ] AgentMemory 클래스 (add/retrieve)
-- [ ] 100개 메모리 top-5 검색 벤치마크
+### Day 3: Vector DB (Pinecone)
+- [ ] Pinecone 인덱스 생성 및 초기화 (.env 연동)
+- [ ] AgentMemory 클래스 (add/retrieve) - Pinecone SDK 활용
+- [ ] 100개 메모리 top-5 검색 벤치마크 (Network Latency 확인)
 
 ### Day 4-5: CLI 에이전트 브레인
 - [ ] AgentBrain 클래스 (perceive/decide/converse)
