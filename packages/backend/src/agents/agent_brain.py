@@ -1,6 +1,6 @@
 import os
 from typing import List, Dict, Any, Optional
-from ..memory.agent_memory import AgentMemory
+from memory.agent_memory import AgentMemory
 
 
 class AgentBrain:
