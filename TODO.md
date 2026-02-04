@@ -13,24 +13,33 @@
 - [x] **Frontend 초기화**: Vite + React 19 + Phaser 3 기본 환경 설정 및 Canvas 통합
 - [x] **Backend 초기화**: FastAPI 기본 서버 및 `AgentBrain` 기본 클래스(POC용) 구현
 
-### 2단계: Generative Agents 핵심 엔진 (현재 단계)
+### 2단계: Generative Agents 핵심 엔진
 
-- [ ] **AgentMemory 고도화**: 단순 검색에서 논문의 `Recency * Importance * Relevance` 스코어링 로직으로 전환
-- [ ] **Importance 평가 로직**: 기억 생성 시 LLM을 호출하여 중요도(1~10)를 자동 채점하는 기능 추가
-- [ ] **Reflection 루프 구현**: 누적 중요도 150점 달성 시 Salient Questions를 통한 성찰 기능 구현
-- [ ] **계층적 Planning**: Day Plan -> Sector Plan -> Minute Plan 생성 로직 구현
+- [ ] **AgentMemory 고도화**:
+  - [ ] `MemoryEntry` 타입에 `importance`, `last_accessed` 필드 추가
+  - [ ] `Recency * Importance * Relevance` 기반의 Retrieval Scorer 구현 (지수 감쇠 적용)
+- [ ] **Cognitive 루프 구현**:
+  - [ ] **Importance 평가**: `perceive` 시 LLM 호출로 중요도(1~10) 자동 채점
+  - [ ] **Reflection 시스템**: 누적 점수 기반 트리거 및 Salient Questions 추출/Insight 생성
+  - [ ] **계층적 Planning**: Day -> Sector -> Minute 계획 생성 로직 및 프롬프트 템플릿화
+- [ ] **World Infrastructure**:
+  - [ ] **World Clock**: 백엔드 중심의 시뮬레이션 시간(Tick) 시스템 구축
+  - [ ] **Spatial Hierarchy**: 마을-건물-방-사물 구조의 트리 데이터 정의 및 에이전트 연동
 
-### 3단계: 월드 및 사회적 상호작용
+### 3단계: 월드 통합 및 실시간 시각화
 
-- [ ] **Spatial Memory**: 장소/사물을 트리 구조로 정의하고 에이전트가 이를 인식하게 함
-- [ ] **WebSocket 통합**: 백엔드의 에이전트 행동 결정을 프론트엔드로 실시간 전송
-- [ ] **대화 UI**: React 오버레이를 이용한 NPC 말풍선 및 대화 시스템
+- [ ] **WebSocket API**: 에이전트의 상태(위치, 행동, 대화)를 실시간으로 브로드캐스팅
+- [ ] **Phaser 엔진 고도화**:
+  - [ ] **Map Loader**: Tiled 맵 또는 그리드 기반 환경 구성
+  - [ ] **Pathfinding**: A\* 알고리즘을 이용한 NPC 이동 구현
+  - [ ] **Action Executor**: 백엔드 계획을 프론트엔드 애니메이션/이동으로 변환
+- [ ] **대화 UI**: React 19을 이용한 동적 말풍선 및 에이전트 인스펙터(현재 생각/기억 보기)
 
-### 4단계: 시뮬레이션 고도화 (v0.2+)
+### 4단계: 사회적 상호작용 및 최적화
 
-- [ ] **Information Diffusion**: 소문 전파 알고리즘 구현
-- [ ] **Affinity Matrix**: 에이전트 간 관계 점수 시각화 및 동적 변화
-- [ ] **다수 에이전트 최적화**: 5인 이상의 에이전트가 동시에 동작할 수 있는 스케줄링 최적화
+- [ ] **Information Diffusion**: 대화 중 중요 정보 선택 및 공유(소문 전파) 로직
+- [ ] **Relationship Model**: 에이전트 간 호감도 및 관계 유형에 따른 대화 차별화
+- [ ] **Performance**: 다수 에이전트(5인 이상) 동시 추론 시 병목 해결 및 배치 처리
 
 ---
 
