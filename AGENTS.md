@@ -1,244 +1,67 @@
-# Agent Crossing Development Guide
+# Agent Crossing Development Guide (for AI Agents) 🤖
 
-**AI 에이전트를 위한 개발 지침**
-
-**Tech Stack**: TypeScript, React 19, Tailwind CSS 4, Zustand, Phaser 3, FastAPI, Transformers, ChromaDB, pnpm  
-**Status**: Greenfield project (specification phase)
+이 문서는 **Sisyphus** 및 모든 하위 에이전트가 코드를 작성하고 시스템을 고도화할 때 반드시 준수해야 하는 지침입니다.
 
 ---
 
-## 🎯 Core Principles
-
-1. **Greenfield project** - 아직 코드가 없음. 패키지 설정, 빌드 시스템 등은 Week 2에 구성됨
-2. **Brain-first approach** - AI 에이전트 브레인 검증 → 프론트엔드 구현 순서
-3. **pnpm monorepo** - packages/shared, packages/frontend, packages/backend 구조 예정
-
----
-
-## 📦 Technology Stack
-
-### Frontend
-- **Phaser 3**: 웹 기반 2D 게임 엔진 (Canvas/WebGL)
-- **React 19**: UI 컴포넌트 오버레이
-- **Tailwind CSS 4**: 스타일링
-- **Zustand**: 상태 관리 (Phaser ↔ React 브릿지)
-- **TypeScript**: 정적 타입 체크
-- **pnpm**: 패키지 매니저 (monorepo)
-
-### Backend
-- **FastAPI**: 비동기 Python 웹 프레임워크
-- **Transformers**: Hugging Face 모델 로더
-- **Qwen 2.5-3B or Phi-4-mini**: 로컬 SLM
-- **ChromaDB**: Vector database (메모리 저장소)
-- **Python 3.11+**: 런타임
-- **WebSocket**: 실시간 통신 (Frontend ↔ Backend)
+## 🎯 핵심 원칙 (Core Principles)
+1. **Brain-First**: 시각적 효과보다 에이전트의 지능적 행동(논문 아키텍처 준수)을 우선함.
+2. **Strict Typing**: TypeScript와 Python Type Hint를 엄격히 사용하여 런타임 오류를 최소화함.
+3. **No Slop**: senior engineer 수준의 정밀하고 일관된 코드를 작성함.
 
 ---
 
-## 📋 Code Style Guidelines
-
-### Import Organization
-
-**Order** (blank lines between groups):
-```
-1. External dependencies (node_modules)
-2. Internal absolute imports (@/ alias)
-3. Relative imports (./ or ../)
-4. Type imports
-```
-
-**Rules**:
-- Use `@/` for cross-module imports
-- Use `./` only within same module
-- Alphabetize within each group
-- One import per line
-
-### Naming Conventions
-
-**Files**:
-```
-AgentCard.tsx              # Components (PascalCase)
-agent.service.ts           # Services (camelCase + .service)
-agent.store.ts             # Stores (camelCase + .store)
-useAgent.ts                # Hooks (camelCase with 'use' prefix)
-agent.types.ts             # Types (camelCase + .types)
-vector.util.ts             # Utils (camelCase + .util)
-agent.service.test.ts      # Tests (source name + .test)
-```
-
-**Code**:
-```
-calculateAgentAffinity()   # Functions: camelCase, verb-noun
-agentList                  # Variables: camelCase
-MAX_MEMORY_TOKENS          # Constants: UPPER_SNAKE_CASE
-AgentBrain                 # Classes: PascalCase
-Agent                      # Interfaces/Types: PascalCase
-```
-
-### TypeScript Rules
-
-**Critical**:
-- ❌ **NEVER use `any`, `as any`, `@ts-ignore`, `@ts-expect-error`**
-- ✅ Always use explicit types for function parameters and return values
-- ✅ Use strict null checks (`Type | null`, `Type | undefined`)
-- ✅ Use optional chaining (`?.`) and nullish coalescing (`??`)
-
-**React 19**:
-- ❌ Avoid `React.FC` (deprecated pattern)
-- ✅ Use plain function signatures: `function ComponentName(props: Props) {}`
-
-**Python**:
-- ✅ Type hints everywhere (`from typing import Optional, List`)
-- ✅ Use Pydantic models for validation
-- ✅ Async/await with FastAPI
-
-### Error Handling
-
-**TypeScript**:
-- Use try/catch for async operations
-- Consider Result type pattern for critical paths (only when needed)
-- Never suppress errors silently
-
-**Python**:
-- Use FastAPI's HTTPException for API errors
-- Type hint exceptions in function signatures
-- Log errors with context
-
-### File Organization
+## 📂 프로젝트 구조 및 경계 (Module Boundaries)
 
 ```
 packages/
-├── shared/              # Shared types, constants, utils
-│   └── src/
-│       ├── types/       # Cross-package type definitions
-│       └── constants/
-├── frontend/            # React + Phaser
-│   └── src/
-│       ├── game/        # Phaser scenes, sprites
-│       ├── components/  # React UI components (UI only)
-│       ├── stores/      # Zustand state management
-│       ├── hooks/       # Custom React hooks
-│       ├── services/    # Business logic & API calls
-│       ├── types/       # Frontend-specific types
-│       └── utils/       # Pure utility functions
-└── backend/             # FastAPI
-    └── src/
-        ├── agents/      # Agent cognitive engine
-        ├── memory/      # Vector store (ChromaDB)
-        ├── api/         # FastAPI endpoints
-        └── models/      # Pydantic models
+├── shared/              # 공통 타입 및 상수 (Frontend/Backend 공유)
+├── frontend/            # React 19 + Phaser 3 (UI 및 시각화)
+│   ├── src/game/        # Phaser Scene 및 Sprite 로직
+│   ├── src/components/  # React UI 컴포넌트 (UI Only)
+│   └── src/stores/      # Zustand 상태 관리 (Game ↔ UI 브릿지)
+└── backend/             # FastAPI (인지 엔진 및 데이터 관리)
+    ├── src/agents/      # AgentBrain 및 인지 루프 로직
+    ├── src/memory/      # Vector DB 및 Retrieval Scorer
+    └── src/api/         # FastAPI 엔드포인트 및 WebSocket
 ```
 
-**Module Boundaries**:
-- **components/**: UI only, no business logic
-- **services/**: Business logic, API calls
-- **stores/**: Global state
-- **utils/**: Pure functions, no side effects
+- **중요**: Phaser 로직에서 직접 DOM을 조작하지 말 것. 모든 상태는 Zustand를 통해 React와 통신함.
 
 ---
 
-## 🤖 AI Agent Guidelines
+## 📋 코딩 규칙 (Coding Standards)
 
-### Before Starting Work
+### TypeScript (React 19)
+- **JSX**: `react-jsx` 방식 사용 (파일 상단 `import React` 불필요).
+- **Types**: ❌ `any`, `as any`, `@ts-ignore` 절대 금지. ✅ 명시적 Interface 정의.
+- **Components**: `React.FC` 대신 일반 함수 선언문 사용.
 
-1. **Read GETTING_STARTED.md first** - 전체 프로젝트 계획 및 우선순위 파악
-2. **Check project status** - Greenfield이므로 기존 패턴 참고 불가
-3. **Verify tech stack** - 위 Technology Stack 섹션 확인
-
-### During Development
-
-1. **No type suppression**: Never use `any`, `as any`, `@ts-ignore`, `type: ignore`
-2. **No commits without explicit request**: Only commit when user asks
-3. **Fix minimally**: When fixing bugs, don't refactor—fix the bug only
-4. **Run diagnostics**: Use `mcp_lsp_diagnostics` on changed files before marking complete
-5. **Match planned structure**: Follow file organization above when creating new files
-6. **Test new features**: Write tests for new functionality
-7. **Document public APIs**: Use JSDoc (TypeScript) or docstrings (Python)
-
-### Phaser 3 Guidelines
-
-**Scene Organization**:
-- One scene per file
-- Use TypeScript classes extending `Phaser.Scene`
-- Keep game logic separate from rendering
-
-**Sprite Management**:
-- Use Phaser's built-in sprite pooling for performance
-- Store agent state in Zustand, not Phaser objects
-
-**Integration with React**:
-- Phaser runs in `<canvas>` element
-- React handles UI overlays (dialogue, menus)
-- Zustand bridges state between Phaser and React
-- Never manipulate DOM from Phaser
-
-### ChromaDB / Vector Memory
-
-- Use semantic search for agent memory retrieval
-- Limit memory corpus per agent (<1000 entries for MVP)
-- Test retrieval latency early (target: <100ms for top-5)
-
-### LLM Integration
-
-- All LLM calls happen in Python backend
-- Frontend never directly calls LLM
-- Use streaming for long responses (WebSocket)
-- Add timeout handling (default: 30s)
+### Python (FastAPI)
+- **Type Hints**: 모든 함수 매개변수와 반환값에 타입 힌트 필수.
+- **Validation**: Pydantic 모델을 사용하여 API 데이터 검증.
+- **Async**: FastAPI의 장점을 살리기 위해 비동기(async/await) 패턴 유지.
 
 ---
 
-## 📝 Git Commit Convention
+## 🤖 에이전트 구현 가이드 (Generative Agents Spec)
 
-```
-<type>(<scope>): <subject>
-```
+### LLM 호출 시 필수 컨텍스트 (Prompting)
+에이전트가 결정을 내리거나 대화할 때, 프롬프트에는 반드시 다음 항목이 포함되어야 합니다:
+1. **Persona**: 에이전트의 이름, 성격, 핵심 가치관.
+2. **Current Plan**: 현재 수행 중인 세부 단계 (Minute Plan).
+3. **Retrieved Memories**: Retrieval Scorer에 의해 선택된 관련 기억들.
+4. **Spatial Context**: 현재 위치의 계층 정보 (예: "지호네 집 > 거실").
 
-**Types**: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `chore`
-
-**Examples**:
-```
-feat(agent): add memory retrieval system
-fix(dialogue): handle null agent references
-docs(readme): update setup instructions
-chore(deps): update Phaser to 3.80.0
-```
-
-**Rules**:
-- Use lowercase for type and scope
-- Subject in imperative mood ("add" not "added")
-- No period at the end
-- Keep subject under 72 characters
+### 메모리 및 성찰 로직
+- **Retrieval**: 단순 벡터 검색 금지. 반드시 `Recency * Importance * Relevance` 공식을 구현할 것.
+- **Reflection**: `accumulated_importance >= 150`일 때 `reflect()` 메서드가 자발적으로 실행되도록 설계.
 
 ---
 
-## ⚠️ Important Notes
-
-### What Doesn't Exist Yet
-- ❌ No package.json / pyproject.toml
-- ❌ No build scripts or commands
-- ❌ No existing codebase to reference
-- ❌ No established patterns
-
-### What to Do First (Week 1-2)
-1. Backend POC: LLM + ChromaDB validation
-2. Monorepo setup: pnpm workspace
-3. Frontend bootstrap: Vite + React + Phaser basic scene
-
-Refer to **GETTING_STARTED.md** for detailed implementation roadmap.
-
----
-
-## 🔄 When to Update This Document
-
-Update this file when:
-- Tech stack changes (new dependencies)
-- New architectural patterns emerge from real code
-- Team decides on new conventions
-- Phaser-specific patterns are established
-
-Do NOT update for:
-- Individual code changes
-- Bug fixes
-- Feature additions
-
-Keep this document focused on **guidelines**, not **implementation details**.
+## 📝 작업 절차 및 컨벤션
+- **Progress Tracking**: `TODO.md`를 바탕으로 진행 상황을 파악하고, 작업이 완료되면 반드시 체크(`[x]`) 처리함.
+- **Specification Reference**: 모든 기능 구현 및 세부 로직은 `SPEC.md`를 최우선 참고하여 구현함.
+- **Git Commit**: `<type>(<scope>): <subject>` 형식을 준수 (예: `feat(agent): add reflection loop`).
+- **Verification**: 파일 수정 후 반드시 `lsp_diagnostics`를 실행하여 오류 확인.
+- **Minimal Fix**: 버그 수정 시 리팩토링을 병행하지 말고 최소한의 코드만 수정함.
