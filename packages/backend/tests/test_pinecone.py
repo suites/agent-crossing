@@ -1,6 +1,5 @@
 import os
 import time
-
 from dotenv import load_dotenv
 from pinecone import Pinecone, ServerlessSpec
 
@@ -15,7 +14,7 @@ def test_pinecone_setup():
         print("❌ Error: PINECONE_API_KEY is not set in .env file.")
         return
 
-    print("Connecting to Pinecone...")
+    print(f"Connecting to Pinecone...")
     pc = Pinecone(api_key=api_key)
 
     if index_name not in pc.list_indexes().names():

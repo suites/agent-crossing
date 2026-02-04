@@ -1,0 +1,16 @@
+{
+  "name": "agent-crossing",
+  "private": true,
+  "scripts": {
+    "dev:frontend": "pnpm --filter frontend dev",
+    "dev:backend": "pnpm --filter backend dev",
+    "build": "pnpm -r build",
+    "test": "pnpm -r test"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.7.0",
+    "prettier": "^3.0.0",
+    "typescript": "^5.9.3",
+    "vite": "^5.4.21"
+  }
+}

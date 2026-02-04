@@ -1,0 +1,17 @@
+[project]
+name = "agent-crossing-backend"
+version = "0.1.0"
+dependencies = [
+    "fastapi",
+    "uvicorn",
+    "python-dotenv",
+    "pinecone-client",
+    "sentence-transformers",
+    "transformers",
+    "torch",
+    "mlx-lm; platform_system == 'Darwin' and platform_machine == 'arm64'",
+    "pydantic"
+]
+
+[tool.setuptools]
+package-dir = {"" = "."}
