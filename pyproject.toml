@@ -13,6 +13,7 @@ dependencies = [
     "torch>=2.3.0",
     "pydantic>=2.7.0",
     "mlx-lm>=0.30.6 ; platform_machine == 'arm64' and sys_platform == 'darwin'",
+    "pinecone>=8.0.0",
 ]
 
 [tool.uv]
