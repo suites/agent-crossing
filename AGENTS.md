@@ -37,7 +37,12 @@ packages/
 - **Types**: ❌ `any`, `as any`, `@ts-ignore` 절대 금지. ✅ 명시적 Interface 정의.
 - **Components**: `React.FC` 대신 일반 함수 선언문 사용.
 
-### Python (FastAPI)
+### Python (FastAPI + uv)
+- **Environment**: Use `uv` for environment and dependency management.
+- **Commands**:
+  - Run scripts: `uv run python <script.py>`
+  - Add dependency: `uv add <package>`
+  - Sync environment: `uv sync`
 - **Type Hints**: 모든 함수 매개변수와 반환값에 타입 힌트 필수.
 - **Validation**: Pydantic 모델을 사용하여 API 데이터 검증.
 - **Async**: FastAPI의 장점을 살리기 위해 비동기(async/await) 패턴 유지.
