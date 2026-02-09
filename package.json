@@ -4,7 +4,7 @@
   "scripts": {
     "dev:frontend": "pnpm --filter frontend dev",
     "dev:backend": "export PYTHONPATH=$PYTHONPATH:$(pwd)/packages/backend/src && uv run uvicorn api.main:app --reload",
-    "test:backend": "export PYTHONPATH=$PYTHONPATH:$(pwd)/packages/backend/src && uv run python packages/backend/tests/test_cli.py",
+    "test:backend": "export PYTHONPATH=$PYTHONPATH:$(pwd)/packages/backend/src && uv run pytest packages/backend/tests",
     "sync:python": "uv sync",
     "build": "pnpm -r build",
     "test": "pnpm -r test"

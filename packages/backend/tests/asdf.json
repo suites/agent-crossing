@@ -1,0 +1,23 @@
+{
+  "nvidia": {
+    "baseUrl": "https://integrate.api.nvidia.com/v1",
+    "apiKey": "${KIMI-2.5-KEY}",
+    "api": "openai-completions",
+    "models": [
+      {
+        "id": "moonshotai/kimi-k2.5",
+        "name": "Kimi K2.5",
+        "reasoning": true,
+        "input": ["text", "image"],
+        "cost": {
+          "input": 0,
+          "output": 0,
+          "cacheRead": 0,
+          "cacheWrite": 0
+        },
+        "contextWindow": 256000,
+        "maxTokens": 8192
+      }
+    ]
+  }
+}
