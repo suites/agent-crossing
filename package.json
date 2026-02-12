@@ -3,16 +3,13 @@
   "private": true,
   "scripts": {
     "dev:frontend": "pnpm --filter frontend dev",
-    "dev:backend": "export PYTHONPATH=$PYTHONPATH:$(pwd)/packages/backend/src && uv run uvicorn api.main:app --reload",
-    "test:backend": "export PYTHONPATH=$PYTHONPATH:$(pwd)/packages/backend/src && uv run pytest packages/backend/tests",
-    "sync:python": "uv sync",
+    "dev:backend": "pnpm --filter @agent-crossing/backend dev",
+    "test:backend": "uv run pytest",
+    "sync": "uv sync",
     "build": "pnpm -r build",
     "test": "pnpm -r test"
   },
   "devDependencies": {
-    "@vitejs/plugin-react": "^4.7.0",
-    "prettier": "^3.0.0",
-    "typescript": "^5.9.3",
-    "vite": "^5.4.21"
+    "prettier": "^3.0.0"
   }
 }

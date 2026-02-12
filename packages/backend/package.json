@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "export PYTHONPATH=$PYTHONPATH:$(pwd)/src && uv run uvicorn api.main:app --reload",
-    "start": "export PYTHONPATH=$PYTHONPATH:$(pwd)/src && uv run uvicorn api.main:app"
+    "dev": "uv run uvicorn api.main:app --reload --app-dir src",
+    "start": "uv run uvicorn api.main:app --app-dir src"
   }
 }

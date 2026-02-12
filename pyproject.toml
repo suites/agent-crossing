@@ -25,3 +25,7 @@ dev-dependencies = [
 
 [tool.uv.workspace]
 members = ["packages/backend"]
+
+[tool.pytest.ini_options]
+testpaths = ["packages/backend/tests"]
+pythonpath = ["packages/backend/src"]
