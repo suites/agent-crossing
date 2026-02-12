@@ -2,7 +2,6 @@ import datetime
 
 import numpy as np
 import pytest
-
 from memory.memory_object import NodeType
 from memory.memory_stream import MemoryStream
 
@@ -14,7 +13,7 @@ def stream():
 
 @pytest.fixture
 def now():
-    return datetime.datetime(2024, 1, 1, 12, 0, 0)
+    return datetime.datetime(2026, 2, 12, 12, 0, 0)
 
 
 @pytest.fixture
