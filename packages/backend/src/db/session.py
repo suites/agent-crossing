@@ -5,7 +5,7 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.orm import Session, sessionmaker
 
 from .base import Base
-from . import models  # noqa: F401
+from .models import VectorMemory
 
 DATABASE_URL = os.getenv(
     "DATABASE_URL", "postgresql+psycopg://agent:agent@localhost:5432/agent_crossing"

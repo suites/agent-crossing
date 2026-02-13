@@ -1,0 +1,18 @@
+{
+  "include": ["packages/backend/src", "packages/backend/tests"],
+  "exclude": [
+    "**/node_modules",
+    "**/__pycache__",
+    "**/.pytest_cache",
+    "**/dist"
+  ],
+  "venvPath": ".",
+  "venv": ".venv",
+  "executionEnvironments": [
+    {
+      "root": "packages/backend",
+      "extraPaths": ["packages/backend/src"],
+      "pythonVersion": "3.11"
+    }
+  ]
+}

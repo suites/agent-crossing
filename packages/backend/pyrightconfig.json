@@ -1,0 +1,18 @@
+{
+  "include": ["src", "tests"],
+  "exclude": [
+    "**/node_modules",
+    "**/__pycache__",
+    "**/.pytest_cache",
+    "**/dist"
+  ],
+  "venvPath": "../..",
+  "venv": ".venv",
+  "executionEnvironments": [
+    {
+      "root": ".",
+      "extraPaths": ["src"],
+      "pythonVersion": "3.11"
+    }
+  ]
+}
