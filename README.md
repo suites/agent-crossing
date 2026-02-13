@@ -56,6 +56,20 @@ pnpm dev:backend
 pnpm dev:frontend
 ```
 
+### PostgreSQL + pgvector (Docker)
+
+```bash
+docker compose up -d
+```
+
+Quick check:
+
+```bash
+docker compose exec postgres psql -U agent -d agent_crossing -c "SELECT extname FROM pg_extension WHERE extname = 'vector';"
+```
+
+If the result includes `vector`, pgvector is enabled.
+
 ### Tests
 
 ```bash

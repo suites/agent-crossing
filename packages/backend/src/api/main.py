@@ -1,8 +1,14 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
-from typing import List, Optional
+
+from db import init_db
 
 app = FastAPI(title="Agent Crossing API")
+
+
+@app.on_event("startup")
+def on_startup() -> None:
+    init_db()
 
 
 class StatusResponse(BaseModel):

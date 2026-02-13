@@ -1,0 +1,23 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: agent-crossing-postgres
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: agent_crossing
+      POSTGRES_USER: agent
+      POSTGRES_PASSWORD: agent
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U agent -d agent_crossing"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./infra/postgres/init:/docker-entrypoint-initdb.d
+
+volumes:
+  postgres_data:
