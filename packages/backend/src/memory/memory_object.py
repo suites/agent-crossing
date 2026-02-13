@@ -31,20 +31,20 @@ class MemoryObject:
     citations: Optional[List[int]]
     """인용된 메모리 ID 목록, OBSERVATION은 항상 None"""
 
-    description: str
+    content: str
     """메모리 내용 (자연어)"""
 
-    creation_timestamp: datetime.datetime
+    created_at: datetime.datetime
     """생성 시간"""
 
-    last_accessed: datetime.datetime
+    last_accessed_at: datetime.datetime
     """마지막으로 검색된 시간"""
 
     importance: int
     """중요도 (1~10)"""
 
     embedding: np.ndarray
-    """description의 임베딩 벡터 (Relevance 계산용)"""
+    """content의 임베딩 벡터 (Relevance 계산용)"""
 
     def update_last_accessed(self, timestamp: datetime.datetime):
-        self.last_accessed = timestamp
+        self.last_accessed_at = timestamp

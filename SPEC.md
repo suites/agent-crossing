@@ -72,9 +72,9 @@ Backend 레이어 책임:
 - `id: int`
 - `node_type: OBSERVATION | REFLECTION | PLAN`
 - `citations: list[int] | None`
-- `description: str`
-- `creation_timestamp: datetime`
-- `last_accessed: datetime`
+- `content: str`
+- `created_at: datetime`
+- `last_accessed_at: datetime`
 - `importance: int` (1~10)
 - `embedding: np.ndarray`
 
@@ -166,7 +166,7 @@ Backend 레이어 책임:
 - `start_time`
 - `duration_minutes`
 - `location`
-- `action_description`
+- `action_content`
 
 react 정책:
 

@@ -29,9 +29,9 @@
   - Depends on: 없음
   - DoD:
     - [x] 기본 메모리 객체/스트림 구현 (`packages/backend/src/memory/memory_object.py`, `packages/backend/src/memory/memory_stream.py`)
-    - [x] 필수 필드 1차 구현: `id`, `description`, `creation_timestamp`, `last_accessed`, `importance`, `node_type`
+    - [x] 필수 필드 1차 구현: `id`, `content`, `created_at`, `last_accessed`, `importance`, `node_type`
     - [x] 확장 필드 일부 구현: `citations`, `embedding`
-    - [ ] 필드 네이밍 통일 (`description/creation_timestamp` vs `content/created_at`)
+    - [ ] 필드 네이밍 통일 (`content/creation_timestamp` vs `content/created_at`)
     - [ ] `location_path` 필드 추가 여부 확정 및 반영
     - [ ] `node_type`에 `CONVERSATION` 포함 여부 확정
 

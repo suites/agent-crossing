@@ -27,7 +27,7 @@ def observation_kwargs(now, embedding):
     return {
         "node_type": NodeType.OBSERVATION,
         "citations": None,
-        "description": "지호가 도서관에서 책을 빌렸다.",
+        "content": "지호가 도서관에서 책을 빌렸다.",
         "now": now,
         "importance": 7,
         "embedding": embedding,
@@ -47,15 +47,15 @@ def test_add_memory(stream, observation_kwargs, now, embedding):
 
     memory = stream.memories[0]
     assert memory.id == 0
-    assert memory.description == observation_kwargs["description"]
+    assert memory.content == observation_kwargs["content"]
     assert memory.importance == observation_kwargs["importance"]
-    assert memory.creation_timestamp == now
+    assert memory.created_at == now
     assert np.array_equal(memory.embedding, embedding)
 
     stream.add_memory(
         node_type=NodeType.OBSERVATION,
         citations=None,
-        description="두 번째 기억",
+        content="두 번째 기억",
         now=now,
         importance=3,
         embedding=np.zeros(384),
