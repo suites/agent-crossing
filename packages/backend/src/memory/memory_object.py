@@ -44,7 +44,7 @@ class MemoryObject:
     """중요도 (1~10)"""
 
     embedding: np.ndarray
-    """임베딩 벡터 (Relevance 계산용)"""
+    """description의 임베딩 벡터 (Relevance 계산용)"""
 
     def update_last_accessed(self, timestamp: datetime.datetime):
         self.last_accessed = timestamp
