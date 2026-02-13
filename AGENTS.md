@@ -1,72 +1,103 @@
 # Agent Crossing Development Guide (for AI Agents) 🤖
 
-이 문서는 **Sisyphus** 및 모든 하위 에이전트가 코드를 작성하고 시스템을 고도화할 때 반드시 준수해야 하는 지침입니다.
+이 문서는 **Sisyphus** 및 모든 하위 에이전트가 이 레포에서 작업할 때 따를 수 있는 운영 지침입니다.
 
----
+## 0. 권한과 적용 범위
 
-## 🎯 핵심 원칙 (Core Principles)
-1. **Brain-First**: 시각적 효과보다 에이전트의 지능적 행동(논문 아키텍처 준수)을 우선함.
-2. **Strict Typing**: TypeScript와 Python Type Hint를 엄격히 사용하여 런타임 오류를 최소화함.
-3. **No Slop**: senior engineer 수준의 정밀하고 일관된 코드를 작성함.
+- 이 문서는 `/Users/yoon.homme/Projects/agent-crossing` 전체에 적용되는 우선 지침입니다.
+- 다른 문서와 충돌할 경우 **SPEC.md**와 **TODO.md**가 우선입니다.
+- `AGENTS.md`는 유지보수형 지침으로, 팀원/에이전트간 일관된 판단을 보장하기 위해 의사결정 기준을 명시합니다.
 
----
+## 1. 핵심 원칙 (Core Principles)
 
-## 📂 프로젝트 구조 및 경계 (Module Boundaries)
+1. **Brain-First**: UI/연출보다 생성형 에이전트의 인지 루프 정확도를 우선합니다.
+2. **Strict Typing**: TypeScript와 Python type hint를 엄격히 적용해 런타임 불안정성을 줄입니다.
+3. **No Slop**: 최소 수정 원칙, 의미적 일관성, 명확한 근거(문서/코드) 유지.
+4. **Single Source of Truth**: 시스템 동작의 기준은 `SPEC.md`와 `TODO.md`의 정의를 따릅니다.
+
+## 2. 모듈 경계 (Module Boundaries)
 
 ```
 packages/
-├── shared/              # 공통 타입 및 상수 (Frontend/Backend 공유)
-├── frontend/            # React 19 + Phaser 3 (UI 및 시각화)
-│   ├── src/game/        # Phaser Scene 및 Sprite 로직
-│   ├── src/components/  # React UI 컴포넌트 (UI Only)
-│   └── src/stores/      # Zustand 상태 관리 (Game ↔ UI 브릿지)
-└── backend/             # FastAPI (인지 엔진 및 데이터 관리)
-    ├── src/agents/      # AgentBrain 및 인지 루프 로직
-    ├── src/memory/      # Vector DB 및 Retrieval Scorer
-    └── src/api/         # FastAPI 엔드포인트 및 WebSocket
+├── shared/              # 공통 타입, 상수, DTO, 메시지 스키마
+├── frontend/            # React 19 + Phaser 3
+│   ├── src/game/        # Phaser scene, 엔티티, 렌더링 로직
+│   ├── src/components/  # React UI 컴포넌트 (DOM 조작 금지)
+│   └── src/stores/      # Zustand 상태 저장소 (UI-게임 브릿지)
+└── backend/             # FastAPI
+    ├── src/api/         # HTTP/WebSocket 엔드포인트
+    ├── src/agents/      # 에이전트 뇌, decision pipeline
+    └── src/memory/      # Retrieval Scorer, memory stream, pgvector 인터페이스
 ```
 
-- **중요**: Phaser 로직에서 직접 DOM을 조작하지 말 것. 모든 상태는 Zustand를 통해 React와 통신함.
+- **금지**: Phaser에서 DOM 직접 접근(`document.querySelector` 등).
+- 상태 공유 규칙: 게임 상태 변경은 가능하면 `frontend/src/stores/`를 통해 UI와 동기화합니다.
 
----
+## 3. 실행 전 확인 (Mandatory Readiness Checks)
 
-## 📋 코딩 규칙 (Coding Standards)
+- 작업 시작 전 `TODO.md`의 해당 항목과 상태를 확인한다.
+- 설계 변경이 클수록 `SPEC.md`의 대응 절을 선행 검토한다.
+- 기존 의존성/설정의 영향 범위를 확인한다. (`package.json`, `pyproject.toml`, `pnpm-workspace.yaml`).
 
-### TypeScript (React 19)
-- **JSX**: `react-jsx` 방식 사용 (파일 상단 `import React` 불필요).
-- **Types**: ❌ `any`, `as any`, `@ts-ignore` 절대 금지. ✅ 명시적 Interface 정의.
-- **Components**: `React.FC` 대신 일반 함수 선언문 사용.
+## 4. 코딩 규칙 (Coding Standards)
 
-### Python (FastAPI + uv)
-- **Environment**: Use `uv` for environment and dependency management.
-- **Commands**:
-  - Run scripts: `uv run python <script.py>`
-  - Add dependency: `uv add <package>`
-  - Sync environment: `uv sync`
-- **Type Hints**: 모든 함수 매개변수와 반환값에 타입 힌트 필수.
-- **Validation**: Pydantic 모델을 사용하여 API 데이터 검증.
-- **Async**: FastAPI의 장점을 살리기 위해 비동기(async/await) 패턴 유지.
+### TypeScript (frontend/shared)
 
----
+- JSX는 `react-jsx` 사용(`import React` 불필요).
+- `any`, `as any`, `@ts-ignore`는 금지.
+- 함수 기반 컴포넌트는 `function` 문을 우선 사용.
+- 공유 타입이 필요하면 `packages/shared`에서 먼저 정의 후 임포트.
 
-## 🤖 에이전트 구현 가이드 (Generative Agents Spec)
+### Python (backend)
 
-### LLM 호출 시 필수 컨텍스트 (Prompting)
-에이전트가 결정을 내리거나 대화할 때, 프롬프트에는 반드시 다음 항목이 포함되어야 합니다:
-1. **Persona**: 에이전트의 이름, 성격, 핵심 가치관.
-2. **Current Plan**: 현재 수행 중인 세부 단계 (Minute Plan).
-3. **Retrieved Memories**: Retrieval Scorer에 의해 선택된 관련 기억들.
-4. **Spatial Context**: 현재 위치의 계층 정보 (예: "지호네 집 > 거실").
+- 의존성/스크립트는 `uv` 기반(`uv sync`, `uv run ...`).
+- API 경계, DTO, 도메인 모델에 타입 힌트와 Pydantic validation 사용을 일관되게 유지.
+- 비동기 처리(`async/await`)를 우선 적용하고, 차단형 I/O를 동기 루틴으로 남기지 않는다.
+- 변경 시 가능하면 기존 함수 시그니처를 지키고, 예측 가능한 예외 경로를 명시한다.
 
-### 메모리 및 성찰 로직
-- **Retrieval**: 단순 벡터 검색 금지. 반드시 `Recency * Importance * Relevance` 공식을 구현할 것.
-- **Reflection**: `accumulated_importance >= 150`일 때 `reflect()` 메서드가 자발적으로 실행되도록 설계.
+## 5. Generative Agent Spec 준수 규칙
 
----
+LLM 호출/행동 설계 시 프롬프트 컨텍스트는 다음을 모두 포함한다.
 
-## 📝 작업 절차 및 컨벤션
-- **Progress Tracking**: `TODO.md`를 바탕으로 진행 상황을 파악하고, 작업이 완료되면 반드시 체크(`[x]`) 처리함.
-- **Specification Reference**: 모든 기능 구현 및 세부 로직은 `SPEC.md`를 최우선 참고하여 구현함.
-- **Git Commit**: `<type>(<scope>): <subject>` 형식을 준수 (예: `feat(agent): add reflection loop`).
-- **Verification**: 파일 수정 후 반드시 `lsp_diagnostics`를 실행하여 오류 확인.
-- **Minimal Fix**: 버그 수정 시 리팩토링을 병행하지 말고 최소한의 코드만 수정함.
+- **Persona**: 에이전트 이름, 성격, 핵심 가치.
+- **Current Plan**: 현재 Minute Plan / short-term plan.
+- **Retrieved Memories**: Retrieval Scorer로 선별된 관련 기억 목록.
+- **Spatial Context**: 위치 트리(`Town > Building > Room`) 기반 레이블.
+
+기본 로직 제약
+
+- 단순 벡터 유사도 검색으로만 retrieval을 종료하지 않는다.
+- retrieval은 `recency`, `importance`, `relevance`를 각각 정규화한 뒤 가중합으로 계산한다.
+  - `score = alpha * recency + beta * importance + gamma * relevance`
+  - 기본값: `alpha = beta = gamma = 1.0`
+  - recency decay 기본값: `0.995 ** hours_since_last_access`
+- 누적 중요도 임계치(`>= 150`) 도달 시 `reflect()`를 실행한다.
+- 계획은 `Day -> Hourly -> Minute(5~15m)` 계층으로 구성하고, 반응 시 현재 시점 이후 계획만 재수립한다.
+- 위 상수/공식이 바뀌면 `SPEC.md`와 `TODO.md`를 같은 변경에서 함께 업데이트한다.
+
+## 6. 검증 규칙 (Verification Rules)
+
+- 작업 완료 후 다음을 최소 1회 실행한다.
+  - Backend 변경: `pnpm test:backend` 또는 `uv run pytest`
+  - 공유/Frontend/Backend 빌드: `pnpm -r build`
+  - 특정 패키지 빌드:
+    - `pnpm --filter @agent-crossing/shared build`
+    - `pnpm --filter @agent-crossing/frontend build`
+  - Python 단일 파일 실행/테스트 수정 시 `uv run pytest <path>`로 범위를 좁혀 검증.
+- 포맷/정적 검사 실패 시 즉시 수정하고 재실행한다.
+- 경량 변경이라도 `TODO.md`에서 항목 상태를 갱신한다.
+
+## 7. 실수 방지 목록 (Anti-Patterns)
+
+- TODO가 완료되었는데 체크를 하지 않거나 반대로 체크만 하고 구현 미완료.
+- `Spec`과 다른 점수 공식/임계값 사용(예: recency만 쓰는 retrieval).
+- `shared` 타입을 직접 중복 정의하거나 프런트/백엔드에서 서로 다른 이름의 DTO 사용.
+- `TODO.md`/`SPEC.md`의 과업 흐름을 무시하고 즉시 구현.
+- 빠른 임시 해결을 위해 `@ts-ignore`, 강한 타입 단절, 무차별 전역 상태 변경.
+
+## 8. 작업 흐름 및 PR 규칙
+
+- 각 작업은 작은 단위로 분해하고, 변경 범위를 명시한 후 진행한다.
+- 의미 변경이 있으면 `SPEC.md`, `TODO.md`의 항목 번호를 언급한다.
+- 커밋 메시지는 `<type>(<scope>): <subject>` 형식 유지.
+- 회귀를 줄이기 위해 파일 범위를 좁은 변경으로 반복 적용하고, 불필요한 리팩터링을 피한다.

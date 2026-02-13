@@ -1,50 +1,101 @@
-# Agent Crossing Project TODO 📝
+# Agent Crossing Project TODO
 
-프로젝트 진행 현황과 앞으로의 작업 계획을 관리하는 문서입니다.
-
----
-
-### 1단계: 환경 구축 및 POC 검증
-
-- [x] 프로젝트 비전 및 기술 스택 확정 (`SPEC.md`, `AGENTS.md`)
-- [x] **LLM 성능 검증**: Apple Silicon(M1 Pro) 환경에서 MLX 가속을 통한 Qwen 2.5-3B 추론 속도 확인 (평균 2.5초)
-- [x] **Vector DB 검증**: Pinecone을 이용한 메모리 저장 및 검색 레이턴시 테스트 완료
-- [x] **Monorepo 설정**: `pnpm workspace` 기반 `packages/shared`, `packages/frontend`, `packages/backend` 구조 구축
-- [x] **Frontend 초기화**: Vite + React 19 + Phaser 3 기본 환경 설정 및 Canvas 통합
-- [x] **Backend 초기화**: FastAPI 기본 서버 및 `AgentBrain` 기본 클래스(POC용) 구현
-
-### 2단계: Generative Agents 핵심 엔진
-
-- [ ] **AgentMemory 고도화**:
-  - [ ] `MemoryEntry` 타입에 `importance`, `last_accessed` 필드 추가
-  - [ ] `Recency * Importance * Relevance` 기반의 Retrieval Scorer 구현 (지수 감쇠 적용)
-- [ ] **Cognitive 루프 구현**:
-  - [ ] **Importance 평가**: `perceive` 시 LLM 호출로 중요도(1~10) 자동 채점
-  - [ ] **Reflection 시스템**: 누적 점수 기반 트리거 및 Salient Questions 추출/Insight 생성
-  - [ ] **계층적 Planning**: Day -> Sector -> Minute 계획 생성 로직 및 프롬프트 템플릿화
-- [ ] **World Infrastructure**:
-  - [ ] **World Clock**: 백엔드 중심의 시뮬레이션 시간(Tick) 시스템 구축
-  - [ ] **Spatial Hierarchy**: 마을-건물-방-사물 구조의 트리 데이터 정의 및 에이전트 연동
-
-### 3단계: 월드 통합 및 실시간 시각화
-
-- [ ] **WebSocket API**: 에이전트의 상태(위치, 행동, 대화)를 실시간으로 브로드캐스팅
-- [ ] **Phaser 엔진 고도화**:
-  - [ ] **Map Loader**: Tiled 맵 또는 그리드 기반 환경 구성
-  - [ ] **Pathfinding**: A\* 알고리즘을 이용한 NPC 이동 구현
-  - [ ] **Action Executor**: 백엔드 계획을 프론트엔드 애니메이션/이동으로 변환
-- [ ] **대화 UI**: React 19을 이용한 동적 말풍선 및 에이전트 인스펙터(현재 생각/기억 보기)
-
-### 4단계: 사회적 상호작용 및 최적화
-
-- [ ] **Information Diffusion**: 대화 중 중요 정보 선택 및 공유(소문 전파) 로직
-- [ ] **Relationship Model**: 에이전트 간 호감도 및 관계 유형에 따른 대화 차별화
-- [ ] **Performance**: 다수 에이전트(5인 이상) 동시 추론 시 병목 해결 및 배치 처리
+이 문서는 Park et al. (2023) "Generative Agents: Interactive Simulacra of Human Behavior"(arXiv:2304.03442) 기준으로 정렬한 실행 TODO입니다.
 
 ---
 
-## 🎯 주요 마일스톤
+## 0) Foundation (완료)
 
-- **M1**: LLM/DB 기술 검증 완료 및 인프라 구축
-- **M2**: 논문 기반 핵심 브레인(Memory, Plan, Reflect) 로직 완성
-- **M3**: 브라우저 상에서 2명의 NPC가 자율적으로 생활하는 모습 시연
+- [x] 프로젝트 구조 확정 (`packages/shared`, `packages/frontend`, `packages/backend`)
+- [x] Frontend 기본 세팅 (React 19 + Phaser 3 + Zustand)
+- [x] Backend 기본 세팅 (FastAPI + uv)
+- [x] 로컬 LLM/벡터DB PoC 검증 (MLX/Vector DB)
+- [ ] 메모리 저장소 전환: Pinecone -> PostgreSQL + pgvector
+
+## 1) Memory Stream & Retrieval (논문 핵심 1)
+
+- [ ] MemoryObject 스키마 정의
+  - [x] 기본 메모리 객체/스트림 구현 (`packages/backend/src/memory/memory_object.py`, `packages/backend/src/memory/memory_stream.py`)
+  - [x] 필수 필드 1차 구현: `id`, `description`, `creation_timestamp`, `last_accessed`, `importance`, `node_type`
+  - [x] 확장 필드 일부 구현: `citations`, `embedding`
+  - [ ] 스키마 명세 동기화: `description/creation_timestamp` vs `content/created_at` 네이밍 통일
+  - [ ] `location_path` 필드 추가 (예: `Town > House > Kitchen > Stove`)
+  - [ ] `node_type` 확장 여부 결정: 현재 `OBSERVATION | REFLECTION | PLAN` + 필요 시 `CONVERSATION`
+- [ ] Importance scoring 구현
+  - [ ] 기억 생성 시 LLM으로 `1~10` 정수 중요도 산정
+  - [ ] 파싱 실패 fallback 규칙 정의 (예: 기본값 3)
+- [ ] Retrieval scoring 구현 (가중 합)
+  - [ ] 공식: `score = alpha * recency + beta * importance + gamma * relevance`
+  - [ ] 기본 가중치: `alpha = beta = gamma = 1.0`
+  - [ ] 각 항목 Min-Max 정규화 `[0,1]`
+  - [ ] Recency decay: `0.995 ^ hours_since_last_access`
+  - [ ] Relevance: query embedding과 memory embedding cosine similarity
+- [ ] Retriever 품질 검증
+  - [x] `add_memory` 단위 테스트 작성 (`packages/backend/tests/test_memory_stream.py`)
+  - [ ] 동일 query 재호출 시 top-k 일관성 체크
+  - [ ] 중요 이벤트(importance high)가 retrieval에서 상위 노출되는지 테스트
+
+## 2) Reflection Loop (논문 핵심 2)
+
+- [ ] Reflection trigger 구현
+  - [ ] 최근 이벤트 누적 중요도 `>= 150` 시 reflection 실행
+  - [ ] reflection 실행 후 누적값 리셋 정책 정의
+- [ ] Reflection 생성 파이프라인
+  - [ ] 최근 기억 100개 기반 salient questions 3개 생성
+  - [ ] 질문별 관련 기억 retrieval
+  - [ ] high-level insight 5개 생성
+  - [ ] insight에 근거 memory id를 `citations`로 연결
+- [ ] Reflection-on-reflection 허용
+  - [ ] reflection memory도 retrieval 후보에 포함
+
+## 3) Planning & Re-planning (논문 핵심 3)
+
+- [ ] 계층형 계획 생성
+  - [ ] Day plan (5~8개 broad strokes)
+  - [ ] Hourly plan
+  - [ ] Minute plan (5~15분)
+  - [ ] 각 plan에 `start_time`, `duration`, `location` 포함
+- [ ] Tick 단위 react 판단
+  - [ ] 관찰 이벤트가 현재 계획을 방해/우선하는지 판정
+  - [ ] 반응 필요 시 현재 시점 이후 계획만 재수립
+- [ ] 대화 연계 planning
+  - [ ] 타 에이전트 조우 시 pass-by vs converse decision
+  - [ ] 대화 후 새 정보/관계 업데이트를 plan에 반영
+
+## 4) World Integration (시뮬레이션 완성)
+
+- [ ] Backend real-time state pipeline
+  - [ ] WebSocket broadcast: position/action/dialogue/emoji/current plan
+  - [ ] world clock + tick scheduler
+- [ ] Frontend visualization
+  - [ ] Tiled map + collision
+  - [ ] A\* pathfinding
+  - [ ] agent inspector (memory/plan/reflection 뷰)
+  - [ ] God mode 입력 -> perception event 주입
+
+## 5) Social Dynamics & Evaluation (논문 검증)
+
+- [ ] 정보 확산 실험 구현
+  - [ ] seed fact 주입 후 인지한 agent 비율 측정
+- [ ] 관계 형성 지표 구현
+  - [ ] 네트워크 밀도 `eta = 2|E| / (|V|(|V|-1))` 계산
+- [ ] 협업/조율 지표 구현
+  - [ ] 이벤트 초대 대비 실제 도착 agent 수 측정
+- [ ] Interview evaluator 구현 (총 25문항)
+  - [ ] 카테고리: self-knowledge, memory, plans, reactions, reflections
+- [ ] Ablation 실험 플래그
+  - [ ] no-observation / no-reflection / no-planning 비교 모드
+
+---
+
+## Milestones
+
+- [x] M1: Infra & PoC 완료
+- [ ] M2: Single-agent believable daily life
+- [ ] M3: Two-agent social interaction + information diffusion
+- [ ] M4: Multi-agent town simulation + user intervention
+
+## Notes
+
+- [ ] `SPEC.md`의 retrieval 식을 논문 기준(`weighted sum`)으로 동기화
+- [ ] MVP 기준은 "보이는 연출"보다 "인지 루프 정확성"을 우선
