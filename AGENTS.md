@@ -67,12 +67,7 @@ LLM 호출/행동 설계 시 프롬프트 컨텍스트는 다음을 모두 포�
 기본 로직 제약
 
 - 단순 벡터 유사도 검색으로만 retrieval을 종료하지 않는다.
-- retrieval은 `recency`, `importance`, `relevance`를 각각 정규화한 뒤 가중합으로 계산한다.
-  - `score = alpha * recency + beta * importance + gamma * relevance`
-  - 기본값: `alpha = beta = gamma = 1.0`
-  - recency decay 기본값: `0.995 ** hours_since_last_access`
-- 누적 중요도 임계치(`>= 150`) 도달 시 `reflect()`를 실행한다.
-- 계획은 `Day -> Hourly -> Minute(5~15m)` 계층으로 구성하고, 반응 시 현재 시점 이후 계획만 재수립한다.
+- retrieval/reflect/plan의 수식, 상수, 임계값, 계획 계층은 `SPEC.md`를 단일 기준으로 따른다.
 - 위 상수/공식이 바뀌면 `SPEC.md`와 `TODO.md`를 같은 변경에서 함께 업데이트한다.
 
 ## 6. 검증 규칙 (Verification Rules)
