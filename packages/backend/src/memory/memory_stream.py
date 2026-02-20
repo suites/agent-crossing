@@ -7,6 +7,9 @@ from .memory_object import MemoryObject, NodeType
 
 
 class MemoryStream:
+    """
+    MemoryStream은 관찰과 생각을 시간 순서대로 저장하는 구조입니다. 각 기억은 MemoryObject로 표현되며, 중요도와 임베딩을 포함합니다.
+    """
     def __init__(self):
         self.memories: list[MemoryObject] = []
 

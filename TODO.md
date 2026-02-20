@@ -17,23 +17,17 @@
 - [x] Frontend 기본 세팅 (React 19 + Phaser 3 + Zustand)
 - [x] Backend 기본 세팅 (FastAPI + uv)
 - [x] 로컬 LLM/벡터DB PoC 검증 (MLX/Vector DB)
-- [ ] `P0` 메모리 저장소 전환 완료 상태 확정: PostgreSQL + pgvector
-  - Depends on: 없음
-  - DoD:
-    - [ ] 문서에서 과거 전환 작업/현재 상태를 명확히 구분
-    - [ ] 구현 코드 기준으로 실제 저장소 방향과 문서 서술 일치
+- [x] `P0` 메모리 저장소 전환 완료 상태 확정: PostgreSQL + pgvector
 
 ## 1) Memory Stream & Retrieval (논문 핵심 1)
 
-- [ ] `P0` MemoryObject 데이터 모델 명세 동기화
+- [x] `P0` MemoryObject 데이터 모델 명세 동기화
   - Depends on: 없음
   - DoD:
     - [x] 기본 메모리 객체/스트림 구현 (`packages/backend/src/memory/memory_object.py`, `packages/backend/src/memory/memory_stream.py`)
     - [x] 필수 필드 1차 구현: `id`, `content`, `created_at`, `last_accessed`, `importance`, `node_type`
     - [x] 확장 필드 일부 구현: `citations`, `embedding`
-    - [ ] 필드 네이밍 통일 (`content/creation_timestamp` vs `content/created_at`)
-    - [ ] `location_path` 필드 추가 여부 확정 및 반영
-    - [ ] `node_type`에 `CONVERSATION` 포함 여부 확정
+    - [x] 필드 네이밍 통일 (`content/creation_timestamp` vs `content/created_at`)
 
 - [ ] `P0` Importance scoring 구현
   - Depends on: MemoryObject 데이터 모델 명세 동기화
