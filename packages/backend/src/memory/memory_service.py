@@ -12,9 +12,11 @@ class MemoryService:
         self,
         memory_stream: MemoryStream,
         importance_scorer: ImportanceScorer | None = None,
+        reflection_pipeline: "ReflectionPipeline | None" = None,
     ):
         self.memory_stream: MemoryStream = memory_stream
         self.importance_scorer: ImportanceScorer | None = importance_scorer
+        self.reflection_pipeline = reflection_pipeline
 
     def create_observation(
         self,
@@ -48,4 +50,9 @@ class MemoryService:
             importance=final_importance,
             embedding=embedding,
         )
+
+        if self.reflection_pipeline is not None:
+            # reflection 구현은 비워두되, 누적 카운터 연결점만 남긴다.
+            self.reflection_pipeline.record_observation_importance(final_importance)
+
         return self.memory_stream.memories[-1]

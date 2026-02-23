@@ -69,3 +69,29 @@ def test_create_observation_uses_default_fallback_without_scorer() -> None:
     )
 
     assert memory.importance == 3
+
+
+class StubReflectionPipeline:
+    def __init__(self):
+        self.recorded_importance: list[int] = []
+
+    def record_observation_importance(self, importance: int) -> None:
+        self.recorded_importance.append(importance)
+
+
+def test_create_observation_records_importance_to_reflection_pipeline() -> None:
+    stream = MemoryStream()
+    pipeline = StubReflectionPipeline()
+    service = MemoryService(memory_stream=stream, reflection_pipeline=pipeline)
+
+    now = datetime.datetime(2026, 2, 13, 12, 0, 0)
+    embedding = np.zeros(384)
+
+    _ = service.create_observation(
+        content="중요한 사건 발생",
+        now=now,
+        embedding=embedding,
+        importance=8,
+    )
+
+    assert pipeline.recorded_importance == [8]
