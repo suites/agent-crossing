@@ -39,11 +39,11 @@
 - [ ] `P0` Retrieval scoring 구현 (가중합)
   - Depends on: MemoryObject 데이터 모델 명세 동기화
   - DoD:
-    - [ ] 공식: `score = alpha * recency + beta * importance + gamma * relevance`
-    - [ ] 기본 가중치: `alpha = beta = gamma = 1.0`
-    - [ ] 각 항목 Min-Max 정규화 `[0,1]`
-    - [ ] Recency decay: `0.995 ** hours_since_last_access`
-    - [ ] Relevance: query embedding과 memory embedding cosine similarity
+    - [x] Recency decay: `0.995 ** hours_since_last_access`
+    - [x] Relevance: query embedding과 memory embedding cosine similarity
+    - [x] 공식: `score = (alpha * recency) + (beta * importance) + (gamma * relevance)`
+    - [x] 기본 가중치: `alpha = beta = gamma = 1.0`
+    - [x] 각 항목 Min-Max 정규화 `[0,1]`
     - [ ] 단위 테스트 추가
 
 - [ ] `P0` Retriever 품질 검증
