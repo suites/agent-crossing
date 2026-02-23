@@ -40,6 +40,24 @@ def stream_with_memory(stream, observation_kwargs):
     return stream
 
 
+def _add_memory(
+    stream: MemoryStream,
+    *,
+    now: datetime.datetime,
+    content: str,
+    importance: int,
+    embedding: np.ndarray,
+):
+    stream.add_memory(
+        node_type=NodeType.OBSERVATION,
+        citations=None,
+        content=content,
+        now=now,
+        importance=importance,
+        embedding=embedding,
+    )
+
+
 def test_add_memory(stream, observation_kwargs, now, embedding):
     stream.add_memory(**observation_kwargs)
 
@@ -62,3 +80,112 @@ def test_add_memory(stream, observation_kwargs, now, embedding):
     )
     assert len(stream.memories) == 2
     assert stream.memories[1].id == 1
+
+
+def test_retrieve_top_k_is_consistent_for_repeated_same_query(stream, now):
+    query = np.array([1.0, 0.0, 0.0])
+
+    _add_memory(
+        stream,
+        now=now - datetime.timedelta(hours=1),
+        content="query와 매우 유사한 기억",
+        importance=5,
+        embedding=np.array([1.0, 0.0, 0.0]),
+    )
+    _add_memory(
+        stream,
+        now=now - datetime.timedelta(hours=2),
+        content="query와 어느 정도 유사한 기억",
+        importance=5,
+        embedding=np.array([0.8, 0.2, 0.0]),
+    )
+    _add_memory(
+        stream,
+        now=now - datetime.timedelta(hours=3),
+        content="query와 덜 유사한 기억",
+        importance=5,
+        embedding=np.array([0.2, 0.8, 0.0]),
+    )
+    _add_memory(
+        stream,
+        now=now - datetime.timedelta(hours=4),
+        content="query와 반대 방향 기억",
+        importance=5,
+        embedding=np.array([-1.0, 0.0, 0.0]),
+    )
+
+    first = stream.retrieve(query_embedding=query, current_time=now, top_k=3)
+    second = stream.retrieve(query_embedding=query, current_time=now, top_k=3)
+
+    first_ids = [m.id for m in first]
+    second_ids = [m.id for m in second]
+
+    assert first_ids == second_ids
+
+
+def test_high_importance_memory_surfaces_when_relevance_and_recency_are_controlled(
+    stream, now
+):
+    query = np.array([1.0, 0.0, 0.0])
+    shared_embedding = np.array([1.0, 0.0, 0.0])
+
+    _add_memory(
+        stream,
+        now=now,
+        content="낮은 중요도",
+        importance=2,
+        embedding=shared_embedding,
+    )
+    _add_memory(
+        stream,
+        now=now,
+        content="중간 중요도",
+        importance=6,
+        embedding=shared_embedding,
+    )
+    _add_memory(
+        stream,
+        now=now,
+        content="높은 중요도",
+        importance=10,
+        embedding=shared_embedding,
+    )
+
+    top = stream.retrieve(query_embedding=query, current_time=now, top_k=1)
+
+    assert len(top) == 1
+    assert top[0].content == "높은 중요도"
+    assert top[0].importance == 10
+
+
+def test_retrieval_score_uses_default_equal_weights_with_normalized_components(stream, now):
+    query = np.array([1.0, 0.0, 0.0])
+
+    _add_memory(
+        stream,
+        now=now,
+        content="높은 relevance + 높은 importance",
+        importance=10,
+        embedding=np.array([1.0, 0.0, 0.0]),
+    )
+    _add_memory(
+        stream,
+        now=now,
+        content="낮은 relevance + 낮은 importance",
+        importance=1,
+        embedding=np.array([0.0, 1.0, 0.0]),
+    )
+
+    scores = stream._calculate_retrieval_scores(
+        memories=stream.memories,
+        query_embedding=query,
+        current_time=now,
+    )
+    score_by_content = {memory.content: score for memory, score in scores}
+
+    # recency는 둘 다 동일하므로 정규화 결과 0.5로 동일, 차이는 relevance/importance에서만 발생
+    assert score_by_content["높은 relevance + 높은 importance"] == pytest.approx(2.5)
+    assert score_by_content["낮은 relevance + 낮은 importance"] == pytest.approx(0.5)
+
+    # alpha=beta=gamma=1.0 기본 가중치 기준 score 범위 sanity check
+    assert all(0.0 <= score <= 3.0 for score in score_by_content.values())
