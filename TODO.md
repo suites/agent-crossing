@@ -29,12 +29,12 @@
     - [x] 확장 필드 일부 구현: `citations`, `embedding`
     - [x] 필드 네이밍 통일 (`content/creation_timestamp` vs `content/created_at`)
 
-- [ ] `P0` Importance scoring 구현
+- [x] `P0` Importance scoring 구현
   - Depends on: MemoryObject 데이터 모델 명세 동기화
   - DoD:
-    - [ ] 기억 생성 시 LLM으로 `1~10` 정수 중요도 산정
-    - [ ] 파싱 실패 fallback 규칙 구현 (예: 기본값 3)
-    - [ ] 단위 테스트 추가
+    - [x] 기억 생성 시 LLM으로 `1~10` 정수 중요도 산정
+    - [x] 파싱 실패 fallback 규칙 구현 (예: 기본값 3)
+    - [x] 단위 테스트 추가
 
 - [ ] `P0` Retrieval scoring 구현 (가중합)
   - Depends on: MemoryObject 데이터 모델 명세 동기화
