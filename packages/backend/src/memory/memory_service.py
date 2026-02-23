@@ -1,5 +1,4 @@
 import datetime
-from typing import TYPE_CHECKING
 
 import numpy as np
 from llm import ImportanceScorer, ImportanceScoringContext, clamp_importance
@@ -7,20 +6,15 @@ from llm import ImportanceScorer, ImportanceScoringContext, clamp_importance
 from .memory_object import MemoryObject, NodeType
 from .memory_stream import MemoryStream
 
-if TYPE_CHECKING:
-    from agents.reflection_pipeline import ReflectionPipelineService
-
 
 class MemoryService:
     def __init__(
         self,
         memory_stream: MemoryStream,
         importance_scorer: ImportanceScorer | None = None,
-        reflection_pipeline: "ReflectionPipelineService | None" = None,
     ):
         self.memory_stream: MemoryStream = memory_stream
         self.importance_scorer: ImportanceScorer | None = importance_scorer
-        self.reflection_pipeline = reflection_pipeline
 
     def create_observation(
         self,
@@ -54,8 +48,4 @@ class MemoryService:
             importance=final_importance,
             embedding=embedding,
         )
-
-        if self.reflection_pipeline is not None:
-            self.reflection_pipeline.record_observation_importance(final_importance)
-
         return self.memory_stream.memories[-1]
