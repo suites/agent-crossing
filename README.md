@@ -43,7 +43,7 @@ packages/
 
 ```bash
 pnpm install
-uv sync
+uv sync --project packages/backend
 ```
 
 ### Run (dev)
@@ -74,6 +74,8 @@ If the result includes `vector`, pgvector is enabled.
 
 ```bash
 pnpm test:backend
+# or
+uv run --project packages/backend pytest -c packages/backend/pyproject.toml packages/backend/tests
 ```
 
 ## Roadmap
