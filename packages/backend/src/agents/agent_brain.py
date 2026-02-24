@@ -1,11 +1,10 @@
 import datetime
 
 import numpy as np
-
 from memory.memory_object import MemoryObject
 from memory.memory_service import MemoryService
 
-from .reflection_pipeline import ReflectionPipeline
+from .reflection_service import ReflectionService
 
 
 class AgentBrain:
@@ -15,10 +14,10 @@ class AgentBrain:
         self,
         *,
         memory_service: MemoryService,
-        reflection_pipeline: ReflectionPipeline | None = None,
+        reflection_service: ReflectionService | None = None,
     ):
         self.memory_service = memory_service
-        self.reflection_pipeline = reflection_pipeline
+        self.reflection_service = reflection_service
 
     def ingest_observation(
         self,
@@ -45,10 +44,10 @@ class AgentBrain:
             importance=importance,
         )
 
-        if self.reflection_pipeline is None:
+        if self.reflection_service is None:
             return observation, []
 
-        if not self.reflection_pipeline.should_reflect():
+        if not self.reflection_service.should_reflect():
             return observation, []
 
-        return observation, self.reflection_pipeline.run(now=now)
+        return observation, self.reflection_service.run(now=now)

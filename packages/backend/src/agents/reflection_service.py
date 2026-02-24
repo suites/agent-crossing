@@ -12,7 +12,7 @@ class ReflectionConfig:
     threshold: int = 150
 
 
-class ReflectionPipeline:
+class ReflectionService:
     """아주 최소한의 reflection 시작점(스캐폴딩 전용)."""
 
     def __init__(self, config: ReflectionConfig | None = None):

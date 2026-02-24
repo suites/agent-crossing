@@ -1,6 +1,7 @@
 import datetime
 
 import numpy as np
+from agents.reflection_service import ReflectionService
 from llm import ImportanceScorer, ImportanceScoringContext, clamp_importance
 
 from .memory_object import MemoryObject, NodeType
@@ -12,11 +13,11 @@ class MemoryService:
         self,
         memory_stream: MemoryStream,
         importance_scorer: ImportanceScorer | None = None,
-        reflection_pipeline: "ReflectionPipeline | None" = None,
+        reflection_service: ReflectionService | None = None,
     ):
         self.memory_stream: MemoryStream = memory_stream
         self.importance_scorer: ImportanceScorer | None = importance_scorer
-        self.reflection_pipeline = reflection_pipeline
+        self.reflection_service = reflection_service
 
     def create_observation(
         self,
@@ -51,8 +52,8 @@ class MemoryService:
             embedding=embedding,
         )
 
-        if self.reflection_pipeline is not None:
+        if self.reflection_service is not None:
             # reflection 구현은 비워두되, 누적 카운터 연결점만 남긴다.
-            self.reflection_pipeline.record_observation_importance(final_importance)
+            self.reflection_service.record_observation_importance(final_importance)
 
         return self.memory_stream.memories[-1]
