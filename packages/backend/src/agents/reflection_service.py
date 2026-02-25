@@ -17,6 +17,13 @@ class ReflectionService:
         self.memory_service = memory_service
         self.llm_service = llm_service
 
+    def record_observation_importance(self, importance: int) -> None:
+        """
+        중요도 카운터를 기록한다.
+        - 입력/출력: importance(int) -> None
+        """
+        self.reflection.record_observation_importance(importance=importance)
+
     def reflect(self) -> None:
         """
         reflect를 실행하여 reflection 결과를 반환한다.

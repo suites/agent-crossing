@@ -133,7 +133,7 @@ def generate_reply_with_language_guard(
 
 
 def ingest_line(observer: SimAgent, content: str, now: datetime.datetime) -> None:
-    observer.brain.ingest_observation(
+    observer.brain.create_observation(
         content=content,
         now=now,
         persona=observer.name,

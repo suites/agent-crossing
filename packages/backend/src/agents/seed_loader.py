@@ -72,7 +72,7 @@ def apply_seed_to_brain(
     now: datetime.datetime,
 ) -> None:
     for memory in seed.seed_memories:
-        brain.ingest_observation(
+        brain.create_observation(
             content=memory.content,
             now=now,
             persona=seed.agent.name,
