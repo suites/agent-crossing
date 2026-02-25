@@ -1,6 +1,24 @@
 import numpy as np
 
 
+def validate_embedding_dimension(
+    embedding: np.ndarray, *, expected_dimension: int
+) -> None:
+    """Validate embedding vector shape for runtime safety.
+
+    Raises
+    ------
+    ValueError
+        If embedding is not a 1D vector of the expected size.
+    """
+    if embedding.ndim != 1:
+        raise ValueError("Embedding must be a 1D vector")
+    if embedding.shape[0] != expected_dimension:
+        raise ValueError(
+            f"Embedding dimension mismatch: expected {expected_dimension}, got {embedding.shape[0]}"
+        )
+
+
 def cosine_similarity(a: np.ndarray, b: np.ndarray) -> float:
     """
     두 벡터 a와 b 사이의 코사인 유사도를 계산한다.
@@ -9,6 +27,10 @@ def cosine_similarity(a: np.ndarray, b: np.ndarray) -> float:
     공식:
     - `cosine_similarity(a, b) = (a · b) / (||a|| * ||b||)`
     """
+    if a.shape != b.shape:
+        raise ValueError(
+            f"Embedding vectors must have matching shapes: a={a.shape}, b={b.shape}"
+        )
     if np.linalg.norm(a) == 0 or np.linalg.norm(b) == 0:
         return 0.0
     return np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b))

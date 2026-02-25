@@ -2,7 +2,8 @@ import datetime
 from typing import List, Optional
 
 import numpy as np
-from utils.math import cosine_similarity
+from settings import EMBEDDING_DIMENSION
+from utils.math import cosine_similarity, validate_embedding_dimension
 
 from .memory_object import MemoryObject, NodeType
 
@@ -27,6 +28,9 @@ class MemoryStream:
         """
         새로운 관찰(Observation)이나 생각(Reflection)을 스트림에 추가한다.
         """
+        validate_embedding_dimension(
+            embedding, expected_dimension=EMBEDDING_DIMENSION
+        )
         new_memory = MemoryObject(
             id=len(self.memories),
             node_type=node_type,
@@ -137,7 +141,15 @@ class MemoryStream:
         - `cosine_similarity(a, b) = (a · b) / (||a|| * ||b||)`
         - `relevance = cosine_similarity(query_embedding, memory.embedding)`
         """
-        return cosine_similarity(query_embedding, memory.embedding)
+        try:
+            validate_embedding_dimension(query_embedding, expected_dimension=EMBEDDING_DIMENSION)
+        except ValueError:
+            return 0.0
+
+        try:
+            return cosine_similarity(query_embedding, memory.embedding)
+        except ValueError:
+            return 0.0
 
     def _normalize(self, score: float, min_val: float, max_val: float) -> float:
         """

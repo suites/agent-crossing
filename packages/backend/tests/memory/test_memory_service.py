@@ -3,6 +3,7 @@ import datetime
 import numpy as np
 from llm import ImportanceScoringContext
 from memory.memory_service import MemoryService
+from settings import EMBEDDING_DIMENSION
 from memory.memory_stream import MemoryStream
 
 
@@ -22,7 +23,7 @@ def test_create_observation_uses_scorer_when_importance_missing() -> None:
     service = MemoryService(memory_stream=stream, importance_scorer=scorer)
 
     now = datetime.datetime(2026, 2, 13, 12, 0, 0)
-    embedding = np.zeros(384)
+    embedding = np.zeros(EMBEDDING_DIMENSION)
 
     memory = service.create_observation(
         content="카페 계약이 성사됐다.",
@@ -42,7 +43,7 @@ def test_create_observation_clamps_explicit_importance() -> None:
     service = MemoryService(memory_stream=stream, importance_scorer=None)
 
     now = datetime.datetime(2026, 2, 13, 12, 0, 0)
-    embedding = np.zeros(384)
+    embedding = np.zeros(EMBEDDING_DIMENSION)
 
     memory = service.create_observation(
         content="반복적인 일상 기록",
@@ -59,7 +60,7 @@ def test_create_observation_uses_default_fallback_without_scorer() -> None:
     service = MemoryService(memory_stream=stream)
 
     now = datetime.datetime(2026, 2, 13, 12, 0, 0)
-    embedding = np.zeros(384)
+    embedding = np.zeros(EMBEDDING_DIMENSION)
 
     memory = service.create_observation(
         content="마을 광장을 산책했다.",
@@ -84,7 +85,7 @@ def test_create_observation_uses_default_fallback_without_scorer() -> None:
 #     service = MemoryService(memory_stream=stream, reflection_service=reflection_service)
 
 #     now = datetime.datetime(2026, 2, 13, 12, 0, 0)
-#     embedding = np.zeros(384)
+#     embedding = np.zeros(EMBEDDING_DIMENSION)
 
 #     _ = service.create_observation(
 #         content="중요한 사건 발생",

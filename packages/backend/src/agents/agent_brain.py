@@ -14,7 +14,7 @@ class AgentBrain:
         self,
         *,
         memory_service: MemoryService,
-        reflection_service: ReflectionService | None = None,
+        reflection_service: ReflectionService,
     ):
         self.memory_service = memory_service
         self.reflection_service = reflection_service
@@ -44,10 +44,6 @@ class AgentBrain:
             importance=importance,
         )
 
-        if self.reflection_service is None:
-            return observation, []
+        reflections = self.reflection_service.reflect()
 
-        if not self.reflection_service.should_reflect():
-            return observation, []
-
-        return observation, self.reflection_service.run(now=now)
+        return observation, reflections
