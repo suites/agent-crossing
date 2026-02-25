@@ -73,15 +73,12 @@ class MemoryService:
     ) -> MemoryObject:
         final_importance = importance
         if final_importance is None:
-            if self.importance_scorer is None:
-                final_importance = 3
-            else:
-                context = ImportanceScoringContext(
-                    observation=content,
-                    persona=persona,
-                    current_plan=current_plan,
-                )
-                final_importance = self.importance_scorer.score(context)
+            context = ImportanceScoringContext(
+                observation=content,
+                persona=persona,
+                current_plan=current_plan,
+            )
+            final_importance = self.importance_scorer.score(context)
         else:
             final_importance = clamp_importance(final_importance)
 
@@ -95,6 +92,27 @@ class MemoryService:
         )
 
         return self.memory_stream.memories[-1]
+
+    def create_observation_from_text(
+        self,
+        *,
+        content: str,
+        now: datetime.datetime,
+        persona: str | None = None,
+        current_plan: str | None = None,
+        importance: int | None = None,
+    ) -> MemoryObject:
+        embedding = self.embedding_encoder.encode(
+            EmbeddingEncodingContext(text=content)
+        )
+        return self.create_observation(
+            content=content,
+            now=now,
+            embedding=embedding,
+            persona=persona,
+            current_plan=current_plan,
+            importance=importance,
+        )
 
     def create_reflection(self, insight: InsightWithCitation) -> MemoryObject:
         now = datetime.datetime.now()

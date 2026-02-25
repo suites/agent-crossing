@@ -15,15 +15,15 @@ class AgentBrain:
         memory_service: MemoryService,
         reflection_service: ReflectionService,
     ):
-        self.memory_service = memory_service
-        self.reflection_service = reflection_service
+        self.memory_service: MemoryService = memory_service
+        self.reflection_service: ReflectionService = reflection_service
 
     def ingest_observation(
         self,
         *,
         content: str,
         now: datetime.datetime,
-        embedding: np.ndarray,
+        embedding: np.ndarray | None = None,
         persona: str | None = None,
         current_plan: str | None = None,
         importance: int | None = None,
@@ -33,13 +33,22 @@ class AgentBrain:
         - 목적: observation 저장 + (조건 충족 시) reflection 엔트리 호출.
         - 입력/출력: 관찰 입력값들 -> (observation 1개, reflection 리스트)
         """
-        self.memory_service.create_observation(
-            content=content,
-            now=now,
-            embedding=embedding,
-            persona=persona,
-            current_plan=current_plan,
-            importance=importance,
-        )
+        if embedding is None:
+            _ = self.memory_service.create_observation_from_text(
+                content=content,
+                now=now,
+                persona=persona,
+                current_plan=current_plan,
+                importance=importance,
+            )
+        else:
+            _ = self.memory_service.create_observation(
+                content=content,
+                now=now,
+                embedding=embedding,
+                persona=persona,
+                current_plan=current_plan,
+                importance=importance,
+            )
 
         self.reflection_service.reflect()

@@ -60,38 +60,38 @@
 
 ### 2-A. Trigger와 누적값 관리
 
-- [ ] `P1` Reflection trigger를 임계치 기반으로 동작시킨다
+- [] `P1` Reflection trigger를 임계치 기반으로 동작시킨다
   - Depends on: Retrieval scoring 구현
   - DoD:
-    - [ ] 최근 이벤트 누적 중요도 `>= 150`에서 reflection을 실행한다
-    - [ ] reflection 실행 후 누적값 리셋 정책을 적용한다
-    - [ ] 임계치 테스트를 추가한다
+    - [x] 최근 이벤트 누적 중요도 `>= 150`에서 reflection을 실행한다
+    - [x] reflection 실행 후 누적값 리셋 정책을 적용한다
+    - [] 임계치 테스트를 추가한다
 
 ### 2-B. Reflection 생성 파이프라인 세분화
 
 - [ ] `P1` reflection 입력 메모리 윈도우를 고정한다
   - Depends on: Reflection trigger 구현
   - DoD:
-    - [ ] 최근 기억 100개를 시간 역순으로 수집한다
-    - [ ] 기억 부족 시 가능한 개수만 사용하고 실패 없이 진행한다
+    - [x] 최근 기억 100개를 시간 역순으로 수집한다
+    - [] 기억 부족 시 가능한 개수만 사용하고 실패 없이 진행한다
 
-- [ ] `P1` salient question 3개를 생성한다
+- [x] `P1` salient question 3개를 생성한다
   - Depends on: reflection 입력 메모리 윈도우 고정
   - DoD:
-    - [ ] LLM 출력에서 질문 3개를 안정적으로 파싱한다
-    - [ ] 파싱 실패 시 fallback 질문 생성 규칙을 적용한다
+    - [x] LLM 출력에서 질문 3개를 안정적으로 파싱한다
+    - [x] 파싱 실패 시 fallback 질문 생성 규칙을 적용한다
 
-- [ ] `P1` 질문별 관련 기억 retrieval을 수행한다
+- [x] `P1` 질문별 관련 기억 retrieval을 수행한다
   - Depends on: salient question 3개 생성
   - DoD:
-    - [ ] 질문마다 관련 기억 top-k를 조회한다
-    - [ ] 질문별 retrieval 결과를 구분된 구조로 유지한다
+    - [x] 질문마다 관련 기억 top-k를 조회한다
+    - [x] 질문별 retrieval 결과를 구분된 구조로 유지한다
 
-- [ ] `P1` high-level insight 5개를 생성한다
+- [x] `P1` high-level insight 5개를 생성한다
   - Depends on: 질문별 관련 기억 retrieval 수행
   - DoD:
-    - [ ] insight 5개를 생성하고 빈 항목 없이 저장한다
-    - [ ] insight마다 source question을 연결한다
+    - [x] insight 5개를 생성하고 빈 항목 없이 저장한다
+    - [] insight마다 source question을 연결한다
 
 - [ ] `P1` insight citations를 memory id로 연결한다
   - Depends on: high-level insight 5개 생성
