@@ -28,9 +28,7 @@ class MemoryStream:
         """
         새로운 관찰(Observation)이나 생각(Reflection)을 스트림에 추가한다.
         """
-        validate_embedding_dimension(
-            embedding, expected_dimension=EMBEDDING_DIMENSION
-        )
+        validate_embedding_dimension(embedding, expected_dimension=EMBEDDING_DIMENSION)
         new_memory = MemoryObject(
             id=len(self.memories),
             node_type=node_type,
@@ -46,7 +44,6 @@ class MemoryStream:
     def retrieve(
         self,
         query_embedding: np.ndarray,
-        current_time: datetime.datetime,
         top_k: int = 3,
     ) -> list[MemoryObject]:
         """
@@ -55,6 +52,8 @@ class MemoryStream:
         - 결과는 score 내림차순, 동점 시 최신 created_at 우선으로 정렬
         - 반환된 memory의 last_accessed_at은 current_time으로 갱신
         """
+        current_time = datetime.datetime.now()
+
         scores = self._calculate_retrieval_scores(
             self.memories, query_embedding, current_time
         )
@@ -142,7 +141,9 @@ class MemoryStream:
         - `relevance = cosine_similarity(query_embedding, memory.embedding)`
         """
         try:
-            validate_embedding_dimension(query_embedding, expected_dimension=EMBEDDING_DIMENSION)
+            validate_embedding_dimension(
+                query_embedding, expected_dimension=EMBEDDING_DIMENSION
+            )
         except ValueError:
             return 0.0
 

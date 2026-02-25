@@ -1,7 +1,6 @@
 import datetime
 
 import numpy as np
-from memory.memory_object import MemoryObject
 from memory.memory_service import MemoryService
 
 from .reflection_service import ReflectionService
@@ -28,14 +27,13 @@ class AgentBrain:
         persona: str | None = None,
         current_plan: str | None = None,
         importance: int | None = None,
-    ) -> tuple[MemoryObject, list[MemoryObject]]:
+    ) -> None:
         """
         메모:
         - 목적: observation 저장 + (조건 충족 시) reflection 엔트리 호출.
         - 입력/출력: 관찰 입력값들 -> (observation 1개, reflection 리스트)
-        - 다음 구현 위치: perceive/retrieve/plan/act/react 루프는 여기서 확장.
         """
-        observation = self.memory_service.create_observation(
+        self.memory_service.create_observation(
             content=content,
             now=now,
             embedding=embedding,
@@ -44,6 +42,4 @@ class AgentBrain:
             importance=importance,
         )
 
-        reflections = self.reflection_service.reflect()
-
-        return observation, reflections
+        self.reflection_service.reflect()

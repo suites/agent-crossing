@@ -1,3 +1,8 @@
+from .embedding_encoder import (
+    EmbeddingEncoder,
+    EmbeddingEncodingContext,
+    OllamaEmbeddingEncoder,
+)
 from .importance_scorer import (
     ImportanceScorer,
     ImportanceScoringContext,
@@ -9,7 +14,10 @@ from .ollama_client import OllamaClient, OllamaClientError, OllamaGenerateOption
 
 __all__ = [
     "ImportanceScoringContext",
+    "EmbeddingEncoder",
+    "EmbeddingEncodingContext",
     "ImportanceScorer",
+    "OllamaEmbeddingEncoder",
     "OllamaClient",
     "OllamaClientError",
     "OllamaGenerateOptions",
