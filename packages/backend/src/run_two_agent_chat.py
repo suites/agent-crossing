@@ -133,7 +133,7 @@ def generate_reply_with_language_guard(
 
 
 def ingest_line(observer: SimAgent, content: str, now: datetime.datetime) -> None:
-    observer.brain.create_observation(
+    observer.brain.queue_observation(
         content=content,
         now=now,
         persona=observer.name,
@@ -188,6 +188,8 @@ def run_simulation(
         now = datetime.datetime.now()
         ingest_line(listener, f"{speaker.name} said: {reply}", now)
         ingest_line(speaker, f"I said to {listener.name}: {reply}", now)
+        speaker.brain.loop()
+        listener.brain.loop()
 
     print("\nRecent memories")
     for agent in (agent_a, agent_b):
