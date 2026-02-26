@@ -42,6 +42,7 @@ def build_agent(
         reflection=Reflection(),
         memory_service=memory_service,
         llm_service=llm_service,
+        agent_name=persona.agent.name,
     )
     brain = AgentBrain(
         agent_identity=persona.agent,
@@ -57,23 +58,24 @@ def build_agent(
     return SimAgent(context=context)
 
 
-def init_agent_pair(
+def init_agents(
     *,
     persona_dir: str | Path,
-    agent_a_persona_name: str,
-    agent_b_persona_name: str,
+    agent_persona_names: list[str],
     ollama_client: OllamaClient,
     llm_model: str,
     now: datetime.datetime,
-) -> tuple[SimAgent, SimAgent]:
+) -> list[SimAgent]:
+    if not agent_persona_names:
+        raise ValueError("agent_persona_names must not be empty")
+
     persona_loader = PersonaLoader(persona_dir)
-    persona_a = persona_loader.load(agent_a_persona_name)
-    persona_b = persona_loader.load(agent_b_persona_name)
 
-    agent_a = build_agent(persona_a, ollama_client, llm_model)
-    agent_b = build_agent(persona_b, ollama_client, llm_model)
+    agents: list[SimAgent] = []
+    for persona_name in agent_persona_names:
+        persona = persona_loader.load(persona_name)
+        agent = build_agent(persona, ollama_client, llm_model)
+        apply_persona_to_brain(brain=agent.brain, persona=persona, now=now)
+        agents.append(agent)
 
-    apply_persona_to_brain(brain=agent_a.brain, persona=persona_a, now=now)
-    apply_persona_to_brain(brain=agent_b.brain, persona=persona_b, now=now)
-
-    return agent_a, agent_b
+    return agents
