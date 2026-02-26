@@ -2,18 +2,23 @@
 
 Current recommendation for this repository:
 
-- Authoring source: Markdown (`*.md`)
-- Runtime shape: Parsed `AgentSeed` object via `SeedLoader`
-- Optional future extension: add `*.seed.json` sidecar for strict schema validation without removing markdown authoring
+- Runtime source of truth: JSON (`*.json`)
+- Runtime shape: Parsed `AgentPersona` object via `PersonaLoader`
 
-Why this fits now:
+JSON schema (version 1):
 
-- Existing persona files are already markdown and human-editable.
-- `SeedLoader` already parses structured sections needed by `AgentBrain`.
-- Runtime now consumes both stable identity context and current plan context when building retrieval queries.
+- root fields: `version`, `agent`, `fixed_persona`, `extended_persona`, `seed_memories`
+- `agent`: `agent_id`, `name`, `age`, `traits`
+- `fixed_persona`: `identity_stable_set`
+- `extended_persona`: `lifestyle_and_routine`, `current_plan_context`
+- `seed_memories`: list of `{ content, importance }`
 
-If you add JSON sidecars later:
+Loading behavior:
 
-- Keep markdown as source of truth for writing.
-- Keep JSON as machine-focused cache/schema artifact.
-- Prefer loading JSON when present, fallback to markdown parser when absent.
+- `PersonaLoader.load("<name>")` loads `<name>.json` only.
+- If JSON is missing, loading fails with `PersonaLoadError`.
+- `load_all()` loads all `*.json` files except `*.sample.json`.
+
+Sample:
+
+- Use `persona.sample.json` as the canonical template when creating new persona files.

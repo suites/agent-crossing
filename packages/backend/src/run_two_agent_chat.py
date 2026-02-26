@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import cast
 
 from agents.agent_brain import ActionLoopInput
-from agents.seed_loader import SeedLoader, apply_seed_to_brain
+from agents.persona_loader import PersonaLoader, apply_persona_to_brain
 from agents.sim_agent import SimAgent
 from agents.world_factory import build_agent
 from llm.ollama_client import OllamaClient
@@ -98,26 +98,26 @@ def ingest_line(observer: SimAgent, content: str, now: datetime.datetime) -> Non
 
 def run_simulation(
     *,
-    agent_a_seed_name: str,
-    agent_b_seed_name: str,
+    agent_a_persona_name: str,
+    agent_b_persona_name: str,
     turns: int,
     base_url: str,
     llm_model: str,
     timeout_seconds: float,
-    seed_dir: str,
+    persona_dir: str,
     language: str,
 ) -> None:
     ollama_client = OllamaClient(base_url=base_url, timeout_seconds=timeout_seconds)
-    seed_loader = SeedLoader(seed_dir)
-    seed_a = seed_loader.load(agent_a_seed_name)
-    seed_b = seed_loader.load(agent_b_seed_name)
+    persona_loader = PersonaLoader(persona_dir)
+    persona_a = persona_loader.load(agent_a_persona_name)
+    persona_b = persona_loader.load(agent_b_persona_name)
 
-    agent_a = build_agent(seed_a, ollama_client, llm_model)
-    agent_b = build_agent(seed_b, ollama_client, llm_model)
+    agent_a = build_agent(persona_a, ollama_client, llm_model)
+    agent_b = build_agent(persona_b, ollama_client, llm_model)
 
     bootstrap_time = datetime.datetime.now()
-    apply_seed_to_brain(brain=agent_a.brain, seed=seed_a, now=bootstrap_time)
-    apply_seed_to_brain(brain=agent_b.brain, seed=seed_b, now=bootstrap_time)
+    apply_persona_to_brain(brain=agent_a.brain, persona=persona_a, now=bootstrap_time)
+    apply_persona_to_brain(brain=agent_b.brain, persona=persona_b, now=bootstrap_time)
 
     history: list[tuple[str, str]] = []
     dialogue_history_by_agent: dict[str, list[tuple[str, str]]] = {
@@ -185,37 +185,37 @@ def run_simulation(
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
-    default_seed_dir = str(Path(__file__).resolve().parents[1] / "persona")
+    default_persona_dir = str(Path(__file__).resolve().parents[1] / "persona")
     _ = parser.add_argument("--agent-a", default="Jiho")
     _ = parser.add_argument("--agent-b", default="Sujin")
     _ = parser.add_argument("--turns", type=int, default=20)
     _ = parser.add_argument("--base-url", default="http://localhost:11434")
     _ = parser.add_argument("--llm-model", default="qwen2.5:7b-instruct")
     _ = parser.add_argument("--timeout-seconds", type=float, default=30.0)
-    _ = parser.add_argument("--seed-dir", default=default_seed_dir)
+    _ = parser.add_argument("--persona-dir", default=default_persona_dir)
     _ = parser.add_argument("--language", choices=["ko", "en"], default="ko")
     return parser.parse_args()
 
 
 def main() -> None:
     args = parse_args()
-    agent_a_seed_name = cast(str, args.agent_a)
-    agent_b_seed_name = cast(str, args.agent_b)
+    agent_a_persona_name = cast(str, args.agent_a)
+    agent_b_persona_name = cast(str, args.agent_b)
     turns = cast(int, args.turns)
     base_url = cast(str, args.base_url)
     llm_model = cast(str, args.llm_model)
     timeout_seconds = cast(float, args.timeout_seconds)
-    seed_dir = cast(str, args.seed_dir)
+    persona_dir = cast(str, args.persona_dir)
     language = cast(str, args.language)
 
     run_simulation(
-        agent_a_seed_name=agent_a_seed_name,
-        agent_b_seed_name=agent_b_seed_name,
+        agent_a_persona_name=agent_a_persona_name,
+        agent_b_persona_name=agent_b_persona_name,
         turns=max(1, turns),
         base_url=base_url,
         llm_model=llm_model,
         timeout_seconds=timeout_seconds,
-        seed_dir=seed_dir,
+        persona_dir=persona_dir,
         language=language,
     )
 

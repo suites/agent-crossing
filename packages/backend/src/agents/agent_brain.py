@@ -102,7 +102,7 @@ class AgentBrain:
         # 1. 현재 상황을 인지한다. 인지할때 월드에서 현재 상황을 조회해서 주입한다.
         observation = self.perceive(
             now=input.current_time,
-            current_plan_context=input.profile.current_plan_context,
+            current_plan_context=input.profile.extended.current_plan_context,
         )
 
         # 2. 인지된 정보들을 observation으로 메모리에 저장 (reflection 조건 충족 시 reflection도 함께 저장)
@@ -192,13 +192,15 @@ class AgentBrain:
             f"traits={', '.join(self.agent_identity.traits)}",
         ]
 
-        if profile.identity_stable_set:
+        if profile.fixed.identity_stable_set:
             lines.append(
-                "identity_stable_set=" + " | ".join(profile.identity_stable_set[:2])
+                "identity_stable_set="
+                + " | ".join(profile.fixed.identity_stable_set[:2])
             )
-        if profile.current_plan_context:
+        if profile.extended.current_plan_context:
             lines.append(
-                "current_plan_context=" + " | ".join(profile.current_plan_context[:2])
+                "current_plan_context="
+                + " | ".join(profile.extended.current_plan_context[:2])
             )
         lines.append(f"observation={observation.content}")
         if dialogue_history:

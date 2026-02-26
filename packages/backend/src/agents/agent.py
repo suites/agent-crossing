@@ -12,10 +12,20 @@ class AgentIdentity:
 
 
 @dataclass
-class AgentProfile:
+class FixedPersona:
     identity_stable_set: list[str]
+
+
+@dataclass
+class ExtendedPersona:
     lifestyle_and_routine: list[str]
     current_plan_context: list[str]
+
+
+@dataclass
+class AgentProfile:
+    fixed: FixedPersona
+    extended: ExtendedPersona
 
 
 @dataclass

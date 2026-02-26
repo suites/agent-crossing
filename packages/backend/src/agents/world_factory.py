@@ -1,8 +1,8 @@
-from agents.agent import AgentContext, AgentProfile
+from agents.agent import AgentContext, AgentProfile, ExtendedPersona, FixedPersona
 from agents.agent_brain import AgentBrain
+from agents.persona_loader import AgentPersona
 from agents.reflection import Reflection
 from agents.reflection_service import ReflectionService
-from agents.seed_loader import AgentSeed
 from agents.sim_agent import SimAgent
 from llm.embedding_encoder import OllamaEmbeddingEncoder
 from llm.importance_scorer import OllamaImportanceScorer
@@ -12,16 +12,18 @@ from memory.memory_service import MemoryService
 from memory.memory_stream import MemoryStream
 
 
-def _profile_from_seed(seed: AgentSeed) -> AgentProfile:
+def _profile_from_persona(persona: AgentPersona) -> AgentProfile:
     return AgentProfile(
-        identity_stable_set=list(seed.identity_stable_set),
-        lifestyle_and_routine=list(seed.lifestyle_and_routine),
-        current_plan_context=list(seed.current_plan_context),
+        fixed=FixedPersona(identity_stable_set=list(persona.identity_stable_set)),
+        extended=ExtendedPersona(
+            lifestyle_and_routine=list(persona.lifestyle_and_routine),
+            current_plan_context=list(persona.current_plan_context),
+        ),
     )
 
 
 def build_agent(
-    seed: AgentSeed, ollama_client: OllamaClient, llm_model: str
+    persona: AgentPersona, ollama_client: OllamaClient, llm_model: str
 ) -> SimAgent:
     memory_stream = MemoryStream()
     importance_scorer = OllamaImportanceScorer(client=ollama_client, model=llm_model)
@@ -38,13 +40,13 @@ def build_agent(
         llm_service=llm_service,
     )
     brain = AgentBrain(
-        agent_identity=seed.agent,
+        agent_identity=persona.agent,
         memory_service=memory_service,
         reflection_service=reflection_service,
     )
     context = AgentContext(
-        identity=seed.agent,
-        profile=_profile_from_seed(seed),
+        identity=persona.agent,
+        profile=_profile_from_persona(persona),
         brain=brain,
         memory_service=memory_service,
     )

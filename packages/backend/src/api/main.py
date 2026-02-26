@@ -1,10 +1,9 @@
 from pathlib import Path
 
-from agents.seed_loader import SeedLoader
+from agents.persona_loader import PersonaLoader
+from db import init_db
 from fastapi import FastAPI
 from pydantic import BaseModel
-
-from db import init_db
 
 app = FastAPI(title="Agent Crossing API")
 
@@ -12,9 +11,9 @@ app = FastAPI(title="Agent Crossing API")
 @app.on_event("startup")
 def on_startup() -> None:
     init_db()
-    seed_dir = Path(__file__).resolve().parents[2] / "persona"
-    app.state.seed_loader = SeedLoader(seed_dir)
-    app.state.agent_seeds = app.state.seed_loader.load_all()
+    persona_dir = Path(__file__).resolve().parents[2] / "persona"
+    app.state.persona_loader = PersonaLoader(persona_dir)
+    app.state.agent_personas = app.state.persona_loader.load_all()
 
 
 class StatusResponse(BaseModel):
