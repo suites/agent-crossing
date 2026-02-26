@@ -1,59 +1,13 @@
 import argparse
 import datetime
-from dataclasses import dataclass
 from pathlib import Path
 from typing import cast
 
-from agents.agent import AgentIdentity
-from agents.agent_brain import AgentBrain
-from agents.reflection import Reflection
-from agents.reflection_service import ReflectionService
+from agents.agent_brain import ActionLoopInput
 from agents.seed_loader import SeedLoader, apply_seed_to_brain
-from llm.embedding_encoder import OllamaEmbeddingEncoder
-from llm.importance_scorer import OllamaImportanceScorer
-from llm.llm_service import LlmService
+from agents.sim_agent import SimAgent
+from agents.world_factory import build_agent
 from llm.ollama_client import OllamaClient
-from memory.memory_service import MemoryService
-from memory.memory_stream import MemoryStream
-
-
-@dataclass
-class SimAgent:
-    agent: AgentIdentity
-    brain: AgentBrain
-    memory_service: MemoryService
-
-    @property
-    def name(self) -> str:
-        return self.agent.name
-
-
-def build_agent(
-    agent: AgentIdentity, ollama_client: OllamaClient, llm_model: str
-) -> SimAgent:
-    memory_stream = MemoryStream()
-    importance_scorer = OllamaImportanceScorer(client=ollama_client, model=llm_model)
-    embedding_encoder = OllamaEmbeddingEncoder(client=ollama_client)
-    memory_service = MemoryService(
-        memory_stream=memory_stream,
-        importance_scorer=importance_scorer,
-        embedding_encoder=embedding_encoder,
-    )
-    llm_service = LlmService(ollama_client)
-    reflection_service = ReflectionService(
-        reflection=Reflection(),
-        memory_service=memory_service,
-        llm_service=llm_service,
-    )
-    brain = AgentBrain(
-        memory_service=memory_service,
-        reflection_service=reflection_service,
-    )
-    return SimAgent(
-        agent=agent,
-        brain=brain,
-        memory_service=memory_service,
-    )
 
 
 def build_reply_prompt(
@@ -158,14 +112,22 @@ def run_simulation(
     seed_a = seed_loader.load(agent_a_seed_name)
     seed_b = seed_loader.load(agent_b_seed_name)
 
-    agent_a = build_agent(seed_a.agent, ollama_client, llm_model)
-    agent_b = build_agent(seed_b.agent, ollama_client, llm_model)
+    agent_a = build_agent(seed_a, ollama_client, llm_model)
+    agent_b = build_agent(seed_b, ollama_client, llm_model)
 
     bootstrap_time = datetime.datetime.now()
     apply_seed_to_brain(brain=agent_a.brain, seed=seed_a, now=bootstrap_time)
     apply_seed_to_brain(brain=agent_b.brain, seed=seed_b, now=bootstrap_time)
 
     history: list[tuple[str, str]] = []
+    dialogue_history_by_agent: dict[str, list[tuple[str, str]]] = {
+        agent_a.name: [],
+        agent_b.name: [],
+    }
+    pending_partner_utterance: dict[str, str | None] = {
+        agent_a.name: None,
+        agent_b.name: None,
+    }
 
     for turn in range(1, turns + 1):
         speaker = agent_a if turn % 2 == 1 else agent_b
@@ -190,8 +152,28 @@ def run_simulation(
         now = datetime.datetime.now()
         ingest_line(listener, f"{speaker.name} said: {reply}", now)
         ingest_line(speaker, f"I said to {listener.name}: {reply}", now)
-        speaker.brain.action_loop()
-        listener.brain.action_loop()
+
+        speaker_partner_utterance = pending_partner_utterance[speaker.name] or ""
+        dialogue_history_by_agent[speaker.name].append(
+            (speaker_partner_utterance, reply)
+        )
+        pending_partner_utterance[speaker.name] = None
+        pending_partner_utterance[listener.name] = reply
+
+        _ = speaker.brain.action_loop(
+            ActionLoopInput(
+                current_time=now,
+                dialogue_history=dialogue_history_by_agent[speaker.name],
+                profile=speaker.profile,
+            )
+        )
+        _ = listener.brain.action_loop(
+            ActionLoopInput(
+                current_time=now,
+                dialogue_history=dialogue_history_by_agent[listener.name],
+                profile=listener.profile,
+            )
+        )
 
     print("\nRecent memories")
     for agent in (agent_a, agent_b):
@@ -203,7 +185,7 @@ def run_simulation(
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
-    default_seed_dir = str(Path(__file__).resolve().parents[1] / "seeds")
+    default_seed_dir = str(Path(__file__).resolve().parents[1] / "persona")
     _ = parser.add_argument("--agent-a", default="Jiho")
     _ = parser.add_argument("--agent-b", default="Sujin")
     _ = parser.add_argument("--turns", type=int, default=20)

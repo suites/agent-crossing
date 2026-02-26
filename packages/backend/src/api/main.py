@@ -12,7 +12,7 @@ app = FastAPI(title="Agent Crossing API")
 @app.on_event("startup")
 def on_startup() -> None:
     init_db()
-    seed_dir = Path(__file__).resolve().parents[2] / "seeds"
+    seed_dir = Path(__file__).resolve().parents[2] / "persona"
     app.state.seed_loader = SeedLoader(seed_dir)
     app.state.agent_seeds = app.state.seed_loader.load_all()
 

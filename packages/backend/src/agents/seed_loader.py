@@ -71,12 +71,13 @@ def apply_seed_to_brain(
     seed: AgentSeed,
     now: datetime.datetime,
 ) -> None:
+    current_plan = seed.current_plan_context[0] if seed.current_plan_context else None
     for memory in seed.seed_memories:
-        brain.save_observation_memory(
+        brain.ingest_seed_memory(
             content=memory.content,
             now=now,
-            persona=seed.agent.name,
             importance=memory.importance,
+            current_plan=current_plan,
         )
 
 
