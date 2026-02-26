@@ -4,9 +4,9 @@ from dataclasses import dataclass
 import numpy as np
 from agents.agent import AgentIdentity, AgentProfile
 from llm.embedding_encoder import EmbeddingEncodingContext
-from memory.memory_object import MemoryObject
-from memory.memory_service import MemoryService, ObservationContext
 
+from .memory.memory_object import MemoryObject
+from .memory.memory_service import MemoryService, ObservationContext
 from .reflection_service import ReflectionService
 
 

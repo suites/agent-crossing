@@ -1,7 +1,8 @@
 from agents.reflection import Reflection
 from llm.llm_service import LlmService
-from memory.memory_object import MemoryObject
-from memory.memory_service import MemoryService
+
+from .memory.memory_object import MemoryObject
+from .memory.memory_service import MemoryService
 
 
 class ReflectionService:

@@ -11,8 +11,9 @@ from llm.embedding_encoder import OllamaEmbeddingEncoder
 from llm.importance_scorer import OllamaImportanceScorer
 from llm.llm_service import LlmService
 from llm.ollama_client import OllamaClient
-from memory.memory_service import MemoryService
-from memory.memory_stream import MemoryStream
+
+from .memory.memory_service import MemoryService
+from .memory.memory_stream import MemoryStream
 
 
 def _profile_from_persona(persona: AgentPersona) -> AgentProfile:

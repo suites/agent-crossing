@@ -3,7 +3,8 @@ from typing import cast
 
 from agents.agent import AgentContext, AgentIdentity, AgentProfile
 from agents.agent_brain import AgentBrain
-from memory.memory_service import MemoryService
+
+from .memory.memory_service import MemoryService
 
 
 @dataclass
