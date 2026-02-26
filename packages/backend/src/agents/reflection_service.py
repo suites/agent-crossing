@@ -24,15 +24,18 @@ class ReflectionService:
         """
         self.reflection.record_observation_importance(importance=importance)
 
+    def should_reflect(self) -> bool:
+        """
+        reflect 실행 여부를 판단한다.
+        - 입력/출력: None -> bool
+        """
+        return self.reflection.should_reflect()
+
     def reflect(self) -> None:
         """
         reflect를 실행하여 reflection 결과를 반환한다.
         - 입력/출력: now(datetime) -> list[MemoryObject] (현재는 빈 리스트)
         """
-
-        # 1. reflection 실행 조건 판단
-        if not self.reflection.should_reflect():
-            return
 
         agent_name = "temp"  # TODO: agent 이름을 받아오는 로직 필요
         # 2. 최근 100건의 메모리를 가져온다.

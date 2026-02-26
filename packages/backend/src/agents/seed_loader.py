@@ -3,7 +3,7 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
-from .agent import Agent
+from .agent import AgentIdentity
 from .agent_brain import AgentBrain
 
 
@@ -19,7 +19,7 @@ class SeedMemory:
 
 @dataclass(frozen=True)
 class AgentSeed:
-    agent: Agent
+    agent: AgentIdentity
     identity_stable_set: list[str]
     lifestyle_and_routine: list[str]
     current_plan_context: list[str]
@@ -72,7 +72,7 @@ def apply_seed_to_brain(
     now: datetime.datetime,
 ) -> None:
     for memory in seed.seed_memories:
-        brain.create_observation(
+        brain.save_observation_memory(
             content=memory.content,
             now=now,
             persona=seed.agent.name,
@@ -98,7 +98,7 @@ def _split_front_matter(lines: list[str]) -> tuple[list[str], list[str]]:
     return front_matter, body_lines
 
 
-def _parse_agent(front_matter: list[str]) -> Agent:
+def _parse_agent(front_matter: list[str]) -> AgentIdentity:
     values: dict[str, str] = {}
     traits: list[str] = []
     current_key = ""
@@ -124,7 +124,7 @@ def _parse_agent(front_matter: list[str]) -> Agent:
     if "agent_id" not in values or "name" not in values or "age" not in values:
         raise SeedLoadError("Seed front matter requires agent_id, name, and age")
 
-    return Agent(
+    return AgentIdentity(
         id=values["agent_id"],
         name=values["name"],
         age=int(values["age"]),

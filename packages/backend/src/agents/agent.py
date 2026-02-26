@@ -2,7 +2,7 @@ from dataclasses import dataclass
 
 
 @dataclass
-class Agent:
+class AgentIdentity:
     """에이전트의 기본 정보와 특성을 담는 클래스."""
 
     id: str  # 고유 id

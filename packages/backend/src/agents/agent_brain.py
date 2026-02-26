@@ -2,87 +2,81 @@ import datetime
 from dataclasses import dataclass
 
 import numpy as np
-from memory.memory_object import MemoryObject
+from agents.agent import AgentIdentity
 from memory.memory_service import MemoryService
 
 from .reflection_service import ReflectionService
 
 
 @dataclass(frozen=True)
-class PendingObservation:
+class Observation:
     content: str
     now: datetime.datetime
-    embedding: np.ndarray | None
+    embedding: np.ndarray
     persona: str | None
     current_plan: str | None
     importance: int | None
 
 
+@dataclass(frozen=True)
+class Point2D:
+    x: float
+    y: float
+
+
+@dataclass(frozen=True)
+class ActionLoopInput:
+    current_time: datetime.datetime
+    """시스템의 현재 시간."""
+    dialogue_history: list[tuple[str, str]]
+    """대화 상황에서, (상대방 발화, 나의 발화) 리스트. 가장 최근 발화가 리스트의 마지막에 위치한다."""
+
+
+@dataclass(frozen=True)
+class ActionLoopResult:
+    current_time: datetime.datetime
+    """시스템의 현재 시간."""
+    status: str
+    """Agent의 현재 상태를 나타내는 문자열. 예시: 'Idle', 'Executing Plan', 'Waiting for Response' 등."""
+    talk: str | None
+    """Agent이 대화할 상황에서 생성된 대화 내용. 대화가 필요하지 않은 상황에서는 None."""
+
+
 class AgentBrain:
-    """starter template 수준의 최소 AgentBrain 스켈레톤."""
+    """Agent의 인지, 상황판단, 행동결정 등을 담당하는 핵심 클래스."""
 
     def __init__(
         self,
         *,
+        agent_identity: AgentIdentity,
         memory_service: MemoryService,
         reflection_service: ReflectionService,
     ):
         self.memory_service: MemoryService = memory_service
         self.reflection_service: ReflectionService = reflection_service
-        self._pending_observations: list[PendingObservation] = []
 
-    def loop(self) -> None:
+    def action_loop(self, input: ActionLoopInput) -> ActionLoopResult:
         """
         AgentBrain의 메인 루프.
         """
         # 1. 현재 상황을 인지한다. 인지할때 월드에서 현재 상황을 조회해서 주입한다.
-        # 2. 인지된 정보들을 observation으로 저장 (reflection 조건 충족 시 reflection도 함께 저장)
-        # self.create_observation(...)
+        observation = self.perceive(now=input.current_time)
+
+        # 2. 인지된 정보들을 observation으로 메모리에 저장 (reflection 조건 충족 시 reflection도 함께 저장)
+        self.save_observation_memory(observation)
+        if self.reflection_service.should_reflect():
+            self.reflection_service.reflect()
+
         # 3. 상황판단을 한다.
-        # 3-1. 상황판단을 위해 기억을 검색한다.
+        determine_result = self._determine_reaction()
+
         # 4. 상황판단에 따라 반응을 결정한다.
-        # 4-1. 관찰 결과가 단순하다면 기존 계획을 수행한다.
-        # 4-2. 관찰 결과가 중요하거나 예상치 못하면 기존 계획을 멈추고 반응한다.
-        # 4-2-1. 반응하기로 결정했으면 행동 계획을 재생성하고, 대화중이라면 자연어 대화도 생성한다.
+        self._react(determine_result)
+
         # 5. 구체적인 행동 결정 및 출력을 한다.
-        # 5-1. 할 일이 정해지면 자신이 알고있는 환경트리를 탐색해서 해당 행동을 수행할 적절한 장소를 결정한다.
-        # 5-2. 행동 이후에 월드 데이터에 업데이트한다.
+        return self._action()
 
-        for observation in self._pending_observations:
-            self.create_observation(
-                content=observation.content,
-                now=observation.now,
-                embedding=observation.embedding,
-                persona=observation.persona,
-                current_plan=observation.current_plan,
-                importance=observation.importance,
-            )
-
-        self._pending_observations.clear()
-        self.reflection_service.reflect()
-
-    def queue_observation(
-        self,
-        *,
-        content: str,
-        now: datetime.datetime,
-        embedding: np.ndarray | None = None,
-        persona: str | None = None,
-        current_plan: str | None = None,
-        importance: int | None = None,
-    ) -> None:
-        self._pending_observations.append(
-            PendingObservation(
-                content=content,
-                now=now,
-                embedding=embedding,
-                persona=persona,
-                current_plan=current_plan,
-                importance=importance,
-            )
-        )
-
-    def perceive(self, *, now: datetime.datetime):
+    def perceive(self, *, now: datetime.datetime) -> Observation:
         """
         현재 상황을 인지한다.
         """
@@ -90,42 +84,53 @@ class AgentBrain:
 
         # 1. 시야 범위 내의 환경 및 객체 인식
         # 2. (TODO:) 환경의 트리 구조 파악 및 자연어 변환
+        return Observation(
+            content="인식된 환경 정보",
+            now=now,
+            embedding=None,
+            persona=None,
+            current_plan=None,
+            importance=None,
+        )
+
+    def _action(self) -> ActionLoopResult:
+        # 5. 구체적인 행동 결정 및 출력을 한다.
+
+        # 5-1. 할 일이 정해지면 자신이 알고있는 환경트리를 탐색해서 해당 행동을 수행할 적절한 장소를 결정한다.
+        # 5-2. 행동 이후에 월드 데이터에 업데이트한다.
+        return ActionLoopResult(
+            current_time=datetime.datetime.now(),
+            status="Idle",  # TODO: 상태 받아오는 로직 필요
+            talk="안녕하세요 좋은 하루입니다.",  # TODO: 대화 내용 받아오는 로직 필요
+        )
+
+    def _determine_reaction(self) -> None:
+        # 1. 상황판단을 위해 기억을 검색한다.
         pass
 
-    def create_observation(
-        self,
-        *,
-        content: str,
-        now: datetime.datetime,
-        embedding: np.ndarray | None = None,
-        persona: str | None = None,
-        current_plan: str | None = None,
-        importance: int | None = None,
-    ) -> None:
+    def _react(self, determine_result) -> None:
+        # 4. 상황판단에 따라 반응을 결정한다.
+        # 4-1. 관찰 결과가 단순하다면 기존 계획을 수행한다.
+        # 4-2. 관찰 결과가 중요하거나 예상치 못하면 기존 계획을 멈추고 반응한다.
+        # 4-2-1. 반응하기로 결정했으면 행동 계획을 재생성하고, 대화중이라면 자연어 대화도 생성한다.
+
+        pass
+
+    def save_observation_memory(self, observation: Observation) -> None:
         """
         메모:
         - 목적: observation 저장 + (조건 충족 시) reflection 엔트리 호출.
         - 입력/출력: 관찰 입력값들 -> (observation 1개, reflection 리스트)
         """
-        created_memory: MemoryObject
-        if embedding is None:
-            created_memory = self.memory_service.create_observation_from_text(
-                content=content,
-                now=now,
-                persona=persona,
-                current_plan=current_plan,
-                importance=importance,
-            )
-        else:
-            created_memory = self.memory_service.create_observation(
-                content=content,
-                now=now,
-                embedding=embedding,
-                persona=persona,
-                current_plan=current_plan,
-                importance=importance,
-            )
+        memory = self.memory_service.create_observation(
+            content=observation.content,
+            now=observation.now,
+            embedding=observation.embedding,
+            persona=observation.persona,
+            current_plan=observation.current_plan,
+            importance=observation.importance,
+        )
 
         self.reflection_service.record_observation_importance(
-            importance=created_memory.importance
+            importance=memory.importance
         )

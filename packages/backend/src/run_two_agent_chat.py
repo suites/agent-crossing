@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import cast
 
-from agents.agent import Agent
+from agents.agent import AgentIdentity
 from agents.agent_brain import AgentBrain
 from agents.reflection import Reflection
 from agents.reflection_service import ReflectionService
@@ -19,7 +19,7 @@ from memory.memory_stream import MemoryStream
 
 @dataclass
 class SimAgent:
-    agent: Agent
+    agent: AgentIdentity
     brain: AgentBrain
     memory_service: MemoryService
 
@@ -28,7 +28,9 @@ class SimAgent:
         return self.agent.name
 
 
-def build_agent(agent: Agent, ollama_client: OllamaClient, llm_model: str) -> SimAgent:
+def build_agent(
+    agent: AgentIdentity, ollama_client: OllamaClient, llm_model: str
+) -> SimAgent:
     memory_stream = MemoryStream()
     importance_scorer = OllamaImportanceScorer(client=ollama_client, model=llm_model)
     embedding_encoder = OllamaEmbeddingEncoder(client=ollama_client)
@@ -188,8 +190,8 @@ def run_simulation(
         now = datetime.datetime.now()
         ingest_line(listener, f"{speaker.name} said: {reply}", now)
         ingest_line(speaker, f"I said to {listener.name}: {reply}", now)
-        speaker.brain.loop()
-        listener.brain.loop()
+        speaker.brain.action_loop()
+        listener.brain.action_loop()
 
     print("\nRecent memories")
     for agent in (agent_a, agent_b):
