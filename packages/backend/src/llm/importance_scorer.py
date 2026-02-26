@@ -63,7 +63,8 @@ def parse_importance_value(text: str, fallback_importance: int) -> int:
 @dataclass(frozen=True)
 class ImportanceScoringContext:
     observation: str
-    persona: str | None = None
+    agent_name: str
+    identity_stable_set: list[str]
     current_plan: str | None = None
 
 
@@ -101,7 +102,7 @@ class OllamaImportanceScorer:
 
     @staticmethod
     def _build_prompt(context: ImportanceScoringContext) -> str:
-        persona = context.persona or "N/A"
+        identity_stable_set = " | ".join(context.identity_stable_set[:3]) or "N/A"
         current_plan = context.current_plan or "N/A"
 
         return (
@@ -110,7 +111,8 @@ class OllamaImportanceScorer:
             "7-8 important for goals/relationships, 9-10 critical.\n"
             "Return JSON only with this shape: "
             '{"importance": <int 1-10>, "reason": "<short>"}.\n\n'
-            f"Persona: {persona}\n"
+            f"Agent: {context.agent_name}\n"
+            f"Identity stable set: {identity_stable_set}\n"
             f"Current plan: {current_plan}\n"
             f"Observation: {context.observation}\n"
         )

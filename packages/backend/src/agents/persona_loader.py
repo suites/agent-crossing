@@ -60,6 +60,7 @@ def apply_persona_to_brain(
             content=memory.content,
             now=now,
             importance=memory.importance,
+            identity_stable_set=persona.identity_stable_set,
             current_plan=current_plan,
         )
 

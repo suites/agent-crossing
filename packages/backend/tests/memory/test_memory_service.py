@@ -1,10 +1,11 @@
 import datetime
 
 import numpy as np
+from agents.memory.memory_service import MemoryService
+from agents.memory.memory_stream import MemoryStream
 from llm import ImportanceScoringContext
-from memory.memory_service import MemoryService
+from llm.embedding_encoder import EmbeddingEncodingContext
 from settings import EMBEDDING_DIMENSION
-from memory.memory_stream import MemoryStream
 
 
 class StubScorer:
@@ -17,10 +18,19 @@ class StubScorer:
         return self.score_value
 
 
+class StubEmbeddingEncoder:
+    def encode(self, _context: EmbeddingEncodingContext) -> np.ndarray:
+        return np.zeros(EMBEDDING_DIMENSION)
+
+
 def test_create_observation_uses_scorer_when_importance_missing() -> None:
     stream = MemoryStream()
     scorer = StubScorer(score_value=9)
-    service = MemoryService(memory_stream=stream, importance_scorer=scorer)
+    service = MemoryService(
+        memory_stream=stream,
+        importance_scorer=scorer,
+        embedding_encoder=StubEmbeddingEncoder(),
+    )
 
     now = datetime.datetime(2026, 2, 13, 12, 0, 0)
     embedding = np.zeros(EMBEDDING_DIMENSION)
@@ -29,8 +39,11 @@ def test_create_observation_uses_scorer_when_importance_missing() -> None:
         content="카페 계약이 성사됐다.",
         now=now,
         embedding=embedding,
-        persona="수진은 사업 확장을 목표로 한다.",
-        current_plan="오후에 계약서 서명",
+        context=ObservationContext(
+            agent_name="Sujin Lee",
+            identity_stable_set=["Sujin values reliable service."],
+            current_plan="오후에 계약서 서명",
+        ),
     )
 
     assert memory.importance == 9
@@ -40,7 +53,12 @@ def test_create_observation_uses_scorer_when_importance_missing() -> None:
 
 def test_create_observation_clamps_explicit_importance() -> None:
     stream = MemoryStream()
-    service = MemoryService(memory_stream=stream, importance_scorer=None)
+    scorer = StubScorer(score_value=5)
+    service = MemoryService(
+        memory_stream=stream,
+        importance_scorer=scorer,
+        embedding_encoder=StubEmbeddingEncoder(),
+    )
 
     now = datetime.datetime(2026, 2, 13, 12, 0, 0)
     embedding = np.zeros(EMBEDDING_DIMENSION)
@@ -49,15 +67,21 @@ def test_create_observation_clamps_explicit_importance() -> None:
         content="반복적인 일상 기록",
         now=now,
         embedding=embedding,
+        context=ObservationContext(agent_name="Sujin Lee", identity_stable_set=[]),
         importance=42,
     )
 
     assert memory.importance == 10
 
 
-def test_create_observation_uses_default_fallback_without_scorer() -> None:
+def test_create_observation_uses_scorer_value() -> None:
     stream = MemoryStream()
-    service = MemoryService(memory_stream=stream)
+    scorer = StubScorer(score_value=3)
+    service = MemoryService(
+        memory_stream=stream,
+        importance_scorer=scorer,
+        embedding_encoder=StubEmbeddingEncoder(),
+    )
 
     now = datetime.datetime(2026, 2, 13, 12, 0, 0)
     embedding = np.zeros(EMBEDDING_DIMENSION)
@@ -66,6 +90,7 @@ def test_create_observation_uses_default_fallback_without_scorer() -> None:
         content="마을 광장을 산책했다.",
         now=now,
         embedding=embedding,
+        context=ObservationContext(agent_name="Jiho Park", identity_stable_set=[]),
     )
 
     assert memory.importance == 3

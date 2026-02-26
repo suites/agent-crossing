@@ -44,7 +44,8 @@ def test_ollama_importance_scorer_success() -> None:
     score = scorer.score(
         ImportanceScoringContext(
             observation="지호가 오늘 중요한 회의 약속을 잡았다.",
-            persona="지호는 약속을 매우 중시한다.",
+            agent_name="Jiho Park",
+            identity_stable_set=["Jiho is reliable and values promises."],
             current_plan="오후 3시 미팅 참석",
         )
     )
@@ -61,5 +62,11 @@ def test_ollama_importance_scorer_fallback_on_client_error() -> None:
     client = OllamaClient(request_fn=request_fn)
     scorer = OllamaImportanceScorer(client=client, fallback_importance=3)
 
-    score = scorer.score(ImportanceScoringContext(observation="일상 산책"))
+    score = scorer.score(
+        ImportanceScoringContext(
+            observation="일상 산책",
+            agent_name="Jiho Park",
+            identity_stable_set=[],
+        )
+    )
     assert score == 3

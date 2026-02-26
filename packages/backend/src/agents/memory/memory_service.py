@@ -1,4 +1,5 @@
 import datetime
+from dataclasses import dataclass
 from enum import Enum
 
 import numpy as np
@@ -13,6 +14,13 @@ from .memory_stream import MemoryStream
 class OrderBy(Enum):
     ASC = "ASC"
     DESC = "DESC"
+
+
+@dataclass(frozen=True)
+class ObservationContext:
+    agent_name: str
+    identity_stable_set: list[str]
+    current_plan: str | None = None
 
 
 class MemoryService:
@@ -67,18 +75,18 @@ class MemoryService:
         content: str,
         now: datetime.datetime,
         embedding: np.ndarray,
-        persona: str | None = None,
-        current_plan: str | None = None,
+        context: ObservationContext,
         importance: int | None = None,
     ) -> MemoryObject:
         final_importance = importance
         if final_importance is None:
-            context = ImportanceScoringContext(
+            scoring_context = ImportanceScoringContext(
                 observation=content,
-                persona=persona,
-                current_plan=current_plan,
+                agent_name=context.agent_name,
+                identity_stable_set=context.identity_stable_set,
+                current_plan=context.current_plan,
             )
-            final_importance = self.importance_scorer.score(context)
+            final_importance = self.importance_scorer.score(scoring_context)
         else:
             final_importance = clamp_importance(final_importance)
 
@@ -98,8 +106,7 @@ class MemoryService:
         *,
         content: str,
         now: datetime.datetime,
-        persona: str | None = None,
-        current_plan: str | None = None,
+        context: ObservationContext,
         importance: int | None = None,
     ) -> MemoryObject:
         embedding = self.embedding_encoder.encode(
@@ -109,8 +116,7 @@ class MemoryService:
             content=content,
             now=now,
             embedding=embedding,
-            persona=persona,
-            current_plan=current_plan,
+            context=context,
             importance=importance,
         )
 

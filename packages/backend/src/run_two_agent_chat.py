@@ -91,7 +91,7 @@ def ingest_line(observer: SimAgent, content: str, now: datetime.datetime) -> Non
     observer.brain.queue_observation(
         content=content,
         now=now,
-        persona=observer.name,
+        profile=observer.profile,
     )
 
 

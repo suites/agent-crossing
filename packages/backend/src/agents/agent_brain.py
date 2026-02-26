@@ -5,7 +5,7 @@ import numpy as np
 from agents.agent import AgentIdentity, AgentProfile
 from llm.embedding_encoder import EmbeddingEncodingContext
 from memory.memory_object import MemoryObject
-from memory.memory_service import MemoryService
+from memory.memory_service import MemoryService, ObservationContext
 
 from .reflection_service import ReflectionService
 
@@ -15,7 +15,7 @@ class Observation:
     content: str
     now: datetime.datetime
     embedding: np.ndarray
-    persona: str | None
+    agent_name: str
     current_plan: str | None
     importance: int | None
 
@@ -64,15 +64,21 @@ class AgentBrain:
         *,
         content: str,
         now: datetime.datetime,
-        persona: str | None = None,
+        profile: AgentProfile,
         current_plan: str | None = None,
         importance: int | None = None,
     ) -> None:
+        final_current_plan = current_plan or self._get_current_plan_line(
+            profile.extended.current_plan_context
+        )
         memory = self.memory_service.create_observation_from_text(
             content=content,
             now=now,
-            persona=persona or self.agent_identity.name,
-            current_plan=current_plan,
+            context=ObservationContext(
+                agent_name=self.agent_identity.name,
+                identity_stable_set=profile.fixed.identity_stable_set,
+                current_plan=final_current_plan,
+            ),
             importance=importance,
         )
         self.reflection_service.record_observation_importance(
@@ -85,14 +91,21 @@ class AgentBrain:
         content: str,
         now: datetime.datetime,
         importance: int,
+        identity_stable_set: list[str],
         current_plan: str | None,
     ) -> None:
-        self.queue_observation(
+        memory = self.memory_service.create_observation_from_text(
             content=content,
             now=now,
-            persona=self.agent_identity.name,
-            current_plan=current_plan,
+            context=ObservationContext(
+                agent_name=self.agent_identity.name,
+                identity_stable_set=identity_stable_set,
+                current_plan=current_plan,
+            ),
             importance=importance,
+        )
+        self.reflection_service.record_observation_importance(
+            importance=memory.importance
         )
 
     def action_loop(self, input: ActionLoopInput) -> ActionLoopResult:
@@ -106,7 +119,7 @@ class AgentBrain:
         )
 
         # 2. 인지된 정보들을 observation으로 메모리에 저장 (reflection 조건 충족 시 reflection도 함께 저장)
-        self.save_observation_memory(observation)
+        self.save_observation_memory(observation, input.profile)
         if self.reflection_service.should_reflect():
             self.reflection_service.reflect()
 
@@ -144,7 +157,7 @@ class AgentBrain:
             content=content,
             now=now,
             embedding=embedding,
-            persona=self.agent_identity.name,
+            agent_name=self.agent_identity.name,
             current_plan=self._get_current_plan_line(current_plan_context),
             importance=None,
         )
@@ -219,7 +232,11 @@ class AgentBrain:
         _ = determine_result
         pass
 
-    def save_observation_memory(self, observation: Observation) -> None:
+    def save_observation_memory(
+        self,
+        observation: Observation,
+        profile: AgentProfile,
+    ) -> None:
         """
         메모:
         - 목적: observation 저장 + (조건 충족 시) reflection 엔트리 호출.
@@ -229,8 +246,11 @@ class AgentBrain:
             content=observation.content,
             now=observation.now,
             embedding=observation.embedding,
-            persona=observation.persona,
-            current_plan=observation.current_plan,
+            context=ObservationContext(
+                agent_name=observation.agent_name,
+                identity_stable_set=profile.fixed.identity_stable_set,
+                current_plan=observation.current_plan,
+            ),
             importance=observation.importance,
         )
 
