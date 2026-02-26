@@ -2,8 +2,8 @@ import datetime
 
 import numpy as np
 import pytest
-from memory.memory_object import NodeType
-from memory.memory_stream import MemoryStream
+from agents.memory.memory_object import NodeType
+from agents.memory.memory_stream import MemoryStream
 from settings import EMBEDDING_DIMENSION
 
 
@@ -165,7 +165,9 @@ def test_high_importance_memory_surfaces_when_relevance_and_recency_are_controll
     assert top[0].importance == 10
 
 
-def test_retrieval_score_uses_default_equal_weights_with_normalized_components(stream, now):
+def test_retrieval_score_uses_default_equal_weights_with_normalized_components(
+    stream, now
+):
     query = unit_vector(0)
 
     _add_memory(
@@ -225,7 +227,9 @@ def test_retrieve_with_query_dimension_mismatch_keeps_system_usable(stream, now)
         embedding=np.zeros(EMBEDDING_DIMENSION),
     )
 
-    top = stream.retrieve(query_embedding=np.array([1.0, 0.0, 0.0]), current_time=now, top_k=1)
+    top = stream.retrieve(
+        query_embedding=np.array([1.0, 0.0, 0.0]), current_time=now, top_k=1
+    )
 
     assert len(top) == 1
     assert top[0].content == "높은 중요도"

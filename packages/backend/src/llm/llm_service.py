@@ -2,8 +2,8 @@ import json
 from dataclasses import dataclass
 from typing import cast
 
+from agents.memory.memory_object import MemoryObject
 from llm.ollama_client import JsonObject, OllamaClient
-from memory.memory_object import MemoryObject
 
 
 class LlmService:
