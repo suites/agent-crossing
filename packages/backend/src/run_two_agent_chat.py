@@ -4,9 +4,8 @@ from pathlib import Path
 from typing import cast
 
 from agents.agent_brain import ActionLoopInput
-from agents.persona_loader import PersonaLoader, apply_persona_to_brain
 from agents.sim_agent import SimAgent
-from agents.world_factory import build_agent
+from agents.world_factory import init_agent_pair
 from llm.ollama_client import OllamaClient
 
 
@@ -108,16 +107,14 @@ def run_simulation(
     language: str,
 ) -> None:
     ollama_client = OllamaClient(base_url=base_url, timeout_seconds=timeout_seconds)
-    persona_loader = PersonaLoader(persona_dir)
-    persona_a = persona_loader.load(agent_a_persona_name)
-    persona_b = persona_loader.load(agent_b_persona_name)
-
-    agent_a = build_agent(persona_a, ollama_client, llm_model)
-    agent_b = build_agent(persona_b, ollama_client, llm_model)
-
-    bootstrap_time = datetime.datetime.now()
-    apply_persona_to_brain(brain=agent_a.brain, persona=persona_a, now=bootstrap_time)
-    apply_persona_to_brain(brain=agent_b.brain, persona=persona_b, now=bootstrap_time)
+    agent_a, agent_b = init_agent_pair(
+        persona_dir=persona_dir,
+        agent_a_persona_name=agent_a_persona_name,
+        agent_b_persona_name=agent_b_persona_name,
+        ollama_client=ollama_client,
+        llm_model=llm_model,
+        now=datetime.datetime.now(),
+    )
 
     history: list[tuple[str, str]] = []
     dialogue_history_by_agent: dict[str, list[tuple[str, str]]] = {
