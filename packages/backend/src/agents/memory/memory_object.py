@@ -45,6 +45,3 @@ class MemoryObject:
 
     embedding: np.ndarray
     """content의 임베딩 벡터 (Relevance 계산용)"""
-
-    def update_last_accessed(self, timestamp: datetime.datetime):
-        self.last_accessed_at = timestamp

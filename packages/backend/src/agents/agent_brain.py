@@ -21,12 +21,6 @@ class Observation:
 
 
 @dataclass(frozen=True)
-class Point2D:
-    x: float
-    y: float
-
-
-@dataclass(frozen=True)
 class ActionLoopInput:
     current_time: datetime.datetime
     """시스템의 현재 시간."""
@@ -68,9 +62,12 @@ class AgentBrain:
         current_plan: str | None = None,
         importance: int | None = None,
     ) -> None:
-        final_current_plan = current_plan or self._get_current_plan_line(
-            profile.extended.current_plan_context
-        )
+        if current_plan is not None:
+            final_current_plan = current_plan
+        elif profile.extended.current_plan_context:
+            final_current_plan = profile.extended.current_plan_context[0]
+        else:
+            final_current_plan = None
         memory = self.memory_service.create_observation_from_text(
             content=content,
             now=now,
@@ -131,25 +128,45 @@ class AgentBrain:
         )
 
         # 4. 상황판단에 따라 반응을 결정한다.
-        self._react(determine_result)
+        react_result = self._react(determine_result)
 
         # 5. 구체적인 행동 결정 및 출력을 한다.
-        return self._action()
+        return self._action(react_result)
 
     def perceive(
         self,
         *,
         now: datetime.datetime,
         current_plan_context: list[str],
+        world_context: dict[str, str] | None = None,
+        observed_entities: list[str] | None = None,
+        observed_events: list[str] | None = None,
     ) -> Observation:
         """
         현재 상황을 인지한다.
         """
 
-        # 1. 시야 범위 내의 환경 및 객체 인식
+        # 1) 시야 범위 내 핵심 상태를 관찰 단위로 정리한다.
+        current_plan = current_plan_context[0] if current_plan_context else None
+        context = world_context or {}
 
-        # 2. (TODO:) 환경의 트리 구조 파악 및 자연어 변환
-        content = "인식된 환경 정보"
+        lines: list[str] = []
+        lines.append(f"time={now.isoformat()}")
+        lines.append(f"agent={self.agent_identity.name}")
+        lines.append(f"current_plan={current_plan or 'none'}")
+        lines.append(f"traits={', '.join(self.agent_identity.traits)}")
+        lines.append(f"location={context.get('location', 'unknown')}")
+
+        entity_text = ", ".join(observed_entities) if observed_entities else "none"
+        lines.append(f"entities={entity_text}")
+
+        if observed_events:
+            lines.append("events=" + "; ".join(observed_events))
+        else:
+            lines.append("events=none")
+
+        content = "\n".join(lines)
+
         embedding = self.memory_service.embedding_encoder.encode(
             EmbeddingEncodingContext(text=content)
         )
@@ -158,7 +175,7 @@ class AgentBrain:
             now=now,
             embedding=embedding,
             agent_name=self.agent_identity.name,
-            current_plan=self._get_current_plan_line(current_plan_context),
+            current_plan=current_plan,
             importance=None,
         )
 
@@ -187,11 +204,6 @@ class AgentBrain:
             profile=profile,
         )
         return self.memory_service.get_retrieval_memories(query=retrieval_query)
-
-    def _get_current_plan_line(self, current_plan_context: list[str]) -> str | None:
-        if not current_plan_context:
-            return None
-        return current_plan_context[0]
 
     def _build_retrieval_query(
         self,
@@ -226,10 +238,10 @@ class AgentBrain:
 
     def _react(self, determine_result: list[MemoryObject]) -> None:
         # 4. 상황판단에 따라 반응을 결정한다.
+        # TODO: determine의 결과를 LLM에 넣어서 반응을 결정한다.
         # 4-1. 관찰 결과가 단순하다면 기존 계획을 수행한다.
         # 4-2. 관찰 결과가 중요하거나 예상치 못하면 기존 계획을 멈추고 반응한다.
         # 4-2-1. 반응하기로 결정했으면 행동 계획을 재생성하고, 대화중이라면 자연어 대화도 생성한다.
-        _ = determine_result
         pass
 
     def save_observation_memory(

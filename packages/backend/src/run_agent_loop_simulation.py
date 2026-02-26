@@ -24,7 +24,7 @@ class LoopSimulationConfig:
 
 DEFAULT_CONFIG = LoopSimulationConfig(
     agent_persona_names=["Jiho", "Sujin"],
-    turns=20,
+    turns=3,
     base_url="http://localhost:11434",
     llm_model="qwen2.5:7b-instruct",
     timeout_seconds=30.0,

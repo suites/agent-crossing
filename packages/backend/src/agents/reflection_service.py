@@ -63,7 +63,7 @@ class ReflectionService:
 
             # 6. 얻은 통찰들과 인용 키들을 외래키로 해서 메모리스트림에 성찰로 반환한다.
             for insight in insights:
-                _ = self.memory_service.create_reflection(insight)
+                self.memory_service.create_reflection(insight)
 
         # 7. 카운터를 0으로 초기화한다.
         self.reflection.clear_importance()
