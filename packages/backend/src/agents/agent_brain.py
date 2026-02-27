@@ -21,6 +21,14 @@ class Observation:
 
 
 @dataclass(frozen=True)
+class DetermineContext:
+    observation: Observation
+    retrieved_memories: list[MemoryObject]
+    dialogue_history: list[tuple[str, str]]
+    profile: AgentProfile
+
+
+@dataclass(frozen=True)
 class ActionLoopInput:
     current_time: datetime.datetime
     """시스템의 현재 시간."""
@@ -118,10 +126,11 @@ class AgentBrain:
         # 2. 인지된 정보들을 observation으로 메모리에 저장 (reflection 조건 충족 시 reflection도 함께 저장)
         self.save_observation_memory(observation, input.profile)
         if self.reflection_service.should_reflect():
-            self.reflection_service.reflect()
+            self.reflection_service.reflect(now=input.current_time)
 
         # 3. 상황판단을 한다.
         determine_result = self._determine_reaction(
+            current_time=input.current_time,
             observation=observation,
             dialogue_history=input.dialogue_history,
             profile=input.profile,
@@ -130,8 +139,8 @@ class AgentBrain:
         # 4. 상황판단에 따라 반응을 결정한다.
         react_result = self._react(determine_result)
 
-        # 5. 구체적인 행동 결정 및 출력을 한다.
-        return self._action(react_result)
+        # 5. 반응에 때라 구체적인 행동 및 출력을 한다.
+        return self._action()
 
     def perceive(
         self,
@@ -193,17 +202,26 @@ class AgentBrain:
     def _determine_reaction(
         self,
         *,
+        current_time: datetime.datetime,
         observation: Observation,
         dialogue_history: list[tuple[str, str]],
         profile: AgentProfile,
-    ) -> list[MemoryObject]:
+    ) -> DetermineContext:
         # 1. 상황판단을 위해 기억을 검색한다.
         retrieval_query = self._build_retrieval_query(
             observation=observation,
             dialogue_history=dialogue_history,
             profile=profile,
         )
-        return self.memory_service.get_retrieval_memories(query=retrieval_query)
+        retrieved_memories = self.memory_service.get_retrieval_memories(
+            query=retrieval_query, current_time=current_time
+        )
+        return DetermineContext(
+            observation=observation,
+            dialogue_history=dialogue_history,
+            profile=profile,
+            retrieved_memories=retrieved_memories,
+        )
 
     def _build_retrieval_query(
         self,
@@ -236,7 +254,7 @@ class AgentBrain:
         lines.append("task=상황판단에 필요한 기억 검색")
         return "\n".join(lines)
 
-    def _react(self, determine_result: list[MemoryObject]) -> None:
+    def _react(self, determine_context: DetermineContext) -> None:
         # 4. 상황판단에 따라 반응을 결정한다.
         # TODO: determine의 결과를 LLM에 넣어서 반응을 결정한다.
         # 4-1. 관찰 결과가 단순하다면 기존 계획을 수행한다.

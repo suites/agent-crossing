@@ -58,6 +58,8 @@ class MemoryService:
     def get_retrieval_memories(
         self,
         query: str,
+        *,
+        current_time: datetime.datetime,
         top_k: int = 3,
     ) -> list[MemoryObject]:
         """
@@ -67,7 +69,11 @@ class MemoryService:
             EmbeddingEncodingContext(text=query)
         )
 
-        return self.memory_stream.retrieve(query_embedding=query_embedding, top_k=top_k)
+        return self.memory_stream.retrieve(
+            query_embedding=query_embedding,
+            top_k=top_k,
+            current_time=current_time,
+        )
 
     def create_observation(
         self,
@@ -120,8 +126,12 @@ class MemoryService:
             importance=importance,
         )
 
-    def create_reflection(self, insight: InsightWithCitation) -> MemoryObject:
-        now = datetime.datetime.now()
+    def create_reflection(
+        self,
+        insight: InsightWithCitation,
+        *,
+        now: datetime.datetime,
+    ) -> MemoryObject:
         embedding = self.embedding_encoder.encode(
             EmbeddingEncodingContext(text=insight.context)
         )

@@ -52,12 +52,13 @@ def run_simulation(
         base_url=config.base_url,
         timeout_seconds=config.timeout_seconds,
     )
+    current_time = datetime.datetime.now()
     agents = init_agents(
         persona_dir=config.persona_dir,
         agent_persona_names=agent_persona_names,
         ollama_client=ollama_client,
         llm_model=config.llm_model,
-        now=datetime.datetime.now(),
+        now=current_time,
     )
 
     history: list[tuple[str, str]] = []
@@ -79,7 +80,7 @@ def run_simulation(
                 (incoming_partner_utterance, "")
             )
 
-        now = datetime.datetime.now()
+        now = current_time
         action_result = speaker.brain.action_loop(
             ActionLoopInput(
                 current_time=now,
@@ -110,6 +111,8 @@ def run_simulation(
 
             ingest_line(observer, f"{speaker.name} said: {reply}", now)
             incoming_utterances_by_agent[observer.name].append(reply)
+
+        current_time = now
 
     print("\nRecent memories")
     for agent in agents:

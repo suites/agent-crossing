@@ -45,6 +45,8 @@ class MemoryStream:
         self,
         query_embedding: np.ndarray,
         top_k: int = 3,
+        *,
+        current_time: datetime.datetime,
     ) -> list[MemoryObject]:
         """
         query_embedding 기준으로 memory를 점수화해 상위 top_k에 해당하는 메모리를 반환한다.
@@ -52,7 +54,6 @@ class MemoryStream:
         - 결과는 score 내림차순, 동점 시 최신 created_at 우선으로 정렬
         - 반환된 memory의 last_accessed_at은 current_time으로 갱신
         """
-        current_time = datetime.datetime.now()
 
         scores = self._calculate_retrieval_scores(
             self.memories, query_embedding, current_time

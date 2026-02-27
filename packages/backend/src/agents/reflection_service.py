@@ -1,3 +1,5 @@
+import datetime
+
 from agents.reflection import Reflection
 from llm.llm_service import LlmService
 
@@ -34,7 +36,7 @@ class ReflectionService:
         """
         return self.reflection.should_reflect()
 
-    def reflect(self) -> None:
+    def reflect(self, *, now: datetime.datetime) -> None:
         """
         reflect를 실행하여 reflection 결과를 반환한다.
         - 입력/출력: now(datetime) -> list[MemoryObject] (현재는 빈 리스트)
@@ -53,7 +55,10 @@ class ReflectionService:
         # 4. 질문별로 전체 메모리 스트림에 Query해서 관련성이 높은 기억들을 뽑아온다.
         for question in questions:
             relation_questions: list[MemoryObject] = (
-                self.memory_service.get_retrieval_memories(query=question)
+                self.memory_service.get_retrieval_memories(
+                    query=question,
+                    current_time=now,
+                )
             )
 
             # 5. 가져온 기억들을 가지고 다시 LLM에 질문해서 insight 5가지를 얻는다.
@@ -63,7 +68,7 @@ class ReflectionService:
 
             # 6. 얻은 통찰들과 인용 키들을 외래키로 해서 메모리스트림에 성찰로 반환한다.
             for insight in insights:
-                self.memory_service.create_reflection(insight)
+                self.memory_service.create_reflection(insight, now=now)
 
         # 7. 카운터를 0으로 초기화한다.
         self.reflection.clear_importance()
