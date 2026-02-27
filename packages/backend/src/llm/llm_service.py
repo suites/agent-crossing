@@ -1,16 +1,17 @@
 import datetime
 import json
+import re
 from dataclasses import dataclass
-from typing import Literal, cast
+from typing import Literal, Protocol, cast
 
 from agents.agent import AgentIdentity, AgentProfile
 from agents.memory.memory_object import MemoryObject
-from llm.ollama_client import JsonObject, OllamaClient, OllamaGenerateOptions
+from llm.ollama_client import JsonObject, OllamaGenerateOptions
 
 
 class LlmService:
-    def __init__(self, ollama_client: OllamaClient):
-        self.ollama_client: OllamaClient = ollama_client
+    def __init__(self, ollama_client: "GenerateClient"):
+        self.ollama_client: GenerateClient = ollama_client
 
     def generate_salient_high_level_questions(
         self, agent_name: str, memories: list[MemoryObject]
@@ -142,14 +143,48 @@ class LlmService:
         generation_options: OllamaGenerateOptions | None = None,
     ) -> "ReactionDecision":
         prompt = self._build_reaction_decision_prompt(input)
-
-        response_text = self.ollama_client.generate(
-            prompt=prompt,
-            system=_language_system_prompt(input.language),
-            options=generation_options,
-            format_json=True,
+        system_prompt = _language_system_prompt(input.language)
+        recent_sentences = _recent_dialogue_sentences(
+            input.dialogue_history,
+            window=3,
         )
-        return _parse_reaction_decision(response_text)
+
+        retry_count = 0
+        max_retry = 2
+        working_prompt = prompt
+
+        while True:
+            response_text = self.ollama_client.generate(
+                prompt=working_prompt,
+                system=system_prompt,
+                options=generation_options,
+                format_json=True,
+            )
+            decision = _parse_reaction_decision(response_text)
+
+            if (
+                not decision.should_react
+                or not decision.reaction
+                or not recent_sentences
+                or retry_count >= max_retry
+            ):
+                return decision
+
+            has_overlap = _exceeds_ngram_overlap_threshold(
+                candidate_sentence=decision.reaction,
+                recent_sentences=recent_sentences,
+                n=2,
+                threshold=0.5,
+            )
+            if not has_overlap:
+                return decision
+
+            retry_count += 1
+            overlap_guard = _build_overlap_guard_block(
+                recent_sentences=recent_sentences,
+                previous_candidate=decision.reaction,
+            )
+            working_prompt = f"{prompt}\n\n{overlap_guard}"
 
     @staticmethod
     def _build_reaction_decision_prompt(input: "ReactionDecisionInput") -> str:
@@ -202,7 +237,8 @@ class LlmService:
                 ),
                 (
                     "Return JSON only with this shape: "
-                    + '{"should_react": <boolean>, "reaction": "<string>", '
+                    + '{"should_react": <boolean>, "thought": "<string>", '
+                    + '"critique": "<string>", "utterance": "<string>", '
                     + '"reason": "<short string>"}'
                 ),
             ]
@@ -216,6 +252,8 @@ def _parse_reaction_decision(response_text: str) -> "ReactionDecision":
         should_react=False,
         reaction="",
         reason="fallback",
+        thought="",
+        critique="",
     )
     parsed_json = _parse_json_object(response_text)
     if parsed_json is None:
@@ -225,18 +263,33 @@ def _parse_reaction_decision(response_text: str) -> "ReactionDecision":
     if not isinstance(raw_should_react, bool):
         return default_value
 
+    raw_utterance = parsed_json.get("utterance")
+    if not isinstance(raw_utterance, str):
+        raw_utterance = ""
+
     raw_reaction = parsed_json.get("reaction")
     if not isinstance(raw_reaction, str):
         raw_reaction = ""
+    final_reaction = raw_utterance.strip() or raw_reaction.strip()
+
+    raw_thought = parsed_json.get("thought")
+    if not isinstance(raw_thought, str):
+        raw_thought = ""
+
+    raw_critique = parsed_json.get("critique")
+    if not isinstance(raw_critique, str):
+        raw_critique = ""
 
     raw_reason = parsed_json.get("reason")
     if not isinstance(raw_reason, str):
-        raw_reason = ""
+        raw_reason = raw_critique or raw_thought or ""
 
     return ReactionDecision(
         should_react=raw_should_react,
-        reaction=raw_reaction.strip(),
+        reaction=final_reaction,
         reason=raw_reason.strip() or "n/a",
+        thought=raw_thought.strip(),
+        critique=raw_critique.strip(),
     )
 
 
@@ -311,6 +364,90 @@ def _language_system_prompt(language: Literal["ko", "en"]) -> str:
     )
 
 
+def _recent_dialogue_sentences(
+    dialogue_history: list[tuple[str, str]],
+    *,
+    window: int,
+) -> list[str]:
+    if window < 1:
+        return []
+
+    ordered_sentences: list[str] = []
+    for partner_talk, my_talk in dialogue_history:
+        if partner_talk and partner_talk.strip() and partner_talk.strip() != "none":
+            ordered_sentences.append(partner_talk.strip())
+        if my_talk and my_talk.strip() and my_talk.strip() != "none":
+            ordered_sentences.append(my_talk.strip())
+
+    return ordered_sentences[-window:]
+
+
+def _tokenize_for_ngram(text: str) -> list[str]:
+    return re.findall(r"\w+", text.lower())
+
+
+def _sentence_ngrams(sentence: str, n: int) -> set[tuple[str, ...]]:
+    tokens = _tokenize_for_ngram(sentence)
+    if not tokens:
+        return set()
+
+    if len(tokens) < n:
+        n = 1
+
+    return {tuple(tokens[i : i + n]) for i in range(len(tokens) - n + 1)}
+
+
+def _overlap_ratio(
+    candidate_sentence: str, reference_sentence: str, *, n: int
+) -> float:
+    candidate_ngrams = _sentence_ngrams(candidate_sentence, n)
+    if not candidate_ngrams:
+        return 0.0
+
+    reference_ngrams = _sentence_ngrams(reference_sentence, n)
+    if not reference_ngrams:
+        return 0.0
+
+    overlap_count = len(candidate_ngrams.intersection(reference_ngrams))
+    return overlap_count / len(candidate_ngrams)
+
+
+def _exceeds_ngram_overlap_threshold(
+    *,
+    candidate_sentence: str,
+    recent_sentences: list[str],
+    n: int,
+    threshold: float,
+) -> bool:
+    for recent_sentence in recent_sentences:
+        if _overlap_ratio(candidate_sentence, recent_sentence, n=n) > threshold:
+            return True
+    return False
+
+
+def _build_overlap_guard_block(
+    *,
+    recent_sentences: list[str],
+    previous_candidate: str,
+) -> str:
+    lines = [
+        "Your previous reaction was too similar to recent dialogue.",
+        "Generate a different reaction while preserving intent.",
+        "Constraint: n-gram overlap with each sentence below must be <= 50%.",
+        f"Previous candidate: {previous_candidate}",
+        "Recent dialogue sentences:",
+    ]
+    for index, sentence in enumerate(recent_sentences, start=1):
+        lines.append(f"- {index}. {sentence}")
+    lines.append(
+        "Return JSON only with this shape: "
+        + '{"should_react": <boolean>, "thought": "<string>", '
+        + '"critique": "<string>", "utterance": "<string>", '
+        + '"reason": "<short string>"}'
+    )
+    return "\n".join(lines)
+
+
 @dataclass(frozen=True)
 class InsightWithCitation:
     context: str
@@ -333,3 +470,16 @@ class ReactionDecision:
     should_react: bool
     reaction: str
     reason: str
+    thought: str = ""
+    critique: str = ""
+
+
+class GenerateClient(Protocol):
+    def generate(
+        self,
+        *,
+        prompt: str,
+        system: str | None = None,
+        options: OllamaGenerateOptions | None = None,
+        format_json: bool = False,
+    ) -> str: ...

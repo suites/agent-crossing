@@ -24,6 +24,7 @@ class StubScorer:
 
 class StubEmbeddingEncoder:
     def encode(self, context: EmbeddingEncodingContext) -> np.ndarray:
+        _ = context
         return np.zeros(EMBEDDING_DIMENSION)
 
 

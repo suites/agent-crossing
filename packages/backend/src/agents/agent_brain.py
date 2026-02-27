@@ -261,7 +261,7 @@ class AgentBrain:
             utterance=talk,
             speak_decision=should_speak,
             action_intent=action_intent,
-            thought=reaction_decision.reason,
+            thought=(reaction_decision.critique or reaction_decision.reason),
             action_summary=(
                 f"speak_decision={should_speak}, "
                 f"action_intent={action_intent}, "
