@@ -48,6 +48,10 @@ class ActionLoopResult:
     """시스템의 현재 시간."""
     talk: str | None
     """Agent이 대화할 상황에서 생성된 대화 내용. 대화가 필요하지 않은 상황에서는 None."""
+    thought: str = ""
+    """행동 결정을 내릴 때의 내부 판단 근거."""
+    action_summary: str = ""
+    """내부적으로 선택한 행동 요약."""
 
 
 class PromptBuildersModule(Protocol):
@@ -229,6 +233,11 @@ class AgentBrain:
         return ActionLoopResult(
             current_time=current_time,
             talk=talk,
+            thought=reaction_decision.reason,
+            action_summary=(
+                f"should_react={reaction_decision.should_react}, "
+                f"selected_reaction={reaction_decision.reaction or 'none'}"
+            ),
         )
 
     def _determine_reaction(

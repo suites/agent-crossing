@@ -177,6 +177,18 @@ class LlmService:
                 ),
                 memory_summary,
                 (
+                    "If you provide a reaction, it must be spoken dialogue addressed "
+                    "to the conversation partner, not inner monologue."
+                ),
+                (
+                    "Do not narrate personal schedules or plans unless saying them "
+                    "directly to the partner in natural conversation."
+                ),
+                (
+                    "When there is no prior dialogue context, start with a brief "
+                    "greeting before the main point."
+                ),
+                (
                     f"Should [{input.agent_identity.name}] react to the observation, "
                     "and if so, what would be an appropriate reaction?"
                 ),

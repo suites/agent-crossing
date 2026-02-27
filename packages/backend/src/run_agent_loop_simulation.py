@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Literal
 
 from agents.agent_brain import ActionLoopInput
+from agents.sim_agent import SimAgent
 from agents.world_factory import init_agents
 from llm.ollama_client import OllamaClient
 from world.session import WorldConversationSession
@@ -15,6 +16,41 @@ def _fallback_reply(language: Literal["ko", "en"]) -> str:
     return "LLM Error"
 
 
+def _format_conversation_start_intent(
+    language: Literal["ko", "en"],
+    *,
+    target_name: str,
+) -> str:
+    if language == "ko":
+        return f"{target_name}에게 인사를 건네며 말을 걸기로 결정했다."
+    return (
+        f"I decided to initiate a conversation with {target_name}. "
+        "I will begin with a greeting."
+    )
+
+
+def _format_self_said(language: Literal["ko", "en"], reply: str) -> str:
+    if language == "ko":
+        return f"나는 이렇게 말했다: {reply}"
+    return f"I said: {reply}"
+
+
+def _format_other_said(
+    language: Literal["ko", "en"], speaker_name: str, reply: str
+) -> str:
+    if language == "ko":
+        return f"{speaker_name}가 이렇게 말했다: {reply}"
+    return f"{speaker_name} said: {reply}"
+
+
+def _ingest_line(observer: SimAgent, content: str, now: datetime.datetime) -> None:
+    observer.brain.queue_observation(
+        content=content,
+        now=now,
+        profile=observer.profile,
+    )
+
+
 @dataclass(frozen=True)
 class LoopSimulationConfig:
     agent_persona_names: list[str]
@@ -23,13 +59,13 @@ class LoopSimulationConfig:
     llm_model: str
     timeout_seconds: float
     persona_dir: str
-    dialogue_turn_window: int = 6
+    dialogue_turn_window: int = 10
     language: Literal["ko", "en"] = "ko"
 
 
 DEFAULT_CONFIG = LoopSimulationConfig(
     agent_persona_names=["Jiho", "Sujin"],
-    turns=3,
+    turns=10,
     base_url="http://localhost:11434",
     llm_model="qwen2.5:7b-instruct",
     timeout_seconds=30.0,
@@ -62,14 +98,13 @@ def run_simulation(
     session = WorldConversationSession(
         agents=agents,
         dialogue_turn_window=config.dialogue_turn_window,
-        language=language,
     )
 
     initiator = agents[0]
     partner = agents[1]
-    session.seed_conversation_start_intent(
-        initiator=initiator,
-        target=partner,
+    _ingest_line(
+        observer=initiator,
+        content=_format_conversation_start_intent(language, target_name=partner.name),
         now=current_time,
     )
 
@@ -94,18 +129,25 @@ def run_simulation(
         if not reply:
             reply = _fallback_reply(language)
 
+        print(f"[{turn:02d}] [THOUGHT] {speaker.name}: {action_result.thought}")
+        print(f"[{turn:02d}] [ACTION] {speaker.name}: {action_result.action_summary}")
+
         session.commit_speaker_reply(
             speaker=speaker,
             incoming_partner_utterance=incoming_partner_utterance,
             reply=reply,
         )
-        print(f"[{turn:02d}] {speaker.name}: {reply}")
+        print(f"{speaker.name}: {reply}")
 
-        session.broadcast_reply(
-            speaker=speaker,
-            reply=reply,
-            now=now,
-        )
+        for observer in agents:
+            if observer is speaker:
+                _ingest_line(observer, _format_self_said(language, reply), now)
+                continue
+
+            _ingest_line(
+                observer, _format_other_said(language, speaker.name, reply), now
+            )
+            session.incoming_utterances_by_agent[observer.name].append(reply)
 
         current_time = now
 
