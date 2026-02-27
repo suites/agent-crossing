@@ -67,6 +67,10 @@
     {
       "content": "Sujin wants to ask Jiho for better book recommendations for the cafe shelf.",
       "importance": 6
+    },
+    {
+      "content": "Sujin knows Jiho is finishing a cataloging practice workbook and wants to ask how it is going.",
+      "importance": 7
     }
   ]
 }

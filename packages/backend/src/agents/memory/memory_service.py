@@ -1,10 +1,11 @@
 import datetime
 from dataclasses import dataclass
 from enum import Enum
+from typing import Protocol
 
 import numpy as np
 from llm import ImportanceScorer, ImportanceScoringContext, clamp_importance
-from llm.embedding_encoder import EmbeddingEncodingContext, OllamaEmbeddingEncoder
+from llm.embedding_encoder import EmbeddingEncodingContext
 from llm.llm_service import InsightWithCitation
 
 from .memory_object import MemoryObject, NodeType
@@ -23,17 +24,28 @@ class ObservationContext:
     current_plan: str | None = None
 
 
+@dataclass(frozen=True)
+class ReflectionContext:
+    agent_name: str
+    identity_stable_set: list[str]
+    current_plan: str | None = None
+
+
+class EmbeddingEncoder(Protocol):
+    def encode(self, context: EmbeddingEncodingContext) -> np.ndarray: ...
+
+
 class MemoryService:
     def __init__(
         self,
         *,
         memory_stream: MemoryStream,
         importance_scorer: ImportanceScorer,
-        embedding_encoder: OllamaEmbeddingEncoder,
+        embedding_encoder: EmbeddingEncoder,
     ):
         self.memory_stream: MemoryStream = memory_stream
         self.importance_scorer: ImportanceScorer = importance_scorer
-        self.embedding_encoder: OllamaEmbeddingEncoder = embedding_encoder
+        self.embedding_encoder: EmbeddingEncoder = embedding_encoder
 
     def get_recent_memories(
         self,
@@ -93,8 +105,7 @@ class MemoryService:
                 current_plan=context.current_plan,
             )
             final_importance = self.importance_scorer.score(scoring_context)
-        else:
-            final_importance = clamp_importance(final_importance)
+        final_importance = clamp_importance(final_importance)
 
         self.memory_stream.add_memory(
             node_type=NodeType.OBSERVATION,
@@ -131,17 +142,39 @@ class MemoryService:
         insight: InsightWithCitation,
         *,
         now: datetime.datetime,
+        context: ReflectionContext,
+        importance: int | None = None,
     ) -> MemoryObject:
         embedding = self.embedding_encoder.encode(
             EmbeddingEncodingContext(text=insight.context)
         )
 
+        final_importance = importance
+        if final_importance is None:
+            scoring_context = ImportanceScoringContext(
+                observation=insight.context,
+                agent_name=context.agent_name,
+                identity_stable_set=context.identity_stable_set,
+                current_plan=context.current_plan,
+            )
+            final_importance = self.importance_scorer.score(scoring_context)
+        final_importance = clamp_importance(final_importance)
+
+        known_memory_ids = {memory.id for memory in self.memory_stream.memories}
+        filtered_citations: list[int] = []
+        for citation_memory_id in insight.citation_memory_ids:
+            if citation_memory_id not in known_memory_ids:
+                continue
+            if citation_memory_id in filtered_citations:
+                continue
+            filtered_citations.append(citation_memory_id)
+
         self.memory_stream.add_memory(
             node_type=NodeType.REFLECTION,
-            citations=None,
+            citations=filtered_citations,
             content=insight.context,
             now=now,
-            importance=3,  # TODO: importance 계산 로직 필요
+            importance=final_importance,
             embedding=embedding,
         )
 

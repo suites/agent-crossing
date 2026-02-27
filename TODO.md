@@ -93,24 +93,24 @@
     - [x] insight 5개를 생성하고 빈 항목 없이 저장한다
     - [] insight마다 source question을 연결한다
 
-- [ ] `P1` insight citations를 memory id로 연결한다
+- [x] `P1` insight citations를 memory id로 연결한다
   - Depends on: high-level insight 5개 생성
   - DoD:
-    - [ ] insight별 근거 memory id 목록을 `citations`에 저장한다
-    - [ ] 존재하지 않는 memory id가 citations에 들어가지 않도록 검증한다
+    - [x] insight별 근거 memory id 목록을 `citations`에 저장한다
+    - [x] 존재하지 않는 memory id가 citations에 들어가지 않도록 검증한다
 
 ### 2-C. Reflection 재귀 활용
 
-- [ ] `P1` reflection memory를 retrieval 후보에 포함한다
+- [x] `P1` reflection memory를 retrieval 후보에 포함한다
   - Depends on: insight citations 연결
   - DoD:
-    - [ ] node_type=REFLECTION 메모리가 retrieval 후보군에 포함된다
-    - [ ] observation/reflection 혼합 시 점수 계산이 깨지지 않는다
+    - [x] node_type=REFLECTION 메모리가 retrieval 후보군에 포함된다
+    - [x] observation/reflection 혼합 시 점수 계산이 깨지지 않는다
 
-- [ ] `P1` reflection-on-reflection 회귀 테스트를 추가한다
+- [x] `P1` reflection-on-reflection 회귀 테스트를 추가한다
   - Depends on: reflection memory retrieval 후보 포함
   - DoD:
-    - [ ] reflection이 다음 reflection 생성에 사용되는 시나리오 테스트를 추가한다
+    - [x] reflection이 다음 reflection 생성에 사용되는 시나리오 테스트를 추가한다
     - [ ] 기존 retrieval 테스트가 회귀 없이 통과한다
 
 ## 3) Planning & Re-planning (논문 핵심 3)

@@ -16,19 +16,6 @@ def _fallback_reply(language: Literal["ko", "en"]) -> str:
     return "LLM Error"
 
 
-def _format_conversation_start_intent(
-    language: Literal["ko", "en"],
-    *,
-    target_name: str,
-) -> str:
-    if language == "ko":
-        return f"{target_name}에게 인사를 건네며 말을 걸기로 결정했다."
-    return (
-        f"I decided to initiate a conversation with {target_name}. "
-        "I will begin with a greeting."
-    )
-
-
 def _format_self_said(language: Literal["ko", "en"], reply: str) -> str:
     if language == "ko":
         return f"나는 이렇게 말했다: {reply}"
@@ -83,10 +70,9 @@ def _build_turn_world_context(
 def _build_turn_observed_events(
     *,
     language: Literal["ko", "en"],
+    speaker_name: str,
     partner_name: str,
     incoming_partner_utterance: str | None,
-    is_opening_turn: bool,
-    turn: int,
 ) -> list[str]:
     if incoming_partner_utterance and incoming_partner_utterance.strip():
         if language == "ko":
@@ -95,14 +81,9 @@ def _build_turn_observed_events(
             f"Heard {partner_name}'s latest utterance: {incoming_partner_utterance}"
         ]
 
-    if is_opening_turn:
-        if language == "ko":
-            return [f"대화의 시작 구간이다 (turn={turn})."]
-        return [f"Conversation opening phase (turn={turn})."]
-
     if language == "ko":
-        return [f"{partner_name}를 근처에서 마주쳤고, 아직 직전 발화는 없다."]
-    return [f"Met {partner_name} nearby, but there is no immediate prior utterance."]
+        return [f"{speaker_name}가 {partner_name}를 근처에서 마주쳤다."]
+    return [f"{speaker_name} encountered {partner_name} nearby."]
 
 
 def _ingest_line(observer: SimAgent, content: str, now: datetime.datetime) -> None:
@@ -121,7 +102,7 @@ class LoopSimulationConfig:
     llm_model: str
     timeout_seconds: float
     persona_dir: str
-    dialogue_turn_window: int = 10
+    dialogue_turn_window: int | None = None
     language: Literal["ko", "en"] = "ko"
     fallback_on_empty_reply: bool = False
     suppress_repeated_replies: bool = True
@@ -178,12 +159,6 @@ def run_simulation(
 
     initiator = agents[0]
     partner = agents[1]
-    recent_replies_by_agent: dict[str, list[str]] = {agent.name: [] for agent in agents}
-    _ingest_line(
-        observer=initiator,
-        content=_format_conversation_start_intent(language, target_name=partner.name),
-        now=current_time,
-    )
 
     for turn in range(1, config.turns + 1):
         speaker = session.next_speaker()
@@ -196,10 +171,9 @@ def run_simulation(
         now = current_time + datetime.timedelta(seconds=config.turn_time_step_seconds)
         observed_events = _build_turn_observed_events(
             language=language,
+            speaker_name=speaker.name,
             partner_name=speaking_partner.name,
             incoming_partner_utterance=incoming_partner_utterance,
-            is_opening_turn=(turn == 1 and speaker is initiator),
-            turn=turn,
         )
         action_result = speaker.brain.action_loop(
             ActionLoopInput(
@@ -219,9 +193,13 @@ def run_simulation(
         )
 
         reply = (action_result.utterance or action_result.talk or "").strip()
+        recent_replies_for_echo_check = _recent_replies_for_echo_check(
+            session_history=session.history,
+            window=config.repetition_window,
+        )
         if config.suppress_repeated_replies and _is_repetitive_reply(
             reply,
-            recent_replies_by_agent[speaker.name][-config.repetition_window :],
+            recent_replies_for_echo_check,
         ):
             reply = ""
 
@@ -241,7 +219,6 @@ def run_simulation(
             incoming_partner_utterance=incoming_partner_utterance,
             reply=reply,
         )
-        recent_replies_by_agent[speaker.name].append(reply)
         print(f"{speaker.name}: {reply}")
 
         for observer in agents:
@@ -266,6 +243,16 @@ def run_simulation(
 
 def main() -> None:
     run_simulation(config=DEFAULT_CONFIG)
+
+
+def _recent_replies_for_echo_check(
+    *,
+    session_history: list[tuple[str, str]],
+    window: int,
+) -> list[str]:
+    if window < 1:
+        return []
+    return [reply for _, reply in session_history[-window:]]
 
 
 if __name__ == "__main__":

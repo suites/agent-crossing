@@ -6,11 +6,11 @@ class WorldConversationSession:
         self,
         *,
         agents: list[SimAgent],
-        dialogue_turn_window: int,
+        dialogue_turn_window: int | None,
     ):
         if len(agents) < 2:
             raise ValueError("At least two agents are required")
-        if dialogue_turn_window < 1:
+        if dialogue_turn_window is not None and dialogue_turn_window < 1:
             raise ValueError("dialogue_turn_window must be at least 1")
 
         self.agents = agents
@@ -49,9 +49,10 @@ class WorldConversationSession:
         *,
         speaker: SimAgent,
     ) -> list[tuple[str, str]]:
-        return self.dialogue_history_by_agent[speaker.name][
-            -self.dialogue_turn_window :
-        ]
+        history = self.dialogue_history_by_agent[speaker.name]
+        if self.dialogue_turn_window is None:
+            return history
+        return history[-self.dialogue_turn_window :]
 
     def commit_speaker_reply(
         self,

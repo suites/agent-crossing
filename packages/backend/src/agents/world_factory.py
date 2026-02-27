@@ -43,6 +43,7 @@ def build_agent(
         memory_service=memory_service,
         llm_service=llm_service,
         agent_name=persona.agent.name,
+        identity_stable_set=list(persona.identity_stable_set),
     )
     brain = AgentBrain(
         agent_identity=persona.agent,

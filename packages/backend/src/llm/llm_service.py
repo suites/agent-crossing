@@ -142,7 +142,6 @@ class LlmService:
         generation_options: OllamaGenerateOptions | None = None,
     ) -> "ReactionDecision":
         prompt = self._build_reaction_decision_prompt(input)
-        print(f"DEBUG: reaction decision prompt:\n{prompt}\n---")
 
         response_text = self.ollama_client.generate(
             prompt=prompt,

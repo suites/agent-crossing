@@ -3,9 +3,12 @@ import datetime
 import numpy as np
 from agents.memory.memory_service import MemoryService
 from agents.memory.memory_service import ObservationContext
+from agents.memory.memory_service import ReflectionContext
+from agents.memory.memory_object import NodeType
 from agents.memory.memory_stream import MemoryStream
 from llm import ImportanceScoringContext
 from llm.embedding_encoder import EmbeddingEncodingContext
+from llm.llm_service import InsightWithCitation
 from settings import EMBEDDING_DIMENSION
 
 
@@ -20,7 +23,7 @@ class StubScorer:
 
 
 class StubEmbeddingEncoder:
-    def encode(self, _context: EmbeddingEncodingContext) -> np.ndarray:
+    def encode(self, context: EmbeddingEncodingContext) -> np.ndarray:
         return np.zeros(EMBEDDING_DIMENSION)
 
 
@@ -95,6 +98,165 @@ def test_create_observation_uses_scorer_value() -> None:
     )
 
     assert memory.importance == 3
+
+
+def test_create_reflection_stores_filtered_citations_and_scored_importance() -> None:
+    stream = MemoryStream()
+    scorer = StubScorer(score_value=11)
+    service = MemoryService(
+        memory_stream=stream,
+        importance_scorer=scorer,
+        embedding_encoder=StubEmbeddingEncoder(),
+    )
+
+    now = datetime.datetime(2026, 2, 13, 12, 0, 0)
+    embedding = np.zeros(EMBEDDING_DIMENSION)
+
+    _ = service.create_observation(
+        content="관찰 A",
+        now=now,
+        embedding=embedding,
+        context=ObservationContext(agent_name="Jiho Park", identity_stable_set=[]),
+        importance=5,
+    )
+    _ = service.create_observation(
+        content="관찰 B",
+        now=now,
+        embedding=embedding,
+        context=ObservationContext(agent_name="Jiho Park", identity_stable_set=[]),
+        importance=6,
+    )
+
+    reflection = service.create_reflection(
+        InsightWithCitation(
+            context="지호는 수진의 업무 상태를 자주 신경 쓴다.",
+            citation_memory_ids=[1, 999, 1, 0],
+        ),
+        now=now,
+        context=ReflectionContext(
+            agent_name="Jiho Park",
+            identity_stable_set=["Jiho values thoughtful conversation."],
+            current_plan="책 정리 연습 문제 마무리",
+        ),
+    )
+
+    assert reflection.node_type.value == "REFLECTION"
+    assert reflection.citations == [1, 0]
+    assert reflection.importance == 10
+    assert scorer.last_context is not None
+    assert (
+        scorer.last_context.observation == "지호는 수진의 업무 상태를 자주 신경 쓴다."
+    )
+
+
+def test_create_reflection_clamps_explicit_importance() -> None:
+    stream = MemoryStream()
+    scorer = StubScorer(score_value=5)
+    service = MemoryService(
+        memory_stream=stream,
+        importance_scorer=scorer,
+        embedding_encoder=StubEmbeddingEncoder(),
+    )
+    now = datetime.datetime(2026, 2, 13, 12, 0, 0)
+
+    reflection = service.create_reflection(
+        InsightWithCitation(
+            context="반복되는 대화 패턴을 끊어야 한다.",
+            citation_memory_ids=[],
+        ),
+        now=now,
+        context=ReflectionContext(agent_name="Sujin Lee", identity_stable_set=[]),
+        importance=0,
+    )
+
+    assert reflection.importance == 1
+    assert reflection.citations == []
+
+
+def test_get_retrieval_memories_includes_reflection_nodes_with_scores() -> None:
+    stream = MemoryStream()
+    scorer = StubScorer(score_value=5)
+    service = MemoryService(
+        memory_stream=stream,
+        importance_scorer=scorer,
+        embedding_encoder=StubEmbeddingEncoder(),
+    )
+
+    now = datetime.datetime(2026, 2, 13, 12, 0, 0)
+
+    observed = service.create_observation(
+        content="기본 관찰",
+        now=now,
+        embedding=np.zeros(EMBEDDING_DIMENSION),
+        context=ObservationContext(agent_name="Jiho Park", identity_stable_set=[]),
+        importance=2,
+    )
+
+    reflected = service.create_reflection(
+        InsightWithCitation(
+            context="관찰된 사건에서 의미를 찾았다.",
+            citation_memory_ids=[observed.id],
+        ),
+        now=now + datetime.timedelta(minutes=1),
+        context=ReflectionContext(agent_name="Jiho Park", identity_stable_set=[]),
+        importance=9,
+    )
+
+    retrieval = service.get_retrieval_memories(
+        query="무엇이 중요했는가?",
+        current_time=now + datetime.timedelta(minutes=2),
+        top_k=2,
+    )
+
+    assert reflected in retrieval
+    assert any(memory.node_type == NodeType.REFLECTION for memory in retrieval)
+
+
+def test_reflection_can_reference_prior_reflection_memory() -> None:
+    stream = MemoryStream()
+    scorer = StubScorer(score_value=8)
+    service = MemoryService(
+        memory_stream=stream,
+        importance_scorer=scorer,
+        embedding_encoder=StubEmbeddingEncoder(),
+    )
+
+    now = datetime.datetime(2026, 2, 13, 12, 0, 0)
+
+    observation = service.create_observation(
+        content="새로운 대화 기록",
+        now=now,
+        embedding=np.zeros(EMBEDDING_DIMENSION),
+        context=ObservationContext(agent_name="Sujin Lee", identity_stable_set=[]),
+        importance=7,
+    )
+
+    first_reflection = service.create_reflection(
+        InsightWithCitation(
+            context="첫 번째 통찰",
+            citation_memory_ids=[observation.id],
+        ),
+        now=now + datetime.timedelta(minutes=1),
+        context=ReflectionContext(
+            agent_name="Sujin Lee",
+            identity_stable_set=["Sujin values consistency."],
+        ),
+    )
+
+    second_reflection = service.create_reflection(
+        InsightWithCitation(
+            context="두 번째 통찰",
+            citation_memory_ids=[first_reflection.id, observation.id],
+        ),
+        now=now + datetime.timedelta(minutes=2),
+        context=ReflectionContext(
+            agent_name="Sujin Lee",
+            identity_stable_set=["Sujin values consistency."],
+        ),
+    )
+
+    assert first_reflection.citations == [observation.id]
+    assert second_reflection.citations == [first_reflection.id, observation.id]
 
 
 # class StubReflectionService:
