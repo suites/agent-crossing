@@ -2,6 +2,7 @@ import datetime
 
 import numpy as np
 from agents.memory.memory_service import MemoryService
+from agents.memory.memory_service import ObservationContext
 from agents.memory.memory_stream import MemoryStream
 from llm import ImportanceScoringContext
 from llm.embedding_encoder import EmbeddingEncodingContext

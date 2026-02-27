@@ -1,5 +1,7 @@
 import datetime
 from dataclasses import dataclass
+from importlib import import_module
+from typing import Protocol, cast
 
 import numpy as np
 from agents.agent import AgentIdentity, AgentProfile
@@ -26,6 +28,7 @@ class DetermineContext:
     retrieved_memories: list[MemoryObject]
     dialogue_history: list[tuple[str, str]]
     profile: AgentProfile
+    reaction_prompt: str
 
 
 @dataclass(frozen=True)
@@ -45,6 +48,28 @@ class ActionLoopResult:
     """Agent의 현재 상태를 나타내는 문자열. 예시: 'Idle', 'Executing Plan', 'Waiting for Response' 등."""
     talk: str | None
     """Agent이 대화할 상황에서 생성된 대화 내용. 대화가 필요하지 않은 상황에서는 None."""
+
+
+class PromptBuildersModule(Protocol):
+    def build_retrieval_query(
+        self,
+        *,
+        agent_identity: AgentIdentity,
+        observation_content: str,
+        dialogue_history: list[tuple[str, str]],
+        profile: AgentProfile,
+    ) -> str: ...
+
+    def build_reaction_prompt(
+        self,
+        *,
+        agent_identity: AgentIdentity,
+        current_time: datetime.datetime,
+        observation_content: str,
+        dialogue_history: list[tuple[str, str]],
+        profile: AgentProfile,
+        retrieved_memories: list[MemoryObject],
+    ) -> str: ...
 
 
 class AgentBrain:
@@ -124,7 +149,7 @@ class AgentBrain:
         )
 
         # 2. 인지된 정보들을 observation으로 메모리에 저장 (reflection 조건 충족 시 reflection도 함께 저장)
-        self.save_observation_memory(observation, input.profile)
+        self._save_observation_memory(observation, input.profile)
         if self.reflection_service.should_reflect():
             self.reflection_service.reflect(now=input.current_time)
 
@@ -216,11 +241,19 @@ class AgentBrain:
         retrieved_memories = self.memory_service.get_retrieval_memories(
             query=retrieval_query, current_time=current_time
         )
+        reaction_prompt = self._build_reaction_prompt(
+            current_time=current_time,
+            observation=observation,
+            dialogue_history=dialogue_history,
+            profile=profile,
+            retrieved_memories=retrieved_memories,
+        )
         return DetermineContext(
             observation=observation,
             dialogue_history=dialogue_history,
             profile=profile,
             retrieved_memories=retrieved_memories,
+            reaction_prompt=reaction_prompt,
         )
 
     def _build_retrieval_query(
@@ -230,39 +263,47 @@ class AgentBrain:
         dialogue_history: list[tuple[str, str]],
         profile: AgentProfile,
     ) -> str:
-        lines: list[str] = [
-            f"agent={self.agent_identity.name}",
-            f"traits={', '.join(self.agent_identity.traits)}",
-        ]
+        prompt_builders_module = cast(
+            PromptBuildersModule,
+            cast(object, import_module("agents.prompt_builders")),
+        )
+        return prompt_builders_module.build_retrieval_query(
+            agent_identity=self.agent_identity,
+            observation_content=observation.content,
+            dialogue_history=dialogue_history,
+            profile=profile,
+        )
 
-        if profile.fixed.identity_stable_set:
-            lines.append(
-                "identity_stable_set="
-                + " | ".join(profile.fixed.identity_stable_set[:2])
-            )
-        if profile.extended.current_plan_context:
-            lines.append(
-                "current_plan_context="
-                + " | ".join(profile.extended.current_plan_context[:2])
-            )
-        lines.append(f"observation={observation.content}")
-        if dialogue_history:
-            partner_talk, my_talk = dialogue_history[-1]
-            lines.append(f"recent_dialogue_partner={partner_talk}")
-            lines.append(f"recent_dialogue_self={my_talk}")
-
-        lines.append("task=상황판단에 필요한 기억 검색")
-        return "\n".join(lines)
+    def _build_reaction_prompt(
+        self,
+        *,
+        current_time: datetime.datetime,
+        observation: Observation,
+        dialogue_history: list[tuple[str, str]],
+        profile: AgentProfile,
+        retrieved_memories: list[MemoryObject],
+    ) -> str:
+        prompt_builders_module = cast(
+            PromptBuildersModule,
+            cast(object, import_module("agents.prompt_builders")),
+        )
+        return prompt_builders_module.build_reaction_prompt(
+            agent_identity=self.agent_identity,
+            current_time=current_time,
+            observation_content=observation.content,
+            dialogue_history=dialogue_history,
+            profile=profile,
+            retrieved_memories=retrieved_memories,
+        )
 
     def _react(self, determine_context: DetermineContext) -> None:
         # 4. 상황판단에 따라 반응을 결정한다.
-        # TODO: determine의 결과를 LLM에 넣어서 반응을 결정한다.
         # 4-1. 관찰 결과가 단순하다면 기존 계획을 수행한다.
         # 4-2. 관찰 결과가 중요하거나 예상치 못하면 기존 계획을 멈추고 반응한다.
         # 4-2-1. 반응하기로 결정했으면 행동 계획을 재생성하고, 대화중이라면 자연어 대화도 생성한다.
         pass
 
-    def save_observation_memory(
+    def _save_observation_memory(
         self,
         observation: Observation,
         profile: AgentProfile,
