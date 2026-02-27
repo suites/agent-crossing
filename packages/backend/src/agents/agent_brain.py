@@ -7,6 +7,7 @@ import numpy as np
 from agents.agent import AgentIdentity, AgentProfile
 from llm.embedding_encoder import EmbeddingEncodingContext
 from llm.llm_service import LlmService, ReactionDecision, ReactionDecisionInput
+from llm.ollama_client import OllamaGenerateOptions
 
 from .memory.memory_object import MemoryObject
 from .memory.memory_service import MemoryService, ObservationContext
@@ -30,6 +31,7 @@ class DetermineContext:
     dialogue_history: list[tuple[str, str]]
     profile: AgentProfile
     language: Literal["ko", "en"]
+    reaction_generation_options: OllamaGenerateOptions | None
 
 
 @dataclass(frozen=True)
@@ -40,6 +42,10 @@ class ActionLoopInput:
     """대화 상황에서, (상대방 발화, 나의 발화) 리스트. 가장 최근 발화가 리스트의 마지막에 위치한다."""
     profile: AgentProfile
     language: Literal["ko", "en"] = "ko"
+    world_context: dict[str, str] | None = None
+    observed_entities: list[str] | None = None
+    observed_events: list[str] | None = None
+    reaction_generation_options: OllamaGenerateOptions | None = None
 
 
 @dataclass(frozen=True)
@@ -48,6 +54,12 @@ class ActionLoopResult:
     """시스템의 현재 시간."""
     talk: str | None
     """Agent이 대화할 상황에서 생성된 대화 내용. 대화가 필요하지 않은 상황에서는 None."""
+    utterance: str | None = None
+    """대화 발화 결과. talk 필드와 동일한 값을 유지한다."""
+    speak_decision: bool = False
+    """이번 턴에 실제 발화를 수행했는지 여부."""
+    action_intent: str = "continue_current_plan"
+    """행동 의도를 나타내는 구조화된 문자열."""
     thought: str = ""
     """행동 결정을 내릴 때의 내부 판단 근거."""
     action_summary: str = ""
@@ -141,6 +153,9 @@ class AgentBrain:
         observation = self.perceive(
             now=input.current_time,
             current_plan_context=input.profile.extended.current_plan_context,
+            world_context=input.world_context,
+            observed_entities=input.observed_entities,
+            observed_events=input.observed_events,
         )
 
         # 2. 인지된 정보들을 observation으로 메모리에 저장 (reflection 조건 충족 시 reflection도 함께 저장)
@@ -155,6 +170,7 @@ class AgentBrain:
             dialogue_history=input.dialogue_history,
             profile=input.profile,
             language=input.language,
+            reaction_generation_options=input.reaction_generation_options,
         )
 
         # 4. 상황판단에 따라 반응을 결정한다.
@@ -221,9 +237,18 @@ class AgentBrain:
         reaction_decision: ReactionDecision,
     ) -> ActionLoopResult:
         # 5. 구체적인 행동 결정 및 출력을 한다.
-        talk = reaction_decision.reaction or None
+        candidate_talk = reaction_decision.reaction.strip()
+        should_speak = reaction_decision.should_react and bool(candidate_talk)
+        talk = candidate_talk if should_speak else None
+        action_intent = (
+            "react_to_partner"
+            if reaction_decision.should_react
+            else "continue_current_plan"
+        )
+        if reaction_decision.should_react and talk is None:
+            action_intent = "react_without_utterance"
 
-        if talk is not None:
+        if should_speak and talk is not None:
             self.queue_observation(
                 content=f"I decided to react: {talk}",
                 now=current_time,
@@ -233,8 +258,13 @@ class AgentBrain:
         return ActionLoopResult(
             current_time=current_time,
             talk=talk,
+            utterance=talk,
+            speak_decision=should_speak,
+            action_intent=action_intent,
             thought=reaction_decision.reason,
             action_summary=(
+                f"speak_decision={should_speak}, "
+                f"action_intent={action_intent}, "
                 f"should_react={reaction_decision.should_react}, "
                 f"selected_reaction={reaction_decision.reaction or 'none'}"
             ),
@@ -248,6 +278,7 @@ class AgentBrain:
         dialogue_history: list[tuple[str, str]],
         profile: AgentProfile,
         language: Literal["ko", "en"],
+        reaction_generation_options: OllamaGenerateOptions | None,
     ) -> DetermineContext:
         # 1. 상황판단을 위해 기억을 검색한다.
         retrieval_query = self._build_retrieval_query(
@@ -264,6 +295,7 @@ class AgentBrain:
             profile=profile,
             retrieved_memories=retrieved_memories,
             language=language,
+            reaction_generation_options=reaction_generation_options,
         )
 
     def _build_retrieval_query(
@@ -298,7 +330,8 @@ class AgentBrain:
                 profile=determine_context.profile,
                 retrieved_memories=determine_context.retrieved_memories,
                 language=determine_context.language,
-            )
+            ),
+            generation_options=determine_context.reaction_generation_options,
         )
 
     def _save_observation_memory(

@@ -35,6 +35,9 @@ class OllamaGenerateOptions:
     temperature: float = 0.0
     top_p: float = 0.9
     num_predict: int = 80
+    repeat_penalty: float | None = None
+    presence_penalty: float | None = None
+    frequency_penalty: float | None = None
 
 
 class OllamaClient:
@@ -58,16 +61,23 @@ class OllamaClient:
         format_json: bool = False,
     ) -> str:
         final_options = options or OllamaGenerateOptions()
+        option_payload: JsonObject = {
+            "temperature": final_options.temperature,
+            "top_p": final_options.top_p,
+            "num_predict": final_options.num_predict,
+        }
+        if final_options.repeat_penalty is not None:
+            option_payload["repeat_penalty"] = final_options.repeat_penalty
+        if final_options.presence_penalty is not None:
+            option_payload["presence_penalty"] = final_options.presence_penalty
+        if final_options.frequency_penalty is not None:
+            option_payload["frequency_penalty"] = final_options.frequency_penalty
 
         payload: JsonObject = {
             "model": model,
             "prompt": prompt,
             "stream": False,
-            "options": {
-                "temperature": final_options.temperature,
-                "top_p": final_options.top_p,
-                "num_predict": final_options.num_predict,
-            },
+            "options": option_payload,
         }
 
         if system is not None:

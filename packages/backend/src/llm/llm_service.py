@@ -5,7 +5,7 @@ from typing import Literal, cast
 
 from agents.agent import AgentIdentity, AgentProfile
 from agents.memory.memory_object import MemoryObject
-from llm.ollama_client import JsonObject, OllamaClient
+from llm.ollama_client import JsonObject, OllamaClient, OllamaGenerateOptions
 
 
 class LlmService:
@@ -135,11 +135,19 @@ class LlmService:
             # 포맷이 깨졌을 경우의 방어 코드
             return []
 
-    def decide_reaction(self, input: "ReactionDecisionInput") -> "ReactionDecision":
+    def decide_reaction(
+        self,
+        input: "ReactionDecisionInput",
+        *,
+        generation_options: OllamaGenerateOptions | None = None,
+    ) -> "ReactionDecision":
         prompt = self._build_reaction_decision_prompt(input)
+        print(f"DEBUG: reaction decision prompt:\n{prompt}\n---")
+
         response_text = self.ollama_client.generate(
             prompt=prompt,
             system=_language_system_prompt(input.language),
+            options=generation_options,
             format_json=True,
         )
         return _parse_reaction_decision(response_text)
@@ -185,8 +193,9 @@ class LlmService:
                     "directly to the partner in natural conversation."
                 ),
                 (
-                    "When there is no prior dialogue context, start with a brief "
-                    "greeting before the main point."
+                    "When there is no prior dialogue context, use a brief greeting "
+                    "only when social context requires it. Avoid repetitive greeting "
+                    "phrases across turns."
                 ),
                 (
                     f"Should [{input.agent_identity.name}] react to the observation, "
