@@ -1,7 +1,7 @@
-import json
 import datetime
+import json
 from dataclasses import dataclass
-from typing import cast
+from typing import Literal, cast
 
 from agents.agent import AgentIdentity, AgentProfile
 from agents.memory.memory_object import MemoryObject
@@ -137,7 +137,11 @@ class LlmService:
 
     def decide_reaction(self, input: "ReactionDecisionInput") -> "ReactionDecision":
         prompt = self._build_reaction_decision_prompt(input)
-        response_text = self.ollama_client.generate(prompt=prompt, format_json=True)
+        response_text = self.ollama_client.generate(
+            prompt=prompt,
+            system=_language_system_prompt(input.language),
+            format_json=True,
+        )
         return _parse_reaction_decision(response_text)
 
     @staticmethod
@@ -158,10 +162,12 @@ class LlmService:
         ]
 
         if input.dialogue_history:
-            partner_talk, my_talk = input.dialogue_history[-1]
             sections.append("Recent dialogue context:")
-            sections.append(f"- partner: {partner_talk or 'none'}")
-            sections.append(f"- self: {my_talk or 'none'}")
+            for index, (partner_talk, my_talk) in enumerate(
+                input.dialogue_history, start=1
+            ):
+                sections.append(f"- turn {index} partner: {partner_talk or 'none'}")
+                sections.append(f"- turn {index} self: {my_talk or 'none'}")
 
         sections.extend(
             [
@@ -272,6 +278,19 @@ def _summarize_retrieved_memories(retrieved_memories: list[MemoryObject]) -> str
     return "\n".join(lines)
 
 
+def _language_system_prompt(language: Literal["ko", "en"]) -> str:
+    if language == "ko":
+        return (
+            "You are simulating a conversational human agent. "
+            "All generated natural-language reaction text must be in Korean only."
+        )
+
+    return (
+        "You are simulating a conversational human agent. "
+        "All generated natural-language reaction text must be in English only."
+    )
+
+
 @dataclass(frozen=True)
 class InsightWithCitation:
     context: str
@@ -286,6 +305,7 @@ class ReactionDecisionInput:
     dialogue_history: list[tuple[str, str]]
     profile: AgentProfile
     retrieved_memories: list[MemoryObject]
+    language: Literal["ko", "en"] = "ko"
 
 
 @dataclass(frozen=True)

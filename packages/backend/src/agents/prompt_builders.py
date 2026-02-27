@@ -12,9 +12,10 @@ def build_retrieval_query(
     lines.append(f"observation={observation_content}")
 
     if dialogue_history:
-        partner_talk, my_talk = dialogue_history[-1]
-        lines.append(f"recent_dialogue_partner={partner_talk}")
-        lines.append(f"recent_dialogue_self={my_talk}")
+        lines.append("recent_dialogue_context=")
+        for index, (partner_talk, my_talk) in enumerate(dialogue_history, start=1):
+            lines.append(f"turn_{index}_partner={partner_talk or 'none'}")
+            lines.append(f"turn_{index}_self={my_talk or 'none'}")
 
     lines.append("task=상황판단에 필요한 기억 검색")
     return "\n".join(lines)

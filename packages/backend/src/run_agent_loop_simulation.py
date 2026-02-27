@@ -1,14 +1,17 @@
 import datetime
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Literal
 
 from agents.agent_brain import ActionLoopInput
-from agents.sim_agent import SimAgent
 from agents.world_factory import init_agents
 from llm.ollama_client import OllamaClient
+from world.session import WorldConversationSession
 
 
-def _fallback_reply() -> str:
+def _fallback_reply(language: Literal["ko", "en"]) -> str:
+    if language == "ko":
+        return "LLM 응답 오류"
     return "LLM Error"
 
 
@@ -20,6 +23,8 @@ class LoopSimulationConfig:
     llm_model: str
     timeout_seconds: float
     persona_dir: str
+    dialogue_turn_window: int = 6
+    language: Literal["ko", "en"] = "ko"
 
 
 DEFAULT_CONFIG = LoopSimulationConfig(
@@ -32,18 +37,11 @@ DEFAULT_CONFIG = LoopSimulationConfig(
 )
 
 
-def ingest_line(observer: SimAgent, content: str, now: datetime.datetime) -> None:
-    observer.brain.queue_observation(
-        content=content,
-        now=now,
-        profile=observer.profile,
-    )
-
-
 def run_simulation(
     *,
     config: LoopSimulationConfig,
 ) -> None:
+    language = config.language
     agent_persona_names = config.agent_persona_names
     if len(agent_persona_names) < 2:
         raise ValueError("At least two agents are required")
@@ -61,56 +59,53 @@ def run_simulation(
         now=current_time,
     )
 
-    history: list[tuple[str, str]] = []
-    dialogue_history_by_agent: dict[str, list[tuple[str, str]]] = {
-        agent.name: [] for agent in agents
-    }
-    incoming_utterances_by_agent: dict[str, list[str]] = {
-        agent.name: [] for agent in agents
-    }
+    session = WorldConversationSession(
+        agents=agents,
+        dialogue_turn_window=config.dialogue_turn_window,
+        language=language,
+    )
+
+    initiator = agents[0]
+    partner = agents[1]
+    session.seed_conversation_start_intent(
+        initiator=initiator,
+        target=partner,
+        now=current_time,
+    )
 
     for turn in range(1, config.turns + 1):
-        speaker = agents[(turn - 1) % len(agents)]
+        speaker = session.next_speaker()
 
-        incoming_partner_utterance: str | None = None
-        incoming_queue = incoming_utterances_by_agent[speaker.name]
-        if incoming_queue:
-            incoming_partner_utterance = incoming_queue.pop(0)
-            dialogue_history_by_agent[speaker.name].append(
-                (incoming_partner_utterance, "")
-            )
+        incoming_partner_utterance = session.consume_incoming_partner_utterance(
+            speaker=speaker
+        )
 
         now = current_time
         action_result = speaker.brain.action_loop(
             ActionLoopInput(
                 current_time=now,
-                dialogue_history=dialogue_history_by_agent[speaker.name],
+                dialogue_history=session.dialogue_context_for(speaker=speaker),
                 profile=speaker.profile,
+                language=language,
             )
         )
 
         reply = (action_result.talk or "").strip()
         if not reply:
-            reply = _fallback_reply()
+            reply = _fallback_reply(language)
 
-        if incoming_partner_utterance is not None:
-            dialogue_history_by_agent[speaker.name][-1] = (
-                incoming_partner_utterance,
-                reply,
-            )
-        else:
-            dialogue_history_by_agent[speaker.name].append(("", reply))
-
-        history.append((speaker.name, reply))
+        session.commit_speaker_reply(
+            speaker=speaker,
+            incoming_partner_utterance=incoming_partner_utterance,
+            reply=reply,
+        )
         print(f"[{turn:02d}] {speaker.name}: {reply}")
 
-        for observer in agents:
-            if observer is speaker:
-                ingest_line(observer, f"I said: {reply}", now)
-                continue
-
-            ingest_line(observer, f"{speaker.name} said: {reply}", now)
-            incoming_utterances_by_agent[observer.name].append(reply)
+        session.broadcast_reply(
+            speaker=speaker,
+            reply=reply,
+            now=now,
+        )
 
         current_time = now
 

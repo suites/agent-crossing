@@ -1,7 +1,7 @@
 import datetime
 from dataclasses import dataclass
 from importlib import import_module
-from typing import Protocol, cast
+from typing import Literal, Protocol, cast
 
 import numpy as np
 from agents.agent import AgentIdentity, AgentProfile
@@ -29,6 +29,7 @@ class DetermineContext:
     retrieved_memories: list[MemoryObject]
     dialogue_history: list[tuple[str, str]]
     profile: AgentProfile
+    language: Literal["ko", "en"]
 
 
 @dataclass(frozen=True)
@@ -38,14 +39,13 @@ class ActionLoopInput:
     dialogue_history: list[tuple[str, str]]
     """대화 상황에서, (상대방 발화, 나의 발화) 리스트. 가장 최근 발화가 리스트의 마지막에 위치한다."""
     profile: AgentProfile
+    language: Literal["ko", "en"] = "ko"
 
 
 @dataclass(frozen=True)
 class ActionLoopResult:
     current_time: datetime.datetime
     """시스템의 현재 시간."""
-    status: str
-    """Agent의 현재 상태를 나타내는 문자열. 예시: 'Idle', 'Executing Plan', 'Waiting for Response' 등."""
     talk: str | None
     """Agent이 대화할 상황에서 생성된 대화 내용. 대화가 필요하지 않은 상황에서는 None."""
 
@@ -150,13 +150,18 @@ class AgentBrain:
             observation=observation,
             dialogue_history=input.dialogue_history,
             profile=input.profile,
+            language=input.language,
         )
 
         # 4. 상황판단에 따라 반응을 결정한다.
-        _ = self._react(determine_result)
+        reaction_decision = self._react(determine_result)
 
         # 5. 반응에 때라 구체적인 행동 및 출력을 한다.
-        return self._action()
+        return self._action(
+            current_time=input.current_time,
+            profile=input.profile,
+            reaction_decision=reaction_decision,
+        )
 
     def perceive(
         self,
@@ -204,15 +209,26 @@ class AgentBrain:
             importance=None,
         )
 
-    def _action(self) -> ActionLoopResult:
+    def _action(
+        self,
+        *,
+        current_time: datetime.datetime,
+        profile: AgentProfile,
+        reaction_decision: ReactionDecision,
+    ) -> ActionLoopResult:
         # 5. 구체적인 행동 결정 및 출력을 한다.
+        talk = reaction_decision.reaction or None
 
-        # 5-1. 할 일이 정해지면 자신이 알고있는 환경트리를 탐색해서 해당 행동을 수행할 적절한 장소를 결정한다.
-        # 5-2. 행동 이후에 월드 데이터에 업데이트한다.
+        if talk is not None:
+            self.queue_observation(
+                content=f"I decided to react: {talk}",
+                now=current_time,
+                profile=profile,
+            )
+
         return ActionLoopResult(
-            current_time=datetime.datetime.now(),
-            status="Idle",  # TODO: 상태 받아오는 로직 필요
-            talk="안녕하세요 좋은 하루입니다.",  # TODO: 대화 내용 받아오는 로직 필요
+            current_time=current_time,
+            talk=talk,
         )
 
     def _determine_reaction(
@@ -222,6 +238,7 @@ class AgentBrain:
         observation: Observation,
         dialogue_history: list[tuple[str, str]],
         profile: AgentProfile,
+        language: Literal["ko", "en"],
     ) -> DetermineContext:
         # 1. 상황판단을 위해 기억을 검색한다.
         retrieval_query = self._build_retrieval_query(
@@ -237,6 +254,7 @@ class AgentBrain:
             dialogue_history=dialogue_history,
             profile=profile,
             retrieved_memories=retrieved_memories,
+            language=language,
         )
 
     def _build_retrieval_query(
@@ -270,6 +288,7 @@ class AgentBrain:
                 dialogue_history=determine_context.dialogue_history,
                 profile=determine_context.profile,
                 retrieved_memories=determine_context.retrieved_memories,
+                language=determine_context.language,
             )
         )
 
