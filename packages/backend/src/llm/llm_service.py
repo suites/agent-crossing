@@ -1,7 +1,9 @@
 import json
+import datetime
 from dataclasses import dataclass
 from typing import cast
 
+from agents.agent import AgentIdentity, AgentProfile
 from agents.memory.memory_object import MemoryObject
 from llm.ollama_client import JsonObject, OllamaClient
 
@@ -133,8 +135,161 @@ class LlmService:
             # 포맷이 깨졌을 경우의 방어 코드
             return []
 
+    def decide_reaction(self, input: "ReactionDecisionInput") -> "ReactionDecision":
+        prompt = self._build_reaction_decision_prompt(input)
+        response_text = self.ollama_client.generate(prompt=prompt, format_json=True)
+        return _parse_reaction_decision(response_text)
+
+    @staticmethod
+    def _build_reaction_decision_prompt(input: "ReactionDecisionInput") -> str:
+        summary_description = _build_summary_description(
+            input.agent_identity,
+            input.profile,
+        )
+        agent_status = _build_agent_status(input.profile)
+        memory_summary = _summarize_retrieved_memories(input.retrieved_memories)
+
+        sections: list[str] = [
+            "[Agent's Summary Description]",
+            summary_description,
+            f"It is {input.current_time.isoformat()}.",
+            f"[{input.agent_identity.name}]'s status: {agent_status}.",
+            f"Observation: {input.observation_content}",
+        ]
+
+        if input.dialogue_history:
+            partner_talk, my_talk = input.dialogue_history[-1]
+            sections.append("Recent dialogue context:")
+            sections.append(f"- partner: {partner_talk or 'none'}")
+            sections.append(f"- self: {my_talk or 'none'}")
+
+        sections.extend(
+            [
+                (
+                    "Summary of relevant context from "
+                    f"[{input.agent_identity.name}]'s memory:"
+                ),
+                memory_summary,
+                (
+                    f"Should [{input.agent_identity.name}] react to the observation, "
+                    "and if so, what would be an appropriate reaction?"
+                ),
+                (
+                    "Return JSON only with this shape: "
+                    + '{"should_react": <boolean>, "reaction": "<string>", '
+                    + '"reason": "<short string>"}'
+                ),
+            ]
+        )
+
+        return "\n".join(sections)
+
+
+def _parse_reaction_decision(response_text: str) -> "ReactionDecision":
+    default_value = ReactionDecision(
+        should_react=False,
+        reaction="",
+        reason="fallback",
+    )
+    parsed_json = _parse_json_object(response_text)
+    if parsed_json is None:
+        return default_value
+
+    raw_should_react = parsed_json.get("should_react")
+    if not isinstance(raw_should_react, bool):
+        return default_value
+
+    raw_reaction = parsed_json.get("reaction")
+    if not isinstance(raw_reaction, str):
+        raw_reaction = ""
+
+    raw_reason = parsed_json.get("reason")
+    if not isinstance(raw_reason, str):
+        raw_reason = ""
+
+    return ReactionDecision(
+        should_react=raw_should_react,
+        reaction=raw_reaction.strip(),
+        reason=raw_reason.strip() or "n/a",
+    )
+
+
+def _parse_json_object(text: str) -> JsonObject | None:
+    try:
+        parsed = cast(object, json.loads(text))
+    except json.JSONDecodeError:
+        return None
+
+    if not isinstance(parsed, dict):
+        return None
+
+    return cast(JsonObject, parsed)
+
+
+def _build_summary_description(
+    agent_identity: AgentIdentity,
+    profile: AgentProfile,
+) -> str:
+    summary_lines: list[str] = [
+        f"Name: {agent_identity.name}",
+        f"Age: {agent_identity.age}",
+        f"Traits: {', '.join(agent_identity.traits)}",
+    ]
+
+    if profile.fixed.identity_stable_set:
+        summary_lines.append(
+            "Identity stable set: " + " | ".join(profile.fixed.identity_stable_set[:3])
+        )
+
+    if profile.extended.lifestyle_and_routine:
+        summary_lines.append(
+            "Lifestyle and routine: "
+            + " | ".join(profile.extended.lifestyle_and_routine[:2])
+        )
+
+    if profile.extended.current_plan_context:
+        summary_lines.append(
+            "Current plan context: "
+            + " | ".join(profile.extended.current_plan_context[:2])
+        )
+
+    return "\n".join(summary_lines)
+
+
+def _build_agent_status(profile: AgentProfile) -> str:
+    if profile.extended.current_plan_context:
+        return profile.extended.current_plan_context[0]
+    return "Idle"
+
+
+def _summarize_retrieved_memories(retrieved_memories: list[MemoryObject]) -> str:
+    if not retrieved_memories:
+        return "- no relevant memory found"
+
+    lines: list[str] = []
+    for index, memory in enumerate(retrieved_memories[:5], start=1):
+        lines.append(f"- ({index}) [importance={memory.importance}] {memory.content}")
+    return "\n".join(lines)
+
 
 @dataclass(frozen=True)
 class InsightWithCitation:
     context: str
     citation_memory_ids: list[int]
+
+
+@dataclass(frozen=True)
+class ReactionDecisionInput:
+    agent_identity: AgentIdentity
+    current_time: datetime.datetime
+    observation_content: str
+    dialogue_history: list[tuple[str, str]]
+    profile: AgentProfile
+    retrieved_memories: list[MemoryObject]
+
+
+@dataclass(frozen=True)
+class ReactionDecision:
+    should_react: bool
+    reaction: str
+    reason: str

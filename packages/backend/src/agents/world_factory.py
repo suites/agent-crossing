@@ -48,6 +48,7 @@ def build_agent(
         agent_identity=persona.agent,
         memory_service=memory_service,
         reflection_service=reflection_service,
+        llm_service=llm_service,
     )
     context = AgentContext(
         identity=persona.agent,

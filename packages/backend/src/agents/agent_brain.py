@@ -6,6 +6,7 @@ from typing import Protocol, cast
 import numpy as np
 from agents.agent import AgentIdentity, AgentProfile
 from llm.embedding_encoder import EmbeddingEncodingContext
+from llm.llm_service import LlmService, ReactionDecision, ReactionDecisionInput
 
 from .memory.memory_object import MemoryObject
 from .memory.memory_service import MemoryService, ObservationContext
@@ -28,7 +29,6 @@ class DetermineContext:
     retrieved_memories: list[MemoryObject]
     dialogue_history: list[tuple[str, str]]
     profile: AgentProfile
-    reaction_prompt: str
 
 
 @dataclass(frozen=True)
@@ -60,17 +60,6 @@ class PromptBuildersModule(Protocol):
         profile: AgentProfile,
     ) -> str: ...
 
-    def build_reaction_prompt(
-        self,
-        *,
-        agent_identity: AgentIdentity,
-        current_time: datetime.datetime,
-        observation_content: str,
-        dialogue_history: list[tuple[str, str]],
-        profile: AgentProfile,
-        retrieved_memories: list[MemoryObject],
-    ) -> str: ...
-
 
 class AgentBrain:
     """Agent의 인지, 상황판단, 행동결정 등을 담당하는 핵심 클래스."""
@@ -81,9 +70,11 @@ class AgentBrain:
         agent_identity: AgentIdentity,
         memory_service: MemoryService,
         reflection_service: ReflectionService,
+        llm_service: LlmService,
     ):
         self.memory_service: MemoryService = memory_service
         self.reflection_service: ReflectionService = reflection_service
+        self.llm_service: LlmService = llm_service
         self.agent_identity: AgentIdentity = agent_identity
 
     def queue_observation(
@@ -162,7 +153,7 @@ class AgentBrain:
         )
 
         # 4. 상황판단에 따라 반응을 결정한다.
-        react_result = self._react(determine_result)
+        _ = self._react(determine_result)
 
         # 5. 반응에 때라 구체적인 행동 및 출력을 한다.
         return self._action()
@@ -241,19 +232,11 @@ class AgentBrain:
         retrieved_memories = self.memory_service.get_retrieval_memories(
             query=retrieval_query, current_time=current_time
         )
-        reaction_prompt = self._build_reaction_prompt(
-            current_time=current_time,
-            observation=observation,
-            dialogue_history=dialogue_history,
-            profile=profile,
-            retrieved_memories=retrieved_memories,
-        )
         return DetermineContext(
             observation=observation,
             dialogue_history=dialogue_history,
             profile=profile,
             retrieved_memories=retrieved_memories,
-            reaction_prompt=reaction_prompt,
         )
 
     def _build_retrieval_query(
@@ -274,34 +257,21 @@ class AgentBrain:
             profile=profile,
         )
 
-    def _build_reaction_prompt(
-        self,
-        *,
-        current_time: datetime.datetime,
-        observation: Observation,
-        dialogue_history: list[tuple[str, str]],
-        profile: AgentProfile,
-        retrieved_memories: list[MemoryObject],
-    ) -> str:
-        prompt_builders_module = cast(
-            PromptBuildersModule,
-            cast(object, import_module("agents.prompt_builders")),
-        )
-        return prompt_builders_module.build_reaction_prompt(
-            agent_identity=self.agent_identity,
-            current_time=current_time,
-            observation_content=observation.content,
-            dialogue_history=dialogue_history,
-            profile=profile,
-            retrieved_memories=retrieved_memories,
-        )
-
-    def _react(self, determine_context: DetermineContext) -> None:
+    def _react(self, determine_context: DetermineContext) -> ReactionDecision:
         # 4. 상황판단에 따라 반응을 결정한다.
         # 4-1. 관찰 결과가 단순하다면 기존 계획을 수행한다.
         # 4-2. 관찰 결과가 중요하거나 예상치 못하면 기존 계획을 멈추고 반응한다.
         # 4-2-1. 반응하기로 결정했으면 행동 계획을 재생성하고, 대화중이라면 자연어 대화도 생성한다.
-        pass
+        return self.llm_service.decide_reaction(
+            ReactionDecisionInput(
+                agent_identity=self.agent_identity,
+                current_time=determine_context.observation.now,
+                observation_content=determine_context.observation.content,
+                dialogue_history=determine_context.dialogue_history,
+                profile=determine_context.profile,
+                retrieved_memories=determine_context.retrieved_memories,
+            )
+        )
 
     def _save_observation_memory(
         self,
