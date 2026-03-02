@@ -252,6 +252,10 @@ class LlmService:
                     "to the conversation partner, not inner monologue."
                 ),
                 (
+                    "Keep utterance concise and short: ideally one sentence, no more "
+                    "than 80 Korean characters or 20 English words."
+                ),
+                (
                     "Do not narrate personal schedules or plans unless saying them "
                     "directly to the partner in natural conversation."
                 ),
@@ -292,8 +296,14 @@ def _parse_reaction_decision(response_text: str) -> "ReactionDecision":
         trace=default_trace,
     )
     parsed_json = _parse_json_object(response_text)
+    repaired_once = False
     if parsed_json is None:
-        return default_value
+        repaired_payload = _attempt_json_repair_once(response_text)
+        if repaired_payload is not None:
+            parsed_json = repaired_payload
+            repaired_once = True
+        else:
+            return default_value
 
     raw_should_react = parsed_json.get("should_react")
     if not isinstance(raw_should_react, bool):
@@ -332,6 +342,7 @@ def _parse_reaction_decision(response_text: str) -> "ReactionDecision":
         trace=ReactionDecisionTrace(
             raw_response=response_text,
             parse_success=True,
+            parse_error="repaired_once" if repaired_once else "",
         ),
     )
 
@@ -354,6 +365,27 @@ def _parse_json_object(text: str) -> JsonObject | None:
         return None
 
     return cast(JsonObject, parsed)
+
+
+def _attempt_json_repair_once(text: str) -> JsonObject | None:
+    candidate = text.strip()
+    if not candidate:
+        return None
+
+    first_open = candidate.find("{")
+    if first_open > 0:
+        candidate = candidate[first_open:]
+
+    last_close = candidate.rfind("}")
+    if last_close >= 0:
+        candidate = candidate[: last_close + 1]
+
+    open_count = candidate.count("{")
+    close_count = candidate.count("}")
+    if open_count > close_count:
+        candidate = candidate + ("}" * (open_count - close_count))
+
+    return _parse_json_object(candidate)
 
 
 def _build_summary_description(

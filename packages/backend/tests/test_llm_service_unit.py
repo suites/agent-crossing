@@ -174,3 +174,26 @@ def test_decide_reaction_retries_once_for_partner_utterance_when_silent() -> Non
     assert client.calls == 2
     assert decision.should_react is True
     assert decision.trace.partner_retry_count == 1
+
+
+def test_decide_reaction_repairs_truncated_json_once() -> None:
+    client = StubOllamaClient(
+        responses=[
+            '{"should_react": true, "utterance": "좋아요", "reason": "ok"'
+        ]
+    )
+    service = LlmService(client)
+
+    decision = service.decide_reaction(_input(dialogue_history=[]))
+
+    assert decision.should_react is True
+    assert decision.reaction == "좋아요"
+    assert decision.trace.parse_success is True
+    assert decision.trace.parse_error == "repaired_once"
+
+
+def test_reaction_prompt_includes_concise_utterance_constraint() -> None:
+    prompt = LlmService._build_reaction_decision_prompt(_input(dialogue_history=[]))
+
+    assert "Keep utterance concise and short" in prompt
+    assert "80 Korean characters" in prompt

@@ -1,4 +1,5 @@
 from run_agent_loop_simulation import (
+    DEFAULT_CONFIG,
     _build_turn_observed_events,
     _is_repetitive_reply,
     _recent_replies_for_echo_check,
@@ -57,3 +58,7 @@ def test_build_turn_observed_events_prefers_latest_utterance_when_present() -> N
     assert observed_events == [
         "Sujin Lee의 직전 발화를 들음: 새로운 디카프 블렌드 테스트 중이에요."
     ]
+
+
+def test_default_reaction_num_predict_is_raised_for_truncation_safety() -> None:
+    assert DEFAULT_CONFIG.reaction_generation_options.num_predict == 192

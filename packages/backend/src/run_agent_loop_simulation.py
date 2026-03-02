@@ -113,7 +113,7 @@ class LoopSimulationConfig:
         default_factory=lambda: OllamaGenerateOptions(
             temperature=0.35,
             top_p=0.92,
-            num_predict=80,
+            num_predict=192,
             repeat_penalty=1.1,
             presence_penalty=0.2,
             frequency_penalty=0.4,
