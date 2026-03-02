@@ -1,7 +1,7 @@
 import datetime
 import json
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Literal, Protocol, cast
 
 from agents.agent import AgentIdentity, AgentProfile
@@ -151,7 +151,9 @@ class LlmService:
 
         retry_count = 0
         max_retry = 2
+        partner_retry_count = 0
         working_prompt = prompt
+        latest_partner_utterance = _latest_partner_utterance(input.dialogue_history)
 
         while True:
             response_text = self.ollama_client.generate(
@@ -163,11 +165,28 @@ class LlmService:
             decision = _parse_reaction_decision(response_text)
 
             if (
-                not decision.should_react
-                or not decision.reaction
-                or not recent_sentences
-                or retry_count >= max_retry
+                latest_partner_utterance
+                and not decision.should_react
+                and partner_retry_count < 1
             ):
+                partner_retry_count += 1
+                working_prompt = (
+                    f"{prompt}\n\n"
+                    + _build_partner_response_nudge_block(
+                        latest_partner_utterance=latest_partner_utterance
+                    )
+                )
+                continue
+
+            decision = replace(
+                decision,
+                trace=replace(
+                    decision.trace,
+                    partner_retry_count=partner_retry_count,
+                ),
+            )
+
+            if not decision.should_react or not decision.reaction or not recent_sentences:
                 return decision
 
             has_overlap = _exceeds_ngram_overlap_threshold(
@@ -180,6 +199,16 @@ class LlmService:
                 return decision
 
             retry_count += 1
+            if retry_count > max_retry:
+                return replace(
+                    decision,
+                    trace=replace(
+                        decision.trace,
+                        overlap_retry_count=retry_count,
+                        fallback_reason="overlap_retry_exhausted",
+                    ),
+                )
+
             overlap_guard = _build_overlap_guard_block(
                 recent_sentences=recent_sentences,
                 previous_candidate=decision.reaction,
@@ -248,12 +277,19 @@ class LlmService:
 
 
 def _parse_reaction_decision(response_text: str) -> "ReactionDecision":
+    default_trace = ReactionDecisionTrace(
+        raw_response=response_text,
+        parse_success=False,
+        parse_error="json_parse_error_or_non_object",
+        fallback_reason="parse_failure",
+    )
     default_value = ReactionDecision(
         should_react=False,
         reaction="",
         reason="fallback",
         thought="",
         critique="",
+        trace=default_trace,
     )
     parsed_json = _parse_json_object(response_text)
     if parsed_json is None:
@@ -261,7 +297,10 @@ def _parse_reaction_decision(response_text: str) -> "ReactionDecision":
 
     raw_should_react = parsed_json.get("should_react")
     if not isinstance(raw_should_react, bool):
-        return default_value
+        return replace(
+            default_value,
+            trace=replace(default_trace, parse_error="missing_or_invalid_should_react"),
+        )
 
     raw_utterance = parsed_json.get("utterance")
     if not isinstance(raw_utterance, str):
@@ -290,7 +329,19 @@ def _parse_reaction_decision(response_text: str) -> "ReactionDecision":
         reason=raw_reason.strip() or "n/a",
         thought=raw_thought.strip(),
         critique=raw_critique.strip(),
+        trace=ReactionDecisionTrace(
+            raw_response=response_text,
+            parse_success=True,
+        ),
     )
+
+
+def _latest_partner_utterance(dialogue_history: list[tuple[str, str]]) -> str:
+    for partner_talk, _ in reversed(dialogue_history):
+        stripped = partner_talk.strip()
+        if stripped and stripped != "none":
+            return stripped
+    return ""
 
 
 def _parse_json_object(text: str) -> JsonObject | None:
@@ -448,6 +499,21 @@ def _build_overlap_guard_block(
     return "\n".join(lines)
 
 
+def _build_partner_response_nudge_block(*, latest_partner_utterance: str) -> str:
+    return "\n".join(
+        [
+            "The partner has just spoken directly to you.",
+            "Prefer a brief, natural reply instead of silence unless there is a strong social reason to stay silent.",
+            f"Latest partner utterance: {latest_partner_utterance}",
+            "If you still choose silence, reason must explicitly explain why.",
+            "Return JSON only with this shape: "
+            + '{"should_react": <boolean>, "thought": "<string>", '
+            + '"critique": "<string>", "utterance": "<string>", '
+            + '"reason": "<short string>"}',
+        ]
+    )
+
+
 @dataclass(frozen=True)
 class InsightWithCitation:
     context: str
@@ -466,12 +532,28 @@ class ReactionDecisionInput:
 
 
 @dataclass(frozen=True)
+class ReactionDecisionTrace:
+    raw_response: str
+    parse_success: bool
+    parse_error: str = ""
+    fallback_reason: str = ""
+    suppress_reason: str = ""
+    overlap_retry_count: int = 0
+    partner_retry_count: int = 0
+
+
+@dataclass(frozen=True)
 class ReactionDecision:
     should_react: bool
     reaction: str
     reason: str
     thought: str = ""
     critique: str = ""
+    trace: ReactionDecisionTrace = ReactionDecisionTrace(
+        raw_response="",
+        parse_success=False,
+        parse_error="uninitialized",
+    )
 
 
 class GenerateClient(Protocol):

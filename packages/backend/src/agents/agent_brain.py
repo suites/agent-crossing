@@ -1,5 +1,5 @@
 import datetime
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from importlib import import_module
 from typing import Literal, Protocol, cast
 
@@ -64,6 +64,10 @@ class ActionLoopResult:
     """행동 결정을 내릴 때의 내부 판단 근거."""
     action_summary: str = ""
     """내부적으로 선택한 행동 요약."""
+    silent_reason: str = ""
+    """발화하지 않았을 때 원인."""
+    reaction_trace: dict[str, object] | None = None
+    """reaction decision 디버깅 추적 정보."""
 
 
 class PromptBuildersModule(Protocol):
@@ -255,6 +259,15 @@ class AgentBrain:
                 profile=profile,
             )
 
+        silent_reason = ""
+        if not should_speak:
+            if not reaction_decision.should_react:
+                silent_reason = "llm_declined_reaction"
+            elif not candidate_talk:
+                silent_reason = "empty_reaction_text"
+            else:
+                silent_reason = "suppressed_unknown"
+
         return ActionLoopResult(
             current_time=current_time,
             talk=talk,
@@ -266,8 +279,11 @@ class AgentBrain:
                 f"speak_decision={should_speak}, "
                 f"action_intent={action_intent}, "
                 f"should_react={reaction_decision.should_react}, "
-                f"selected_reaction={reaction_decision.reaction or 'none'}"
+                f"selected_reaction={reaction_decision.reaction or 'none'}, "
+                f"reason={reaction_decision.reason or 'n/a'}"
             ),
+            silent_reason=silent_reason,
+            reaction_trace=cast(dict[str, object], asdict(reaction_decision.trace)),
         )
 
     def _determine_reaction(

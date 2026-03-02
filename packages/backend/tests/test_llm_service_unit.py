@@ -140,3 +140,37 @@ def test_decide_reaction_parses_thought_critique_and_utterance() -> None:
     assert decision.reaction == "수진 씨, 테스트한 디카프 반응은 어땠어요?"
     assert decision.thought == "상대 근황 확인과 카페 맥락 연결"
     assert decision.critique == "반복 인사를 피하고 구체 질문으로 시작"
+    assert decision.trace.parse_success is True
+
+
+def test_decide_reaction_records_parse_failure_trace() -> None:
+    client = StubOllamaClient(responses=["not-json"])
+    service = LlmService(client)
+
+    decision = service.decide_reaction(_input(dialogue_history=[]))
+
+    assert decision.should_react is False
+    assert decision.trace.parse_success is False
+    assert decision.trace.fallback_reason == "parse_failure"
+
+
+def test_decide_reaction_retries_once_for_partner_utterance_when_silent() -> None:
+    client = StubOllamaClient(
+        responses=[
+            _reaction_json(should_react=False, reaction="", reason="first_decline"),
+            _reaction_json(
+                should_react=True,
+                reaction="좋아요, 방금 이야기해준 블렌드가 궁금해요.",
+                reason="respond_after_nudge",
+            ),
+        ]
+    )
+    service = LlmService(client)
+
+    decision = service.decide_reaction(
+        _input(dialogue_history=[("수진 씨, 오늘 테스트 어땠어요?", "none")])
+    )
+
+    assert client.calls == 2
+    assert decision.should_react is True
+    assert decision.trace.partner_retry_count == 1

@@ -1,4 +1,5 @@
 import datetime
+import json
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Literal
@@ -197,20 +198,42 @@ def run_simulation(
             session_history=session.history,
             window=config.repetition_window,
         )
+
+        suppress_reason = ""
         if config.suppress_repeated_replies and _is_repetitive_reply(
             reply,
             recent_replies_for_echo_check,
         ):
+            suppress_reason = "repeat_echo_suppressed"
             reply = ""
 
+        fallback_reason = ""
         if not reply and config.fallback_on_empty_reply:
+            fallback_reason = "empty_reply_fallback"
             reply = _fallback_reply(language)
+
+        trace = dict(action_result.reaction_trace or {})
+        if suppress_reason:
+            trace["suppress_reason"] = suppress_reason
+        if fallback_reason:
+            trace["fallback_reason"] = fallback_reason
 
         print(f"[{turn:02d}] [THOUGHT] {speaker.name}: {action_result.thought}")
         print(f"[{turn:02d}] [ACTION] {speaker.name}: {action_result.action_summary}")
+        print(
+            f"[{turn:02d}] [DECISION_TRACE] {speaker.name}: "
+            + json.dumps(trace, ensure_ascii=False)
+        )
 
         if not reply:
-            print(f"[{turn:02d}] [SILENT] {speaker.name}")
+            silent_reason = ",".join(
+                reason
+                for reason in [action_result.silent_reason, suppress_reason]
+                if reason
+            )
+            if not silent_reason:
+                silent_reason = "unknown"
+            print(f"[{turn:02d}] [SILENT] {speaker.name} reason={silent_reason}")
             current_time = now
             continue
 
