@@ -113,6 +113,15 @@
     - [x] reflection이 다음 reflection 생성에 사용되는 시나리오 테스트를 추가한다
     - [ ] 기존 retrieval 테스트가 회귀 없이 통과한다
 
+### 2-D. Reaction 생성 파이프라인 안정화
+
+- [x] `P1` reaction 생성을 2-call(판단/문장생성)로 분리한다
+  - Depends on: Reflection Loop 핵심 완료
+  - DoD:
+    - [x] 1차 호출에서 `should_react` 판단과 근거 필드를 JSON으로 파싱한다
+    - [x] 2차 호출에서 `utterance`를 생성하고 semantic/overlap guard를 적용한다
+    - [x] 단위 테스트로 retry/parse-fallback 경로를 검증한다
+
 ## 3) Planning & Re-planning (논문 핵심 3)
 
 ### 3-A. 계층형 계획 생성

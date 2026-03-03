@@ -48,6 +48,32 @@ class ReactionDecision:
     )
 
 
+@dataclass(frozen=True)
+class ReactionIntent:
+    should_react: bool
+    reason: str
+    thought: str = ""
+    critique: str = ""
+    trace: ReactionDecisionTrace = ReactionDecisionTrace(
+        raw_response="",
+        parse_success=False,
+        parse_error="uninitialized",
+    )
+
+
+@dataclass(frozen=True)
+class ReactionUtterance:
+    utterance: str
+    reason: str
+    thought: str = ""
+    critique: str = ""
+    trace: ReactionDecisionTrace = ReactionDecisionTrace(
+        raw_response="",
+        parse_success=False,
+        parse_error="uninitialized",
+    )
+
+
 class GenerateClient(Protocol):
     def generate(
         self,

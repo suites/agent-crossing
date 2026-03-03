@@ -1,13 +1,18 @@
 import datetime
 import json
+from typing import cast
 
 import numpy as np
 from agents.agent import AgentIdentity, AgentProfile, ExtendedPersona, FixedPersona
 from agents.memory.memory_object import MemoryObject, NodeType
 from llm.embedding_encoder import EmbeddingEncodingContext
 from llm.llm_service import LlmService
+from llm.prompt_builders import (
+    build_reaction_intent_prompt,
+    build_reaction_utterance_prompt,
+)
 from llm.reaction_types import ReactionDecisionInput
-from llm.prompt_builders import build_reaction_decision_prompt
+from llm.reaction_guards import EmbeddingEncoder
 
 
 class StubOllamaClient:
@@ -57,6 +62,25 @@ def _reaction_json(
     return json.dumps(payload)
 
 
+def _intent_json(
+    *,
+    should_react: bool,
+    reason: str,
+    thought: str = "",
+    critique: str = "",
+) -> str:
+    payload: dict[str, object] = {
+        "should_react": should_react,
+        "reason": reason,
+    }
+    if thought:
+        payload["thought"] = thought
+    if critique:
+        payload["critique"] = critique
+
+    return json.dumps(payload)
+
+
 def _input(
     dialogue_history: list[tuple[str, str]],
     *,
@@ -87,6 +111,7 @@ def _input(
 def test_decide_reaction_retries_when_first_output_is_repetitive() -> None:
     client = StubOllamaClient(
         responses=[
+            _intent_json(should_react=True, reason="react"),
             _reaction_json(
                 should_react=True,
                 reaction="안녕하세요 오늘 연습 문제를 마무리하려고 해요",
@@ -110,17 +135,18 @@ def test_decide_reaction_retries_when_first_output_is_repetitive() -> None:
     )
 
     assert decision.reaction == "수진 씨, 디카프 테스트 반응은 어땠나요?"
-    assert client.calls == 2
+    assert client.calls == 3
 
 
 def test_decide_reaction_uses_first_output_when_not_repetitive() -> None:
     client = StubOllamaClient(
         responses=[
+            _intent_json(should_react=True, reason="react"),
             _reaction_json(
                 should_react=True,
                 reaction="수진 씨, 이번 주 테스트한 블렌드는 어땠어요?",
                 reason="ok",
-            )
+            ),
         ]
     )
     service = LlmService(client)
@@ -134,12 +160,13 @@ def test_decide_reaction_uses_first_output_when_not_repetitive() -> None:
     )
 
     assert decision.reaction == "수진 씨, 이번 주 테스트한 블렌드는 어땠어요?"
-    assert client.calls == 1
+    assert client.calls == 2
 
 
 def test_decide_reaction_semantic_retry_when_embedding_similarity_is_high() -> None:
     client = StubOllamaClient(
         responses=[
+            _intent_json(should_react=True, reason="react"),
             _reaction_json(
                 should_react=True,
                 reaction="같은 말 반복",
@@ -159,13 +186,13 @@ def test_decide_reaction_semantic_retry_when_embedding_similarity_is_high() -> N
             "같은 말": [1.0, 0.0],
         }
     )
-    service = LlmService(client, embedding_encoder=embedding)
+    service = LlmService(client, embedding_encoder=cast(EmbeddingEncoder, embedding))
 
     decision = service.decide_reaction(
         _input(dialogue_history=[("partner", "같은 말")])
     )
 
-    assert client.calls == 2
+    assert client.calls == 3
     assert decision.reaction == "다른 반응으로 바꿔볼게요"
     assert decision.trace.semantic_retry_count == 1
 
@@ -173,14 +200,18 @@ def test_decide_reaction_semantic_retry_when_embedding_similarity_is_high() -> N
 def test_decide_reaction_parses_thought_critique_and_utterance() -> None:
     client = StubOllamaClient(
         responses=[
-            _reaction_json(
+            _intent_json(
                 should_react=True,
-                reaction="수진 씨, 테스트한 디카프 반응은 어땠어요?",
                 reason="short",
                 thought="상대 근황 확인과 카페 맥락 연결",
                 critique="반복 인사를 피하고 구체 질문으로 시작",
+            ),
+            _reaction_json(
+                should_react=True,
+                reaction="수진 씨, 테스트한 디카프 반응은 어땠어요?",
+                reason="utterance_stage",
                 use_utterance_field=True,
-            )
+            ),
         ]
     )
     service = LlmService(client)
@@ -208,7 +239,8 @@ def test_decide_reaction_records_parse_failure_trace() -> None:
 def test_decide_reaction_retries_once_for_partner_utterance_when_silent() -> None:
     client = StubOllamaClient(
         responses=[
-            _reaction_json(should_react=False, reaction="", reason="first_decline"),
+            _intent_json(should_react=True, reason="react"),
+            _reaction_json(should_react=True, reaction="", reason="first_silent"),
             _reaction_json(
                 should_react=True,
                 reaction="좋아요, 방금 이야기해준 블렌드가 궁금해요.",
@@ -222,14 +254,17 @@ def test_decide_reaction_retries_once_for_partner_utterance_when_silent() -> Non
         _input(dialogue_history=[("수진 씨, 오늘 테스트 어땠어요?", "none")])
     )
 
-    assert client.calls == 2
+    assert client.calls == 3
     assert decision.should_react is True
     assert decision.trace.partner_retry_count == 1
 
 
 def test_decide_reaction_repairs_truncated_json_once() -> None:
     client = StubOllamaClient(
-        responses=['{"should_react": true, "utterance": "좋아요", "reason": "ok"']
+        responses=[
+            _intent_json(should_react=True, reason="react"),
+            '{"should_react": true, "utterance": "좋아요", "reason": "ok"',
+        ]
     )
     service = LlmService(client)
 
@@ -243,13 +278,16 @@ def test_decide_reaction_repairs_truncated_json_once() -> None:
 
 def test_reaction_prompt_includes_concise_utterance_constraint() -> None:
     request = _input(dialogue_history=[])
-    prompt = build_reaction_decision_prompt(
+    prompt = build_reaction_utterance_prompt(
         agent_identity=request.agent_identity,
         current_time=request.current_time,
         observation_content=request.observation_content,
         dialogue_history=request.dialogue_history,
         profile=request.profile,
         retrieved_memories=request.retrieved_memories,
+        intent_reason="react",
+        intent_thought="",
+        intent_critique="",
     )
 
     assert "Keep utterance concise and short" in prompt
@@ -272,7 +310,26 @@ def test_reaction_prompt_includes_few_shot_and_reflection_anchor() -> None:
         dialogue_history=[],
         retrieved_memories=[reflection_memory],
     )
-    prompt = build_reaction_decision_prompt(
+    prompt = build_reaction_utterance_prompt(
+        agent_identity=request.agent_identity,
+        current_time=request.current_time,
+        observation_content=request.observation_content,
+        dialogue_history=request.dialogue_history,
+        profile=request.profile,
+        retrieved_memories=request.retrieved_memories,
+        intent_reason="react",
+        intent_thought="",
+        intent_critique="",
+    )
+
+    assert "[Identity Anchor - highest priority]" in prompt
+    assert "Few-shot calibration examples" in prompt
+    assert "polite refusal" in prompt
+
+
+def test_reaction_intent_prompt_requests_intent_shape() -> None:
+    request = _input(dialogue_history=[])
+    prompt = build_reaction_intent_prompt(
         agent_identity=request.agent_identity,
         current_time=request.current_time,
         observation_content=request.observation_content,
@@ -281,6 +338,5 @@ def test_reaction_prompt_includes_few_shot_and_reflection_anchor() -> None:
         retrieved_memories=request.retrieved_memories,
     )
 
-    assert "[Identity Anchor - highest priority]" in prompt
-    assert "Few-shot calibration examples" in prompt
-    assert "polite refusal" in prompt
+    assert "Should [Jiho Park] react to the observation right now?" in prompt
+    assert '"should_react": <boolean>' in prompt

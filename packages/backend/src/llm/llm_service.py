@@ -17,11 +17,13 @@ from .reaction_guards import (
     recent_self_utterances,
     semantic_overlap_check,
 )
-from .reaction_parsing import parse_reaction_decision
+from .reaction_parsing import parse_reaction_intent, parse_reaction_utterance
 from .reaction_types import (
     GenerateClient,
     ReactionDecision,
     ReactionDecisionInput,
+    ReactionIntent,
+    ReactionUtterance,
 )
 
 
@@ -135,7 +137,7 @@ class LlmService:
         *,
         generation_options: OllamaGenerateOptions | None = None,
     ) -> ReactionDecision:
-        prompt = prompt_builders.build_reaction_decision_prompt(
+        intent_prompt = prompt_builders.build_reaction_intent_prompt(
             agent_identity=input.agent_identity,
             current_time=input.current_time,
             observation_content=input.observation_content,
@@ -144,6 +146,41 @@ class LlmService:
             retrieved_memories=input.retrieved_memories,
         )
         system_prompt = prompt_builders.language_system_prompt(input.language)
+
+        intent_response = self.ollama_client.generate(
+            prompt=intent_prompt,
+            system=system_prompt,
+            options=generation_options,
+            format_json=True,
+        )
+        intent = parse_reaction_intent(intent_response)
+        if not intent.should_react:
+            return ReactionDecision(
+                should_react=False,
+                reaction="",
+                reason=intent.reason,
+                thought=intent.thought,
+                critique=intent.critique,
+                trace=replace(
+                    intent.trace,
+                    partner_retry_count=0,
+                    semantic_hard_threshold=SEMANTIC_HARD_BLOCK_THRESHOLD,
+                    semantic_soft_threshold=SEMANTIC_SOFT_PENALTY_THRESHOLD,
+                ),
+            )
+
+        utterance_prompt = prompt_builders.build_reaction_utterance_prompt(
+            agent_identity=input.agent_identity,
+            current_time=input.current_time,
+            observation_content=input.observation_content,
+            dialogue_history=input.dialogue_history,
+            profile=input.profile,
+            retrieved_memories=input.retrieved_memories,
+            intent_reason=intent.reason,
+            intent_thought=intent.thought,
+            intent_critique=intent.critique,
+        )
+
         recent_sentences = recent_dialogue_sentences(input.dialogue_history, window=3)
 
         retry_count = 0
@@ -151,7 +188,7 @@ class LlmService:
         semantic_retry_count = 0
         max_semantic_retry = 2
         partner_retry_count = 0
-        working_prompt = prompt
+        working_prompt = utterance_prompt
         partner_utterance = latest_partner_utterance(input.dialogue_history)
 
         semantic_history = recent_self_utterances(input.dialogue_history, window=5)
@@ -167,16 +204,16 @@ class LlmService:
                 options=generation_options,
                 format_json=True,
             )
-            decision = parse_reaction_decision(response_text)
+            utterance_result = parse_reaction_utterance(response_text)
+            decision = self._build_reaction_decision(
+                intent=intent,
+                utterance_result=utterance_result,
+            )
 
-            if (
-                partner_utterance
-                and not decision.should_react
-                and partner_retry_count < 1
-            ):
+            if partner_utterance and not decision.reaction and partner_retry_count < 1:
                 partner_retry_count += 1
                 working_prompt = (
-                    f"{prompt}\n\n"
+                    f"{utterance_prompt}\n\n"
                     + prompt_builders.build_partner_response_nudge_block(
                         latest_partner_utterance=partner_utterance
                     )
@@ -222,14 +259,10 @@ class LlmService:
                     soft_threshold=SEMANTIC_SOFT_PENALTY_THRESHOLD,
                     hard_threshold=SEMANTIC_HARD_BLOCK_THRESHOLD,
                 )
-                working_prompt = f"{prompt}\n\n{semantic_guard}"
+                working_prompt = f"{utterance_prompt}\n\n{semantic_guard}"
                 continue
 
-            if (
-                not decision.should_react
-                or not decision.reaction
-                or not recent_sentences
-            ):
+            if not decision.reaction or not recent_sentences:
                 return replace(
                     decision,
                     trace=replace(
@@ -275,4 +308,19 @@ class LlmService:
                 recent_sentences=recent_sentences,
                 previous_candidate=decision.reaction,
             )
-            working_prompt = f"{prompt}\n\n{overlap_guard}"
+            working_prompt = f"{utterance_prompt}\n\n{overlap_guard}"
+
+    def _build_reaction_decision(
+        self,
+        *,
+        intent: ReactionIntent,
+        utterance_result: ReactionUtterance,
+    ) -> ReactionDecision:
+        return ReactionDecision(
+            should_react=True,
+            reaction=utterance_result.utterance,
+            reason=(utterance_result.reason or intent.reason).strip() or "n/a",
+            thought=(utterance_result.thought or intent.thought).strip(),
+            critique=(utterance_result.critique or intent.critique).strip(),
+            trace=utterance_result.trace,
+        )

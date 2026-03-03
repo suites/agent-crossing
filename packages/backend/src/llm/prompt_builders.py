@@ -7,10 +7,14 @@ from agents.memory.memory_object import MemoryObject
 
 from .template_loader import render_template
 
-REACTION_DECISION_JSON_SHAPE = (
+REACTION_INTENT_JSON_SHAPE = (
     '{"should_react": <boolean>, "thought": "<string>", '
-    '"critique": "<string>", "utterance": "<string>", '
-    '"reason": "<short string>"}'
+    '"critique": "<string>", "reason": "<short string>"}'
+)
+
+REACTION_UTTERANCE_JSON_SHAPE = (
+    '{"utterance": "<string>", "thought": "<string>", '
+    '"critique": "<string>", "reason": "<short string>"}'
 )
 
 SALIENT_QUESTIONS_JSON_SHAPE = (
@@ -126,14 +130,14 @@ def build_reaction_prompt(
         [
             f"Summary of relevant context from [{agent_identity.name}]'s memory:",
             memory_summary,
-            _reaction_decision_question(agent_identity.name),
+            _reaction_intent_question(agent_identity.name),
         ]
     )
 
     return "\n".join(sections)
 
 
-def build_reaction_decision_prompt(
+def build_reaction_intent_prompt(
     *,
     agent_identity: AgentIdentity,
     current_time: datetime.datetime,
@@ -166,15 +170,84 @@ def build_reaction_decision_prompt(
         [
             (f"Summary of relevant context from [{agent_identity.name}]'s memory:"),
             memory_summary,
-            render_template("reaction_guidelines.md").strip(),
-            "Few-shot calibration examples:",
-            _few_shot_reaction_examples(),
-            _reaction_decision_question(agent_identity.name),
-            _reaction_decision_shape_line(),
+            _reaction_intent_question(agent_identity.name),
+            _reaction_intent_shape_line(),
         ]
     )
 
     return "\n".join(sections)
+
+
+def build_reaction_utterance_prompt(
+    *,
+    agent_identity: AgentIdentity,
+    current_time: datetime.datetime,
+    observation_content: str,
+    dialogue_history: list[tuple[str, str]],
+    profile: AgentProfile,
+    retrieved_memories: list[MemoryObject],
+    intent_reason: str,
+    intent_thought: str,
+    intent_critique: str,
+) -> str:
+    summary_description = _build_summary_description(agent_identity, profile)
+    agent_status = _build_agent_status(profile)
+    reflection_anchor = _build_reflection_anchor(profile, retrieved_memories)
+    memory_summary = _summarize_retrieved_memories(retrieved_memories)
+
+    sections: list[str] = _build_reaction_base_sections(
+        agent_identity=agent_identity,
+        current_time=current_time,
+        summary_description=summary_description,
+        agent_status=agent_status,
+        observation_content=observation_content,
+        identity_anchor=reflection_anchor,
+    )
+
+    if dialogue_history:
+        sections.append("Recent dialogue context:")
+        for index, (partner_talk, my_talk) in enumerate(dialogue_history, start=1):
+            sections.append(f"- turn {index} partner: {partner_talk or 'none'}")
+            sections.append(f"- turn {index} self: {my_talk or 'none'}")
+
+    sections.extend(
+        [
+            (f"Summary of relevant context from [{agent_identity.name}]'s memory:"),
+            memory_summary,
+            (
+                "Stage 1 decision: should_react=true | "
+                f"reason={intent_reason or 'n/a'} | "
+                f"thought={intent_thought or 'n/a'} | "
+                f"critique={intent_critique or 'n/a'}"
+            ),
+            render_template("reaction_guidelines.md").strip(),
+            "Few-shot calibration examples:",
+            _few_shot_reaction_examples(),
+            _reaction_utterance_question(agent_identity.name),
+            _reaction_utterance_shape_line(),
+        ]
+    )
+
+    return "\n".join(sections)
+
+
+def build_reaction_decision_prompt(
+    *,
+    agent_identity: AgentIdentity,
+    current_time: datetime.datetime,
+    observation_content: str,
+    dialogue_history: list[tuple[str, str]],
+    profile: AgentProfile,
+    retrieved_memories: list[MemoryObject],
+) -> str:
+    return build_reaction_intent_prompt(
+        agent_identity=agent_identity,
+        current_time=current_time,
+        observation_content=observation_content,
+        dialogue_history=dialogue_history,
+        profile=profile,
+        retrieved_memories=retrieved_memories,
+    )
 
 
 def language_system_prompt(language: Literal["ko", "en"]) -> str:
@@ -197,7 +270,7 @@ def build_overlap_guard_block(
         "overlap_guard.md",
         previous_candidate=previous_candidate,
         recent_dialogue_lines=recent_dialogue_lines,
-        json_shape=REACTION_DECISION_JSON_SHAPE,
+        json_shape=REACTION_UTTERANCE_JSON_SHAPE,
     ).strip()
 
 
@@ -223,7 +296,7 @@ def build_semantic_guard_block(
         hard_threshold=str(hard_threshold),
         previous_candidate=previous_candidate,
         semantic_history_lines=semantic_history_lines,
-        json_shape=REACTION_DECISION_JSON_SHAPE,
+        json_shape=REACTION_UTTERANCE_JSON_SHAPE,
     ).strip()
 
 
@@ -231,7 +304,7 @@ def build_partner_response_nudge_block(*, latest_partner_utterance: str) -> str:
     return render_template(
         "partner_response_nudge.md",
         latest_partner_utterance=latest_partner_utterance,
-        json_shape=REACTION_DECISION_JSON_SHAPE,
+        json_shape=REACTION_UTTERANCE_JSON_SHAPE,
     ).strip()
 
 
@@ -266,26 +339,48 @@ def _build_reaction_base_sections(
     return sections
 
 
-def _reaction_decision_question(agent_name: str) -> str:
+def _reaction_intent_question(agent_name: str) -> str:
     rendered = render_template(
-        "reaction_decision_question.md",
+        "reaction_intent_question.md",
         agent_name=agent_name,
-        json_shape=REACTION_DECISION_JSON_SHAPE,
+        json_shape=REACTION_INTENT_JSON_SHAPE,
     ).strip()
     lines = rendered.splitlines()
     return lines[0] if lines else ""
 
 
-def _reaction_decision_shape_line() -> str:
+def _reaction_intent_shape_line() -> str:
     rendered = render_template(
-        "reaction_decision_question.md",
+        "reaction_intent_question.md",
         agent_name="agent",
-        json_shape=REACTION_DECISION_JSON_SHAPE,
+        json_shape=REACTION_INTENT_JSON_SHAPE,
     ).strip()
     lines = rendered.splitlines()
     if len(lines) >= 2:
         return lines[1]
-    return f"Return JSON only with this shape: {REACTION_DECISION_JSON_SHAPE}"
+    return f"Return JSON only with this shape: {REACTION_INTENT_JSON_SHAPE}"
+
+
+def _reaction_utterance_question(agent_name: str) -> str:
+    rendered = render_template(
+        "reaction_utterance_question.md",
+        agent_name=agent_name,
+        json_shape=REACTION_UTTERANCE_JSON_SHAPE,
+    ).strip()
+    lines = rendered.splitlines()
+    return lines[0] if lines else ""
+
+
+def _reaction_utterance_shape_line() -> str:
+    rendered = render_template(
+        "reaction_utterance_question.md",
+        agent_name="agent",
+        json_shape=REACTION_UTTERANCE_JSON_SHAPE,
+    ).strip()
+    lines = rendered.splitlines()
+    if len(lines) >= 2:
+        return lines[1]
+    return f"Return JSON only with this shape: {REACTION_UTTERANCE_JSON_SHAPE}"
 
 
 def _build_agent_context_lines(
@@ -398,6 +493,8 @@ def template_file_plan() -> list[str]:
         "reaction_guidelines.md",
         "reaction_few_shot_examples.md",
         "reaction_decision_question.md",
+        "reaction_intent_question.md",
+        "reaction_utterance_question.md",
         "language_system_ko.md",
         "language_system_en.md",
         "overlap_guard.md",
