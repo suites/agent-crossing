@@ -6,12 +6,23 @@ from typing import Literal, Protocol, cast
 
 from agents.agent import AgentIdentity, AgentProfile
 from agents.memory.memory_object import MemoryObject
+from llm.embedding_encoder import EmbeddingEncodingContext
 from llm.ollama_client import JsonObject, OllamaGenerateOptions
+from utils.math import cosine_similarity
+
+SEMANTIC_HARD_BLOCK_THRESHOLD = 0.92
+SEMANTIC_SOFT_PENALTY_THRESHOLD = 0.82
 
 
 class LlmService:
-    def __init__(self, ollama_client: "GenerateClient"):
+    def __init__(
+        self,
+        ollama_client: "GenerateClient",
+        *,
+        embedding_encoder: "EmbeddingEncoder | None" = None,
+    ):
         self.ollama_client: GenerateClient = ollama_client
+        self.embedding_encoder = embedding_encoder
 
     def generate_salient_high_level_questions(
         self, agent_name: str, memories: list[MemoryObject]
@@ -19,14 +30,12 @@ class LlmService:
         if not memories:
             return []
 
-        # 1. 기억 나열
         memory_lines = [f"Statements about {agent_name}"]
         for i, memory in enumerate(memories):
             memory_lines.append(f"{i + 1}. {memory.content}")
 
         memory_text = "\n".join(memory_lines)
 
-        # 2. 핵심 지시어 + JSON 포맷 강제
         instruction = (
             "Given only the information above, what are 3 most salient high-level "
             "questions we can answer about the subjects in the statements?\n"
@@ -35,8 +44,6 @@ class LlmService:
         )
 
         prompt = f"{memory_text}\n\n{instruction}"
-
-        # 3. LLM 호출 및 파싱
         response_text = self.ollama_client.generate(prompt=prompt)
 
         try:
@@ -57,7 +64,6 @@ class LlmService:
 
             return parsed_questions
         except json.JSONDecodeError:
-            # 포맷이 깨졌을 경우의 방어 코드
             return []
 
     def generate_insights_with_citation_key(
@@ -66,7 +72,6 @@ class LlmService:
         if not memories:
             return []
 
-        # 1. 기억 나열
         memory_lines = [f"Statements about {agent_name}"]
         for i, memory in enumerate(memories):
             memory_lines.append(f"{i + 1}. {memory.content}")
@@ -87,8 +92,6 @@ class LlmService:
         )
 
         prompt = f"{memory_text}\n\n{instruction}"
-
-        # 3. LLM 호출 및 파싱
         response_text = self.ollama_client.generate(prompt=prompt, format_json=True)
 
         try:
@@ -133,7 +136,6 @@ class LlmService:
 
             return parsed_insights
         except json.JSONDecodeError:
-            # 포맷이 깨졌을 경우의 방어 코드
             return []
 
     def decide_reaction(
@@ -144,16 +146,21 @@ class LlmService:
     ) -> "ReactionDecision":
         prompt = self._build_reaction_decision_prompt(input)
         system_prompt = _language_system_prompt(input.language)
-        recent_sentences = _recent_dialogue_sentences(
-            input.dialogue_history,
-            window=3,
-        )
+        recent_sentences = _recent_dialogue_sentences(input.dialogue_history, window=3)
 
         retry_count = 0
         max_retry = 2
+        semantic_retry_count = 0
+        max_semantic_retry = 2
         partner_retry_count = 0
         working_prompt = prompt
         latest_partner_utterance = _latest_partner_utterance(input.dialogue_history)
+
+        semantic_history = _recent_self_utterances(input.dialogue_history, window=5)
+        semantic_history_embeddings = _embed_sentences(
+            sentences=semantic_history,
+            embedding_encoder=self.embedding_encoder,
+        )
 
         while True:
             response_text = self.ollama_client.generate(
@@ -183,11 +190,51 @@ class LlmService:
                 trace=replace(
                     decision.trace,
                     partner_retry_count=partner_retry_count,
+                    semantic_hard_threshold=SEMANTIC_HARD_BLOCK_THRESHOLD,
+                    semantic_soft_threshold=SEMANTIC_SOFT_PENALTY_THRESHOLD,
                 ),
             )
 
+            semantic_check = _semantic_overlap_check(
+                candidate_sentence=decision.reaction,
+                reference_sentences=semantic_history,
+                reference_embeddings=semantic_history_embeddings,
+                embedding_encoder=self.embedding_encoder,
+            )
+
+            if semantic_check.max_similarity >= SEMANTIC_SOFT_PENALTY_THRESHOLD:
+                semantic_retry_count += 1
+                if semantic_retry_count > max_semantic_retry:
+                    return replace(
+                        decision,
+                        trace=replace(
+                            decision.trace,
+                            semantic_retry_count=semantic_retry_count,
+                            max_semantic_similarity=semantic_check.max_similarity,
+                            semantic_retry_trigger=semantic_check.trigger,
+                            fallback_reason="semantic_retry_exhausted",
+                        ),
+                    )
+
+                semantic_guard = _build_semantic_guard_block(
+                    semantic_history=semantic_history,
+                    previous_candidate=decision.reaction,
+                    max_similarity=semantic_check.max_similarity,
+                    trigger=semantic_check.trigger,
+                )
+                working_prompt = f"{prompt}\n\n{semantic_guard}"
+                continue
+
             if not decision.should_react or not decision.reaction or not recent_sentences:
-                return decision
+                return replace(
+                    decision,
+                    trace=replace(
+                        decision.trace,
+                        semantic_retry_count=semantic_retry_count,
+                        max_semantic_similarity=semantic_check.max_similarity,
+                        semantic_retry_trigger=semantic_check.trigger,
+                    ),
+                )
 
             has_overlap = _exceeds_ngram_overlap_threshold(
                 candidate_sentence=decision.reaction,
@@ -196,7 +243,15 @@ class LlmService:
                 threshold=0.5,
             )
             if not has_overlap:
-                return decision
+                return replace(
+                    decision,
+                    trace=replace(
+                        decision.trace,
+                        semantic_retry_count=semantic_retry_count,
+                        max_semantic_similarity=semantic_check.max_similarity,
+                        semantic_retry_trigger=semantic_check.trigger,
+                    ),
+                )
 
             retry_count += 1
             if retry_count > max_retry:
@@ -205,6 +260,9 @@ class LlmService:
                     trace=replace(
                         decision.trace,
                         overlap_retry_count=retry_count,
+                        semantic_retry_count=semantic_retry_count,
+                        max_semantic_similarity=semantic_check.max_similarity,
+                        semantic_retry_trigger=semantic_check.trigger,
                         fallback_reason="overlap_retry_exhausted",
                     ),
                 )
@@ -217,16 +275,15 @@ class LlmService:
 
     @staticmethod
     def _build_reaction_decision_prompt(input: "ReactionDecisionInput") -> str:
-        summary_description = _build_summary_description(
-            input.agent_identity,
-            input.profile,
-        )
+        summary_description = _build_summary_description(input.agent_identity, input.profile)
         agent_status = _build_agent_status(input.profile)
         memory_summary = _summarize_retrieved_memories(input.retrieved_memories)
 
         sections: list[str] = [
             "[Agent's Summary Description]",
             summary_description,
+            "[Identity Anchor - highest priority]",
+            _build_reflection_anchor(input.profile, input.retrieved_memories),
             f"It is {input.current_time.isoformat()}.",
             f"[{input.agent_identity.name}]'s status: {agent_status}.",
             f"Observation: {input.observation_content}",
@@ -234,9 +291,7 @@ class LlmService:
 
         if input.dialogue_history:
             sections.append("Recent dialogue context:")
-            for index, (partner_talk, my_talk) in enumerate(
-                input.dialogue_history, start=1
-            ):
+            for index, (partner_talk, my_talk) in enumerate(input.dialogue_history, start=1):
                 sections.append(f"- turn {index} partner: {partner_talk or 'none'}")
                 sections.append(f"- turn {index} self: {my_talk or 'none'}")
 
@@ -264,6 +319,8 @@ class LlmService:
                     "only when social context requires it. Avoid repetitive greeting "
                     "phrases across turns."
                 ),
+                "Few-shot calibration examples:",
+                _few_shot_reaction_examples(),
                 (
                     f"Should [{input.agent_identity.name}] react to the observation, "
                     "and if so, what would be an appropriate reaction?"
@@ -405,14 +462,12 @@ def _build_summary_description(
 
     if profile.extended.lifestyle_and_routine:
         summary_lines.append(
-            "Lifestyle and routine: "
-            + " | ".join(profile.extended.lifestyle_and_routine[:2])
+            "Lifestyle and routine: " + " | ".join(profile.extended.lifestyle_and_routine[:2])
         )
 
     if profile.extended.current_plan_context:
         summary_lines.append(
-            "Current plan context: "
-            + " | ".join(profile.extended.current_plan_context[:2])
+            "Current plan context: " + " | ".join(profile.extended.current_plan_context[:2])
         )
 
     return "\n".join(summary_lines)
@@ -422,6 +477,37 @@ def _build_agent_status(profile: AgentProfile) -> str:
     if profile.extended.current_plan_context:
         return profile.extended.current_plan_context[0]
     return "Idle"
+
+
+def _build_reflection_anchor(
+    profile: AgentProfile,
+    retrieved_memories: list[MemoryObject],
+) -> str:
+    reflection_items = [
+        memory.content
+        for memory in retrieved_memories
+        if memory.node_type.value == "REFLECTION" and memory.content.strip()
+    ]
+    if reflection_items:
+        return " | ".join(reflection_items[:2])
+
+    if profile.fixed.identity_stable_set:
+        return " | ".join(profile.fixed.identity_stable_set[:2])
+
+    return "Keep consistency with your core identity and current plan."
+
+
+def _few_shot_reaction_examples() -> str:
+    return "\n".join(
+        [
+            "Example 1 (conflict with identity/plan -> polite refusal):",
+            "- input: partner asks you to betray your stated values for convenience",
+            '- output json: {"should_react": true, "utterance": "그건 제 원칙과 맞지 않아서 도와드리기 어려워요.", "thought": "정체성과 충돌", "critique": "정중히 거절", "reason": "identity_conflict"}',
+            "Example 2 (natural pivot to own interest):",
+            "- input: partner asks a vague small-talk question during your focused routine",
+            '- output json: {"should_react": true, "utterance": "짧게는 괜찮아요. 저는 요즘 디카프 추출 실험이 더 궁금해요.", "thought": "관심사로 전환", "critique": "과잉 협조 대신 자연스러운 화제 전환", "reason": "natural_topic_shift"}',
+        ]
+    )
 
 
 def _summarize_retrieved_memories(retrieved_memories: list[MemoryObject]) -> str:
@@ -465,6 +551,22 @@ def _recent_dialogue_sentences(
     return ordered_sentences[-window:]
 
 
+def _recent_self_utterances(
+    dialogue_history: list[tuple[str, str]],
+    *,
+    window: int,
+) -> list[str]:
+    if window < 1:
+        return []
+
+    self_utterances = [
+        my_talk.strip()
+        for _, my_talk in dialogue_history
+        if my_talk and my_talk.strip() and my_talk.strip() != "none"
+    ]
+    return self_utterances[-window:]
+
+
 def _tokenize_for_ngram(text: str) -> list[str]:
     return re.findall(r"\w+", text.lower())
 
@@ -495,6 +597,15 @@ def _overlap_ratio(
     return overlap_count / len(candidate_ngrams)
 
 
+def _max_ngram_overlap(candidate_sentence: str, recent_sentences: list[str]) -> float:
+    if not recent_sentences:
+        return 0.0
+    return max(
+        _overlap_ratio(candidate_sentence, recent_sentence, n=2)
+        for recent_sentence in recent_sentences
+    )
+
+
 def _exceeds_ngram_overlap_threshold(
     *,
     candidate_sentence: str,
@@ -521,6 +632,88 @@ def _build_overlap_guard_block(
         "Recent dialogue sentences:",
     ]
     for index, sentence in enumerate(recent_sentences, start=1):
+        lines.append(f"- {index}. {sentence}")
+    lines.append(
+        "Return JSON only with this shape: "
+        + '{"should_react": <boolean>, "thought": "<string>", '
+        + '"critique": "<string>", "utterance": "<string>", '
+        + '"reason": "<short string>"}'
+    )
+    return "\n".join(lines)
+
+
+def _embed_sentences(
+    *,
+    sentences: list[str],
+    embedding_encoder: "EmbeddingEncoder | None",
+):
+    if embedding_encoder is None:
+        return []
+
+    pairs = []
+    for sentence in sentences:
+        embedding = embedding_encoder.encode(EmbeddingEncodingContext(text=sentence))
+        pairs.append((sentence, embedding))
+    return pairs
+
+
+@dataclass(frozen=True)
+class SemanticOverlapCheck:
+    max_similarity: float
+    trigger: str
+
+
+def _semantic_overlap_check(
+    *,
+    candidate_sentence: str,
+    reference_sentences: list[str],
+    reference_embeddings,
+    embedding_encoder: "EmbeddingEncoder | None",
+) -> SemanticOverlapCheck:
+    if not candidate_sentence.strip() or not reference_sentences:
+        return SemanticOverlapCheck(max_similarity=0.0, trigger="none")
+
+    if embedding_encoder is None or not reference_embeddings:
+        overlap = _max_ngram_overlap(candidate_sentence, reference_sentences)
+        if overlap >= SEMANTIC_HARD_BLOCK_THRESHOLD:
+            return SemanticOverlapCheck(max_similarity=overlap, trigger="hard")
+        if overlap >= SEMANTIC_SOFT_PENALTY_THRESHOLD:
+            return SemanticOverlapCheck(max_similarity=overlap, trigger="soft")
+        return SemanticOverlapCheck(max_similarity=overlap, trigger="none")
+
+    candidate_embedding = embedding_encoder.encode(
+        EmbeddingEncodingContext(text=candidate_sentence)
+    )
+
+    best_similarity = 0.0
+    for _, reference_embedding in reference_embeddings:
+        similarity = float(cosine_similarity(candidate_embedding, reference_embedding))
+        if similarity > best_similarity:
+            best_similarity = similarity
+
+    if best_similarity >= SEMANTIC_HARD_BLOCK_THRESHOLD:
+        return SemanticOverlapCheck(max_similarity=best_similarity, trigger="hard")
+    if best_similarity >= SEMANTIC_SOFT_PENALTY_THRESHOLD:
+        return SemanticOverlapCheck(max_similarity=best_similarity, trigger="soft")
+    return SemanticOverlapCheck(max_similarity=best_similarity, trigger="none")
+
+
+def _build_semantic_guard_block(
+    *,
+    semantic_history: list[str],
+    previous_candidate: str,
+    max_similarity: float,
+    trigger: str,
+) -> str:
+    level = "hard block" if trigger == "hard" else "soft penalty"
+    lines = [
+        f"Your previous reaction violated semantic repetition guard ({level}).",
+        f"max_similarity={max_similarity:.3f}, soft={SEMANTIC_SOFT_PENALTY_THRESHOLD}, hard={SEMANTIC_HARD_BLOCK_THRESHOLD}",
+        "Generate a meaningfully different utterance while keeping conversation natural.",
+        f"Previous candidate: {previous_candidate}",
+        "Recent self utterances to avoid semantically repeating:",
+    ]
+    for index, sentence in enumerate(semantic_history, start=1):
         lines.append(f"- {index}. {sentence}")
     lines.append(
         "Return JSON only with this shape: "
@@ -572,6 +765,11 @@ class ReactionDecisionTrace:
     suppress_reason: str = ""
     overlap_retry_count: int = 0
     partner_retry_count: int = 0
+    semantic_retry_count: int = 0
+    max_semantic_similarity: float = 0.0
+    semantic_hard_threshold: float = SEMANTIC_HARD_BLOCK_THRESHOLD
+    semantic_soft_threshold: float = SEMANTIC_SOFT_PENALTY_THRESHOLD
+    semantic_retry_trigger: str = "none"
 
 
 @dataclass(frozen=True)
@@ -597,3 +795,7 @@ class GenerateClient(Protocol):
         options: OllamaGenerateOptions | None = None,
         format_json: bool = False,
     ) -> str: ...
+
+
+class EmbeddingEncoder(Protocol):
+    def encode(self, context: EmbeddingEncodingContext): ...

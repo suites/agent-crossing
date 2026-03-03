@@ -3,6 +3,8 @@ from run_agent_loop_simulation import (
     _build_turn_observed_events,
     _is_repetitive_reply,
     _recent_replies_for_echo_check,
+    _semantic_repeat_rate,
+    _topic_progress_rate,
 )
 
 
@@ -62,3 +64,27 @@ def test_build_turn_observed_events_prefers_latest_utterance_when_present() -> N
 
 def test_default_reaction_num_predict_is_raised_for_truncation_safety() -> None:
     assert DEFAULT_CONFIG.reaction_generation_options.num_predict == 192
+
+
+def test_semantic_repeat_rate_detects_highly_similar_replies() -> None:
+    history = [
+        ("Jiho Park", "오늘은 커피 이야기하자"),
+        ("Sujin Lee", "오늘은 커피 이야기하자"),
+        ("Jiho Park", "다른 주제도 괜찮아"),
+    ]
+
+    rate = _semantic_repeat_rate(session_history=history)
+
+    assert rate > 0.0
+
+
+def test_topic_progress_rate_rewards_new_content() -> None:
+    history = [
+        ("Jiho Park", "오늘은 커피 이야기하자"),
+        ("Sujin Lee", "좋아, 나는 디카프 추출도 궁금해"),
+        ("Jiho Park", "그럼 원두 로스팅 차이도 같이 보자"),
+    ]
+
+    rate = _topic_progress_rate(history)
+
+    assert rate >= 0.66

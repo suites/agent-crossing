@@ -1,5 +1,6 @@
 import datetime
 import json
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Literal
@@ -50,6 +51,71 @@ def _is_repetitive_reply(reply: str, recent_replies: list[str]) -> bool:
         if recent_reply.strip()
     }
     return normalized_reply in normalized_recent_replies
+
+
+def _tokenize(text: str) -> set[str]:
+    return {token for token in re.findall(r"\w+", text.lower()) if token}
+
+
+def _semantic_similarity_proxy(a: str, b: str) -> float:
+    tokens_a = _tokenize(a)
+    tokens_b = _tokenize(b)
+    if not tokens_a or not tokens_b:
+        return 0.0
+    intersection = len(tokens_a.intersection(tokens_b))
+    union = len(tokens_a.union(tokens_b))
+    if union == 0:
+        return 0.0
+    return intersection / union
+
+
+def _semantic_repeat_rate(
+    *,
+    session_history: list[tuple[str, str]],
+    window: int = 4,
+    threshold: float = 0.8,
+) -> float:
+    if len(session_history) < 2:
+        return 0.0
+
+    repeats = 0
+    for index, (_, reply) in enumerate(session_history):
+        if not reply.strip() or index == 0:
+            continue
+        recent = [text for _, text in session_history[max(0, index - window) : index]]
+        if any(_semantic_similarity_proxy(reply, prev) >= threshold for prev in recent):
+            repeats += 1
+
+    total = max(1, len(session_history))
+    return repeats / total
+
+
+def _topic_progress_rate(session_history: list[tuple[str, str]]) -> float:
+    if len(session_history) < 2:
+        return 0.0
+
+    progressed = 0
+    evaluated = 0
+    previous_tokens: set[str] = set()
+
+    for _, reply in session_history:
+        if not reply.strip():
+            continue
+        current_tokens = _tokenize(reply)
+        if not current_tokens:
+            continue
+        evaluated += 1
+        if not previous_tokens:
+            progressed += 1
+        else:
+            new_ratio = len(current_tokens - previous_tokens) / max(1, len(current_tokens))
+            if new_ratio >= 0.35 or "?" in reply:
+                progressed += 1
+        previous_tokens = current_tokens
+
+    if evaluated == 0:
+        return 0.0
+    return progressed / evaluated
 
 
 def _build_turn_world_context(
@@ -153,6 +219,9 @@ def run_simulation(
         now=current_time,
     )
 
+    parse_failures = 0
+    silent_turns = 0
+
     session = WorldConversationSession(
         agents=agents,
         dialogue_turn_window=config.dialogue_turn_window,
@@ -213,6 +282,8 @@ def run_simulation(
             reply = _fallback_reply(language)
 
         trace = dict(action_result.reaction_trace or {})
+        if not trace.get("parse_success", True):
+            parse_failures += 1
         if suppress_reason:
             trace["suppress_reason"] = suppress_reason
         if fallback_reason:
@@ -226,6 +297,7 @@ def run_simulation(
         )
 
         if not reply:
+            silent_turns += 1
             silent_reason = ",".join(
                 reason
                 for reason in [action_result.silent_reason, suppress_reason]
@@ -262,6 +334,16 @@ def run_simulation(
         memories = agent.memory_service.get_recent_memories(limit=5)
         for memory in memories:
             print(f"  [{memory.node_type.value}] {memory.content}")
+
+    parse_failure_rate = parse_failures / max(1, config.turns)
+    silent_rate = silent_turns / max(1, config.turns)
+    semantic_repeat_rate = _semantic_repeat_rate(session_history=session.history)
+    topic_progress_rate = _topic_progress_rate(session.history)
+    print("\nSimulation metrics")
+    print(f"- parse_failure_rate={parse_failure_rate:.3f}")
+    print(f"- silent_rate={silent_rate:.3f}")
+    print(f"- semantic_repeat_rate={semantic_repeat_rate:.3f}")
+    print(f"- topic_progress_rate={topic_progress_rate:.3f}")
 
 
 def main() -> None:

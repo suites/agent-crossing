@@ -1,7 +1,10 @@
 import datetime
 import json
 
+import numpy as np
 from agents.agent import AgentIdentity, AgentProfile, ExtendedPersona, FixedPersona
+from agents.memory.memory_object import MemoryObject, NodeType
+from llm.embedding_encoder import EmbeddingEncodingContext
 from llm.llm_service import LlmService
 from llm.llm_service import ReactionDecisionInput
 
@@ -15,6 +18,16 @@ class StubOllamaClient:
         index = min(self.calls, len(self.responses) - 1)
         self.calls += 1
         return self.responses[index]
+
+
+class StubEmbeddingEncoder:
+    def __init__(self, vectors: dict[str, list[float]]):
+        self.vectors = vectors
+
+    def encode(self, context: EmbeddingEncodingContext) -> np.ndarray:
+        if context.text not in self.vectors:
+            return np.asarray([0.0, 1.0], dtype=np.float32)
+        return np.asarray(self.vectors[context.text], dtype=np.float32)
 
 
 def _reaction_json(
@@ -43,7 +56,11 @@ def _reaction_json(
     return json.dumps(payload)
 
 
-def _input(dialogue_history: list[tuple[str, str]]) -> ReactionDecisionInput:
+def _input(
+    dialogue_history: list[tuple[str, str]],
+    *,
+    retrieved_memories: list[MemoryObject] | None = None,
+) -> ReactionDecisionInput:
     return ReactionDecisionInput(
         agent_identity=AgentIdentity(
             id="jiho",
@@ -61,7 +78,7 @@ def _input(dialogue_history: list[tuple[str, str]]) -> ReactionDecisionInput:
                 current_plan_context=["Finish workbook."],
             ),
         ),
-        retrieved_memories=[],
+        retrieved_memories=retrieved_memories or [],
         language="ko",
     )
 
@@ -117,6 +134,39 @@ def test_decide_reaction_uses_first_output_when_not_repetitive() -> None:
 
     assert decision.reaction == "수진 씨, 이번 주 테스트한 블렌드는 어땠어요?"
     assert client.calls == 1
+
+
+def test_decide_reaction_semantic_retry_when_embedding_similarity_is_high() -> None:
+    client = StubOllamaClient(
+        responses=[
+            _reaction_json(
+                should_react=True,
+                reaction="같은 말 반복",
+                reason="first",
+            ),
+            _reaction_json(
+                should_react=True,
+                reaction="다른 반응으로 바꿔볼게요",
+                reason="retry",
+            ),
+        ]
+    )
+    embedding = StubEmbeddingEncoder(
+        vectors={
+            "같은 말 반복": [1.0, 0.0],
+            "다른 반응으로 바꿔볼게요": [0.0, 1.0],
+            "같은 말": [1.0, 0.0],
+        }
+    )
+    service = LlmService(client, embedding_encoder=embedding)
+
+    decision = service.decide_reaction(
+        _input(dialogue_history=[("partner", "같은 말")])
+    )
+
+    assert client.calls == 2
+    assert decision.reaction == "다른 반응으로 바꿔볼게요"
+    assert decision.trace.semantic_retry_count == 1
 
 
 def test_decide_reaction_parses_thought_critique_and_utterance() -> None:
@@ -197,3 +247,24 @@ def test_reaction_prompt_includes_concise_utterance_constraint() -> None:
 
     assert "Keep utterance concise and short" in prompt
     assert "80 Korean characters" in prompt
+
+
+def test_reaction_prompt_includes_few_shot_and_reflection_anchor() -> None:
+    reflection_memory = MemoryObject(
+        id=1,
+        node_type=NodeType.REFLECTION,
+        citations=None,
+        content="상대의 요청이 원칙과 충돌하면 정중히 거절한다.",
+        created_at=datetime.datetime(2026, 2, 27, 13, 0, 0),
+        last_accessed_at=datetime.datetime(2026, 2, 27, 13, 0, 0),
+        importance=8,
+        embedding=np.asarray([0.1, 0.2], dtype=np.float32),
+    )
+
+    prompt = LlmService._build_reaction_decision_prompt(
+        _input(dialogue_history=[], retrieved_memories=[reflection_memory])
+    )
+
+    assert "[Identity Anchor - highest priority]" in prompt
+    assert "Few-shot calibration examples" in prompt
+    assert "polite refusal" in prompt

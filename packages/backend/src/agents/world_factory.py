@@ -37,7 +37,7 @@ def build_agent(
         importance_scorer=importance_scorer,
         embedding_encoder=embedding_encoder,
     )
-    llm_service = LlmService(ollama_client)
+    llm_service = LlmService(ollama_client, embedding_encoder=embedding_encoder)
     reflection_service = ReflectionService(
         reflection=Reflection(),
         memory_service=memory_service,
