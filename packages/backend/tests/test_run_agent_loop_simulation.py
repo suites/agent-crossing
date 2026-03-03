@@ -1,11 +1,11 @@
 from run_agent_loop_simulation import (
     DEFAULT_CONFIG,
-    _build_turn_observed_events,
     _is_repetitive_reply,
     _recent_replies_for_echo_check,
     _semantic_repeat_rate,
     _topic_progress_rate,
 )
+from world.session import build_turn_observed_events
 
 
 def test_recent_replies_for_echo_check_collects_cross_speaker_history() -> None:
@@ -39,7 +39,7 @@ def test_recent_replies_for_echo_check_returns_empty_for_non_positive_window() -
 
 
 def test_build_turn_observed_events_uses_pure_encounter_on_opening_turn() -> None:
-    observed_events = _build_turn_observed_events(
+    observed_events = build_turn_observed_events(
         language="ko",
         speaker_name="Jiho Park",
         partner_name="Sujin Lee",
@@ -50,7 +50,7 @@ def test_build_turn_observed_events_uses_pure_encounter_on_opening_turn() -> Non
 
 
 def test_build_turn_observed_events_prefers_latest_utterance_when_present() -> None:
-    observed_events = _build_turn_observed_events(
+    observed_events = build_turn_observed_events(
         language="ko",
         speaker_name="Jiho Park",
         partner_name="Sujin Lee",

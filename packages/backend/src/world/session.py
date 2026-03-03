@@ -1,4 +1,56 @@
+import datetime
+from typing import Literal
+
 from agents.sim_agent import SimAgent
+
+
+def build_turn_world_context(
+    *, speaker_name: str, partner_name: str, turn: int
+) -> dict[str, str]:
+    locations = [
+        "town square",
+        "cafe entrance",
+        "library walkway",
+        "park bench",
+    ]
+    location = locations[(turn - 1) % len(locations)]
+    return {
+        "location": f"{location} near {partner_name}",
+        "focus": f"{speaker_name} is facing {partner_name}",
+    }
+
+
+def build_turn_observed_events(
+    *,
+    language: Literal["ko", "en"],
+    speaker_name: str,
+    partner_name: str,
+    incoming_partner_utterance: str | None,
+) -> list[str]:
+    if incoming_partner_utterance and incoming_partner_utterance.strip():
+        if language == "ko":
+            return [f"{partner_name}의 직전 발화를 들음: {incoming_partner_utterance}"]
+        return [
+            f"Heard {partner_name}'s latest utterance: {incoming_partner_utterance}"
+        ]
+
+    if language == "ko":
+        return [f"{speaker_name}가 {partner_name}를 근처에서 마주쳤다."]
+    return [f"{speaker_name} encountered {partner_name} nearby."]
+
+
+def _format_self_said(language: Literal["ko", "en"], reply: str) -> str:
+    if language == "ko":
+        return f"나는 이렇게 말했다: {reply}"
+    return f"I said: {reply}"
+
+
+def _format_other_said(
+    language: Literal["ko", "en"], speaker_name: str, reply: str
+) -> str:
+    if language == "ko":
+        return f"{speaker_name}가 이렇게 말했다: {reply}"
+    return f"{speaker_name} said: {reply}"
 
 
 class WorldConversationSession:
@@ -70,3 +122,27 @@ class WorldConversationSession:
             self.dialogue_history_by_agent[speaker.name].append(("", reply))
 
         self.history.append((speaker.name, reply))
+
+    def broadcast_reply(
+        self,
+        *,
+        speaker: SimAgent,
+        reply: str,
+        now: datetime.datetime,
+        language: Literal["ko", "en"],
+    ) -> None:
+        for observer in self.agents:
+            if observer is speaker:
+                observer.brain.queue_observation(
+                    content=_format_self_said(language, reply),
+                    now=now,
+                    profile=observer.profile,
+                )
+                continue
+
+            observer.brain.queue_observation(
+                content=_format_other_said(language, speaker.name, reply),
+                now=now,
+                profile=observer.profile,
+            )
+            self.incoming_utterances_by_agent[observer.name].append(reply)

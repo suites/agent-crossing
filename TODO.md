@@ -174,6 +174,13 @@
 
 ## 4) World Integration (시뮬레이션)
 
+- [x] `P1` simulation harness에서 world 상태/이벤트 로직을 분리한다
+  - Depends on: 없음
+  - DoD:
+    - [x] turn world_context/observed_events 생성 로직을 world 모듈로 이동한다
+    - [x] 발화 브로드캐스트와 incoming queue 갱신을 WorldConversationSession 메서드로 캡슐화한다
+    - [x] 관련 단위 테스트를 world/session 경계 기준으로 보강한다
+
 ### 4-A. Backend 실시간 파이프라인
 
 - [ ] `P1` world clock와 tick scheduler를 붙인다

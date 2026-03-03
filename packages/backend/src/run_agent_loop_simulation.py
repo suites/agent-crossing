@@ -6,30 +6,19 @@ from pathlib import Path
 from typing import Literal
 
 from agents.agent_brain import ActionLoopInput
-from agents.sim_agent import SimAgent
 from agents.world_factory import init_agents
 from llm.ollama_client import OllamaClient, OllamaGenerateOptions
-from world.session import WorldConversationSession
+from world.session import (
+    WorldConversationSession,
+    build_turn_observed_events,
+    build_turn_world_context,
+)
 
 
 def _fallback_reply(language: Literal["ko", "en"]) -> str:
     if language == "ko":
         return "LLM 응답 오류"
     return "LLM Error"
-
-
-def _format_self_said(language: Literal["ko", "en"], reply: str) -> str:
-    if language == "ko":
-        return f"나는 이렇게 말했다: {reply}"
-    return f"I said: {reply}"
-
-
-def _format_other_said(
-    language: Literal["ko", "en"], speaker_name: str, reply: str
-) -> str:
-    if language == "ko":
-        return f"{speaker_name}가 이렇게 말했다: {reply}"
-    return f"{speaker_name} said: {reply}"
 
 
 def _normalize_reply_for_repeat_check(reply: str) -> str:
@@ -108,7 +97,9 @@ def _topic_progress_rate(session_history: list[tuple[str, str]]) -> float:
         if not previous_tokens:
             progressed += 1
         else:
-            new_ratio = len(current_tokens - previous_tokens) / max(1, len(current_tokens))
+            new_ratio = len(current_tokens - previous_tokens) / max(
+                1, len(current_tokens)
+            )
             if new_ratio >= 0.35 or "?" in reply:
                 progressed += 1
         previous_tokens = current_tokens
@@ -116,49 +107,6 @@ def _topic_progress_rate(session_history: list[tuple[str, str]]) -> float:
     if evaluated == 0:
         return 0.0
     return progressed / evaluated
-
-
-def _build_turn_world_context(
-    *, speaker_name: str, partner_name: str, turn: int
-) -> dict[str, str]:
-    locations = [
-        "town square",
-        "cafe entrance",
-        "library walkway",
-        "park bench",
-    ]
-    location = locations[(turn - 1) % len(locations)]
-    return {
-        "location": f"{location} near {partner_name}",
-        "focus": f"{speaker_name} is facing {partner_name}",
-    }
-
-
-def _build_turn_observed_events(
-    *,
-    language: Literal["ko", "en"],
-    speaker_name: str,
-    partner_name: str,
-    incoming_partner_utterance: str | None,
-) -> list[str]:
-    if incoming_partner_utterance and incoming_partner_utterance.strip():
-        if language == "ko":
-            return [f"{partner_name}의 직전 발화를 들음: {incoming_partner_utterance}"]
-        return [
-            f"Heard {partner_name}'s latest utterance: {incoming_partner_utterance}"
-        ]
-
-    if language == "ko":
-        return [f"{speaker_name}가 {partner_name}를 근처에서 마주쳤다."]
-    return [f"{speaker_name} encountered {partner_name} nearby."]
-
-
-def _ingest_line(observer: SimAgent, content: str, now: datetime.datetime) -> None:
-    observer.brain.queue_observation(
-        content=content,
-        now=now,
-        profile=observer.profile,
-    )
 
 
 @dataclass(frozen=True)
@@ -239,7 +187,7 @@ def run_simulation(
         )
 
         now = current_time + datetime.timedelta(seconds=config.turn_time_step_seconds)
-        observed_events = _build_turn_observed_events(
+        observed_events = build_turn_observed_events(
             language=language,
             speaker_name=speaker.name,
             partner_name=speaking_partner.name,
@@ -251,7 +199,7 @@ def run_simulation(
                 dialogue_history=session.dialogue_context_for(speaker=speaker),
                 profile=speaker.profile,
                 language=language,
-                world_context=_build_turn_world_context(
+                world_context=build_turn_world_context(
                     speaker_name=speaker.name,
                     partner_name=speaking_partner.name,
                     turn=turn,
@@ -316,15 +264,12 @@ def run_simulation(
         )
         print(f"{speaker.name}: {reply}")
 
-        for observer in agents:
-            if observer is speaker:
-                _ingest_line(observer, _format_self_said(language, reply), now)
-                continue
-
-            _ingest_line(
-                observer, _format_other_said(language, speaker.name, reply), now
-            )
-            session.incoming_utterances_by_agent[observer.name].append(reply)
+        session.broadcast_reply(
+            speaker=speaker,
+            reply=reply,
+            now=now,
+            language=language,
+        )
 
         current_time = now
 
