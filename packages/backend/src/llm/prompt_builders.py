@@ -5,6 +5,92 @@ from typing import Literal
 from agents.agent import AgentIdentity, AgentProfile
 from agents.memory.memory_object import MemoryObject
 
+REACTION_DECISION_JSON_SHAPE = (
+    '{"should_react": <boolean>, "thought": "<string>", '
+    '"critique": "<string>", "utterance": "<string>", '
+    '"reason": "<short string>"}'
+)
+
+SALIENT_QUESTIONS_JSON_SHAPE = (
+    '{"questions": ["<question 1>", "<question 2>", "<question 3>"]}'
+)
+
+INSIGHTS_JSON_SHAPE = (
+    '{"insights": ['
+    '{"insight": "<text>", "citation_statement_numbers": [1, 5, 3]}, '
+    '{"insight": "<text>", "citation_statement_numbers": [2, 4]}'
+    "]}"
+)
+
+IMPORTANCE_JSON_SHAPE = '{"importance": <int 1-10>, "reason": "<short>"}'
+
+
+def build_salient_questions_prompt(
+    *,
+    agent_name: str,
+    memories: list[MemoryObject],
+) -> str:
+    memory_text = _build_memory_statements_text(
+        agent_name=agent_name, memories=memories
+    )
+    instruction = "\n".join(
+        [
+            (
+                "Given only the information above, what are 3 most salient "
+                "high-level questions we can answer about the subjects in the "
+                "statements?"
+            ),
+            f"Return JSON only with this shape: {SALIENT_QUESTIONS_JSON_SHAPE}",
+        ]
+    )
+    return f"{memory_text}\n\n{instruction}"
+
+
+def build_insights_with_citation_prompt(
+    *,
+    agent_name: str,
+    memories: list[MemoryObject],
+) -> str:
+    memory_text = _build_memory_statements_text(
+        agent_name=agent_name, memories=memories
+    )
+    instruction = "\n".join(
+        [
+            (
+                "What 5 high-level insights can you infer from the above "
+                "statements? Use statement numbers as evidence references."
+            ),
+            f"Return JSON only with this shape: {INSIGHTS_JSON_SHAPE}",
+        ]
+    )
+    return f"{memory_text}\n\n{instruction}"
+
+
+def build_importance_scoring_prompt(
+    *,
+    agent_name: str,
+    identity_stable_set: list[str],
+    current_plan: str | None,
+    observation: str,
+) -> str:
+    identity_text = " | ".join(identity_stable_set[:3]) or "N/A"
+    current_plan_text = current_plan or "N/A"
+    return "\n".join(
+        [
+            "Score memory importance for an autonomous agent from 1 to 10.",
+            (
+                "Scale: 1-3 trivial routine, 4-6 somewhat meaningful, 7-8 "
+                "important for goals/relationships, 9-10 critical."
+            ),
+            f"Return JSON only with this shape: {IMPORTANCE_JSON_SHAPE}.",
+            "",
+            f"Agent: {agent_name}",
+            f"Identity stable set: {identity_text}",
+            f"Current plan: {current_plan_text}",
+            f"Observation: {observation}",
+        ]
+    )
+
 
 def build_retrieval_query(
     *,
@@ -38,13 +124,13 @@ def build_reaction_prompt(
     agent_status = _build_agent_status(profile)
     memory_summary = _summarize_retrieved_memories(retrieved_memories)
 
-    sections: list[str] = [
-        "[Agent's Summary Description]",
-        summary_description,
-        f"It is {current_time.isoformat()}.",
-        f"[{agent_identity.name}]'s status: {agent_status}.",
-        f"Observation: {observation_content}",
-    ]
+    sections: list[str] = _build_reaction_base_sections(
+        agent_identity=agent_identity,
+        current_time=current_time,
+        summary_description=summary_description,
+        agent_status=agent_status,
+        observation_content=observation_content,
+    )
 
     if dialogue_history:
         partner_talk, my_talk = dialogue_history[-1]
@@ -56,10 +142,7 @@ def build_reaction_prompt(
         [
             f"Summary of relevant context from [{agent_identity.name}]'s memory:",
             memory_summary,
-            (
-                f"Should [{agent_identity.name}] react to the observation, "
-                "and if so, what would be an appropriate reaction?"
-            ),
+            _reaction_decision_question(agent_identity.name),
         ]
     )
 
@@ -80,15 +163,14 @@ def build_reaction_decision_prompt(
     reflection_anchor = _build_reflection_anchor(profile, retrieved_memories)
     memory_summary = _summarize_retrieved_memories(retrieved_memories)
 
-    sections: list[str] = [
-        "[Agent's Summary Description]",
-        summary_description,
-        "[Identity Anchor - highest priority]",
-        reflection_anchor,
-        f"It is {current_time.isoformat()}.",
-        f"[{agent_identity.name}]'s status: {agent_status}.",
-        f"Observation: {observation_content}",
-    ]
+    sections: list[str] = _build_reaction_base_sections(
+        agent_identity=agent_identity,
+        current_time=current_time,
+        summary_description=summary_description,
+        agent_status=agent_status,
+        observation_content=observation_content,
+        identity_anchor=reflection_anchor,
+    )
 
     if dialogue_history:
         sections.append("Recent dialogue context:")
@@ -119,16 +201,8 @@ def build_reaction_decision_prompt(
             ),
             "Few-shot calibration examples:",
             _few_shot_reaction_examples(),
-            (
-                f"Should [{agent_identity.name}] react to the observation, "
-                "and if so, what would be an appropriate reaction?"
-            ),
-            (
-                "Return JSON only with this shape: "
-                + '{"should_react": <boolean>, "thought": "<string>", '
-                + '"critique": "<string>", "utterance": "<string>", '
-                + '"reason": "<short string>"}'
-            ),
+            _reaction_decision_question(agent_identity.name),
+            _reaction_decision_shape_line(),
         ]
     )
 
@@ -162,12 +236,7 @@ def build_overlap_guard_block(
     ]
     for index, sentence in enumerate(recent_sentences, start=1):
         lines.append(f"- {index}. {sentence}")
-    lines.append(
-        "Return JSON only with this shape: "
-        + '{"should_react": <boolean>, "thought": "<string>", '
-        + '"critique": "<string>", "utterance": "<string>", '
-        + '"reason": "<short string>"}'
-    )
+    lines.append(_reaction_decision_shape_line())
     return "\n".join(lines)
 
 
@@ -190,12 +259,7 @@ def build_semantic_guard_block(
     ]
     for index, sentence in enumerate(semantic_history, start=1):
         lines.append(f"- {index}. {sentence}")
-    lines.append(
-        "Return JSON only with this shape: "
-        + '{"should_react": <boolean>, "thought": "<string>", '
-        + '"critique": "<string>", "utterance": "<string>", '
-        + '"reason": "<short string>"}'
-    )
+    lines.append(_reaction_decision_shape_line())
     return "\n".join(lines)
 
 
@@ -206,12 +270,51 @@ def build_partner_response_nudge_block(*, latest_partner_utterance: str) -> str:
             "Prefer a brief, natural reply instead of silence unless there is a strong social reason to stay silent.",
             f"Latest partner utterance: {latest_partner_utterance}",
             "If you still choose silence, reason must explicitly explain why.",
-            "Return JSON only with this shape: "
-            + '{"should_react": <boolean>, "thought": "<string>", '
-            + '"critique": "<string>", "utterance": "<string>", '
-            + '"reason": "<short string>"}',
+            _reaction_decision_shape_line(),
         ]
     )
+
+
+def _build_reaction_base_sections(
+    *,
+    agent_identity: AgentIdentity,
+    current_time: datetime.datetime,
+    summary_description: str,
+    agent_status: str,
+    observation_content: str,
+    identity_anchor: str | None = None,
+) -> list[str]:
+    sections: list[str] = [
+        "[Agent's Summary Description]",
+        summary_description,
+    ]
+    if identity_anchor is not None:
+        sections.extend(
+            [
+                "[Identity Anchor - highest priority]",
+                identity_anchor,
+            ]
+        )
+
+    sections.extend(
+        [
+            f"It is {current_time.isoformat()}.",
+            f"[{agent_identity.name}]'s status: {agent_status}.",
+            f"Observation: {observation_content}",
+        ]
+    )
+    return sections
+
+
+def _reaction_decision_question(agent_name: str) -> str:
+    return (
+        f"Should [{agent_name}] react to the observation, "
+        "and if so, what would be an appropriate reaction?"
+    )
+
+
+def _reaction_decision_shape_line() -> str:
+    return f"Return JSON only with this shape: {REACTION_DECISION_JSON_SHAPE}"
 
 
 def _build_agent_context_lines(
@@ -235,6 +338,17 @@ def _build_agent_context_lines(
         )
 
     return lines
+
+
+def _build_memory_statements_text(
+    *,
+    agent_name: str,
+    memories: list[MemoryObject],
+) -> str:
+    memory_lines = [f"Statements about {agent_name}"]
+    for index, memory in enumerate(memories, start=1):
+        memory_lines.append(f"{index}. {memory.content}")
+    return "\n".join(memory_lines)
 
 
 def _build_summary_description(

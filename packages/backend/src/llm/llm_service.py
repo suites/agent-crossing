@@ -47,17 +47,9 @@ class LlmService:
         if not memories:
             return []
 
-        memory_lines = [f"Statements about {agent_name}"]
-        for i, memory in enumerate(memories):
-            memory_lines.append(f"{i + 1}. {memory.content}")
-
-        prompt = (
-            "\n".join(memory_lines)
-            + "\n\n"
-            + "Given only the information above, what are 3 most salient high-level "
-            + "questions we can answer about the subjects in the statements?\n"
-            + "Return JSON only with this shape: "
-            + '{"questions": ["<question 1>", "<question 2>", "<question 3>"]}'
+        prompt = prompt_builders.build_salient_questions_prompt(
+            agent_name=agent_name,
+            memories=memories,
         )
         response_text = self.ollama_client.generate(prompt=prompt)
 
@@ -86,23 +78,12 @@ class LlmService:
         if not memories:
             return []
 
-        memory_lines = [f"Statements about {agent_name}"]
-        for i, memory in enumerate(memories):
-            memory_lines.append(f"{i + 1}. {memory.content}")
-
         statement_to_memory_id = {
             index + 1: memory.id for index, memory in enumerate(memories)
         }
-        prompt = (
-            "\n".join(memory_lines)
-            + "\n\n"
-            + "What 5 high-level insights can you infer from the above statements? "
-            + "Use statement numbers as evidence references.\n"
-            + "Return JSON only with this shape: "
-            + '{"insights": ['
-            + '{"insight": "<text>", "citation_statement_numbers": [1, 5, 3]}, '
-            + '{"insight": "<text>", "citation_statement_numbers": [2, 4]}'
-            + "]}"
+        prompt = prompt_builders.build_insights_with_citation_prompt(
+            agent_name=agent_name,
+            memories=memories,
         )
         response_text = self.ollama_client.generate(prompt=prompt, format_json=True)
 

@@ -9,6 +9,7 @@ from .ollama_client import (
     OllamaClientError,
     OllamaGenerateOptions,
 )
+from .prompt_builders import build_importance_scoring_prompt
 
 
 def clamp_importance(value: int) -> int:
@@ -102,17 +103,9 @@ class OllamaImportanceScorer:
 
     @staticmethod
     def _build_prompt(context: ImportanceScoringContext) -> str:
-        identity_stable_set = " | ".join(context.identity_stable_set[:3]) or "N/A"
-        current_plan = context.current_plan or "N/A"
-
-        return (
-            "Score memory importance for an autonomous agent from 1 to 10.\n"
-            "Scale: 1-3 trivial routine, 4-6 somewhat meaningful, "
-            "7-8 important for goals/relationships, 9-10 critical.\n"
-            "Return JSON only with this shape: "
-            '{"importance": <int 1-10>, "reason": "<short>"}.\n\n'
-            f"Agent: {context.agent_name}\n"
-            f"Identity stable set: {identity_stable_set}\n"
-            f"Current plan: {current_plan}\n"
-            f"Observation: {context.observation}\n"
+        return build_importance_scoring_prompt(
+            agent_name=context.agent_name,
+            identity_stable_set=context.identity_stable_set,
+            current_plan=context.current_plan,
+            observation=context.observation,
         )
