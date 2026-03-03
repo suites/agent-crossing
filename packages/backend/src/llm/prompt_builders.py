@@ -5,6 +5,8 @@ from typing import Literal
 from agents.agent import AgentIdentity, AgentProfile
 from agents.memory.memory_object import MemoryObject
 
+from .template_loader import render_template
+
 REACTION_DECISION_JSON_SHAPE = (
     '{"should_react": <boolean>, "thought": "<string>", '
     '"critique": "<string>", "utterance": "<string>", '
@@ -33,17 +35,11 @@ def build_salient_questions_prompt(
     memory_text = _build_memory_statements_text(
         agent_name=agent_name, memories=memories
     )
-    instruction = "\n".join(
-        [
-            (
-                "Given only the information above, what are 3 most salient "
-                "high-level questions we can answer about the subjects in the "
-                "statements?"
-            ),
-            f"Return JSON only with this shape: {SALIENT_QUESTIONS_JSON_SHAPE}",
-        ]
+    instruction = render_template(
+        "salient_questions_instruction.md",
+        json_shape=SALIENT_QUESTIONS_JSON_SHAPE,
     )
-    return f"{memory_text}\n\n{instruction}"
+    return f"{memory_text}\n\n{instruction.strip()}"
 
 
 def build_insights_with_citation_prompt(
@@ -54,16 +50,11 @@ def build_insights_with_citation_prompt(
     memory_text = _build_memory_statements_text(
         agent_name=agent_name, memories=memories
     )
-    instruction = "\n".join(
-        [
-            (
-                "What 5 high-level insights can you infer from the above "
-                "statements? Use statement numbers as evidence references."
-            ),
-            f"Return JSON only with this shape: {INSIGHTS_JSON_SHAPE}",
-        ]
+    instruction = render_template(
+        "insights_instruction.md",
+        json_shape=INSIGHTS_JSON_SHAPE,
     )
-    return f"{memory_text}\n\n{instruction}"
+    return f"{memory_text}\n\n{instruction.strip()}"
 
 
 def build_importance_scoring_prompt(
@@ -75,20 +66,13 @@ def build_importance_scoring_prompt(
 ) -> str:
     identity_text = " | ".join(identity_stable_set[:3]) or "N/A"
     current_plan_text = current_plan or "N/A"
-    return "\n".join(
-        [
-            "Score memory importance for an autonomous agent from 1 to 10.",
-            (
-                "Scale: 1-3 trivial routine, 4-6 somewhat meaningful, 7-8 "
-                "important for goals/relationships, 9-10 critical."
-            ),
-            f"Return JSON only with this shape: {IMPORTANCE_JSON_SHAPE}.",
-            "",
-            f"Agent: {agent_name}",
-            f"Identity stable set: {identity_text}",
-            f"Current plan: {current_plan_text}",
-            f"Observation: {observation}",
-        ]
+    return render_template(
+        "importance_scoring.md",
+        json_shape=IMPORTANCE_JSON_SHAPE,
+        agent_name=agent_name,
+        identity_text=identity_text,
+        current_plan_text=current_plan_text,
+        observation=observation,
     )
 
 
@@ -182,23 +166,7 @@ def build_reaction_decision_prompt(
         [
             (f"Summary of relevant context from [{agent_identity.name}]'s memory:"),
             memory_summary,
-            (
-                "If you provide a reaction, it must be spoken dialogue addressed "
-                "to the conversation partner, not inner monologue."
-            ),
-            (
-                "Keep utterance concise and short: ideally one sentence, no more "
-                "than 80 Korean characters or 20 English words."
-            ),
-            (
-                "Do not narrate personal schedules or plans unless saying them "
-                "directly to the partner in natural conversation."
-            ),
-            (
-                "When there is no prior dialogue context, use a brief greeting "
-                "only when social context requires it. Avoid repetitive greeting "
-                "phrases across turns."
-            ),
+            render_template("reaction_guidelines.md").strip(),
             "Few-shot calibration examples:",
             _few_shot_reaction_examples(),
             _reaction_decision_question(agent_identity.name),
@@ -211,15 +179,9 @@ def build_reaction_decision_prompt(
 
 def language_system_prompt(language: Literal["ko", "en"]) -> str:
     if language == "ko":
-        return (
-            "You are simulating a conversational human agent. "
-            "All generated natural-language reaction text must be in Korean only."
-        )
+        return render_template("language_system_ko.md").strip()
 
-    return (
-        "You are simulating a conversational human agent. "
-        "All generated natural-language reaction text must be in English only."
-    )
+    return render_template("language_system_en.md").strip()
 
 
 def build_overlap_guard_block(
@@ -227,17 +189,16 @@ def build_overlap_guard_block(
     recent_sentences: Sequence[str],
     previous_candidate: str,
 ) -> str:
-    lines = [
-        "Your previous reaction was too similar to recent dialogue.",
-        "Generate a different reaction while preserving intent.",
-        "Constraint: n-gram overlap with each sentence below must be <= 50%.",
-        f"Previous candidate: {previous_candidate}",
-        "Recent dialogue sentences:",
-    ]
-    for index, sentence in enumerate(recent_sentences, start=1):
-        lines.append(f"- {index}. {sentence}")
-    lines.append(_reaction_decision_shape_line())
-    return "\n".join(lines)
+    recent_dialogue_lines = "\n".join(
+        f"- {index}. {sentence}"
+        for index, sentence in enumerate(recent_sentences, start=1)
+    )
+    return render_template(
+        "overlap_guard.md",
+        previous_candidate=previous_candidate,
+        recent_dialogue_lines=recent_dialogue_lines,
+        json_shape=REACTION_DECISION_JSON_SHAPE,
+    ).strip()
 
 
 def build_semantic_guard_block(
@@ -250,29 +211,28 @@ def build_semantic_guard_block(
     hard_threshold: float,
 ) -> str:
     level = "hard block" if trigger == "hard" else "soft penalty"
-    lines = [
-        f"Your previous reaction violated semantic repetition guard ({level}).",
-        f"max_similarity={max_similarity:.3f}, soft={soft_threshold}, hard={hard_threshold}",
-        "Generate a meaningfully different utterance while keeping conversation natural.",
-        f"Previous candidate: {previous_candidate}",
-        "Recent self utterances to avoid semantically repeating:",
-    ]
-    for index, sentence in enumerate(semantic_history, start=1):
-        lines.append(f"- {index}. {sentence}")
-    lines.append(_reaction_decision_shape_line())
-    return "\n".join(lines)
+    semantic_history_lines = "\n".join(
+        f"- {index}. {sentence}"
+        for index, sentence in enumerate(semantic_history, start=1)
+    )
+    return render_template(
+        "semantic_guard.md",
+        level=level,
+        max_similarity=f"{max_similarity:.3f}",
+        soft_threshold=str(soft_threshold),
+        hard_threshold=str(hard_threshold),
+        previous_candidate=previous_candidate,
+        semantic_history_lines=semantic_history_lines,
+        json_shape=REACTION_DECISION_JSON_SHAPE,
+    ).strip()
 
 
 def build_partner_response_nudge_block(*, latest_partner_utterance: str) -> str:
-    return "\n".join(
-        [
-            "The partner has just spoken directly to you.",
-            "Prefer a brief, natural reply instead of silence unless there is a strong social reason to stay silent.",
-            f"Latest partner utterance: {latest_partner_utterance}",
-            "If you still choose silence, reason must explicitly explain why.",
-            _reaction_decision_shape_line(),
-        ]
-    )
+    return render_template(
+        "partner_response_nudge.md",
+        latest_partner_utterance=latest_partner_utterance,
+        json_shape=REACTION_DECISION_JSON_SHAPE,
+    ).strip()
 
 
 def _build_reaction_base_sections(
@@ -307,13 +267,24 @@ def _build_reaction_base_sections(
 
 
 def _reaction_decision_question(agent_name: str) -> str:
-    return (
-        f"Should [{agent_name}] react to the observation, "
-        "and if so, what would be an appropriate reaction?"
-    )
+    rendered = render_template(
+        "reaction_decision_question.md",
+        agent_name=agent_name,
+        json_shape=REACTION_DECISION_JSON_SHAPE,
+    ).strip()
+    lines = rendered.splitlines()
+    return lines[0] if lines else ""
 
 
 def _reaction_decision_shape_line() -> str:
+    rendered = render_template(
+        "reaction_decision_question.md",
+        agent_name="agent",
+        json_shape=REACTION_DECISION_JSON_SHAPE,
+    ).strip()
+    lines = rendered.splitlines()
+    if len(lines) >= 2:
+        return lines[1]
     return f"Return JSON only with this shape: {REACTION_DECISION_JSON_SHAPE}"
 
 
@@ -416,13 +387,20 @@ def _build_reflection_anchor(
 
 
 def _few_shot_reaction_examples() -> str:
-    return "\n".join(
-        [
-            "Example 1 (conflict with identity/plan -> polite refusal):",
-            "- input: partner asks you to betray your stated values for convenience",
-            '{"should_react": true, "utterance": "그건 제 원칙과 맞지 않아서 도와드리기 어려워요.", "thought": "정체성과 충돌", "critique": "정중히 거절", "reason": "identity_conflict"}',
-            "Example 2 (natural pivot to own interest):",
-            "- input: partner asks a vague small-talk question during your focused routine",
-            '{"should_react": true, "utterance": "짧게는 괜찮아요. 저는 요즘 디카프 추출 실험이 더 궁금해요.", "thought": "관심사로 전환", "critique": "과잉 협조 대신 자연스러운 화제 전환", "reason": "natural_topic_shift"}',
-        ]
-    )
+    return render_template("reaction_few_shot_examples.md").strip()
+
+
+def template_file_plan() -> list[str]:
+    return [
+        "salient_questions_instruction.md",
+        "insights_instruction.md",
+        "importance_scoring.md",
+        "reaction_guidelines.md",
+        "reaction_few_shot_examples.md",
+        "reaction_decision_question.md",
+        "language_system_ko.md",
+        "language_system_en.md",
+        "overlap_guard.md",
+        "semantic_guard.md",
+        "partner_response_nudge.md",
+    ]
