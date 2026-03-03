@@ -6,7 +6,8 @@ from agents.agent import AgentIdentity, AgentProfile, ExtendedPersona, FixedPers
 from agents.memory.memory_object import MemoryObject, NodeType
 from llm.embedding_encoder import EmbeddingEncodingContext
 from llm.llm_service import LlmService
-from llm.llm_service import ReactionDecisionInput
+from llm.reaction_types import ReactionDecisionInput
+from llm.prompt_builders import build_reaction_decision_prompt
 
 
 class StubOllamaClient:
@@ -22,7 +23,7 @@ class StubOllamaClient:
 
 class StubEmbeddingEncoder:
     def __init__(self, vectors: dict[str, list[float]]):
-        self.vectors = vectors
+        self.vectors: dict[str, list[float]] = vectors
 
     def encode(self, context: EmbeddingEncodingContext) -> np.ndarray:
         if context.text not in self.vectors:
@@ -228,9 +229,7 @@ def test_decide_reaction_retries_once_for_partner_utterance_when_silent() -> Non
 
 def test_decide_reaction_repairs_truncated_json_once() -> None:
     client = StubOllamaClient(
-        responses=[
-            '{"should_react": true, "utterance": "좋아요", "reason": "ok"'
-        ]
+        responses=['{"should_react": true, "utterance": "좋아요", "reason": "ok"']
     )
     service = LlmService(client)
 
@@ -243,7 +242,15 @@ def test_decide_reaction_repairs_truncated_json_once() -> None:
 
 
 def test_reaction_prompt_includes_concise_utterance_constraint() -> None:
-    prompt = LlmService._build_reaction_decision_prompt(_input(dialogue_history=[]))
+    request = _input(dialogue_history=[])
+    prompt = build_reaction_decision_prompt(
+        agent_identity=request.agent_identity,
+        current_time=request.current_time,
+        observation_content=request.observation_content,
+        dialogue_history=request.dialogue_history,
+        profile=request.profile,
+        retrieved_memories=request.retrieved_memories,
+    )
 
     assert "Keep utterance concise and short" in prompt
     assert "80 Korean characters" in prompt
@@ -261,8 +268,17 @@ def test_reaction_prompt_includes_few_shot_and_reflection_anchor() -> None:
         embedding=np.asarray([0.1, 0.2], dtype=np.float32),
     )
 
-    prompt = LlmService._build_reaction_decision_prompt(
-        _input(dialogue_history=[], retrieved_memories=[reflection_memory])
+    request = _input(
+        dialogue_history=[],
+        retrieved_memories=[reflection_memory],
+    )
+    prompt = build_reaction_decision_prompt(
+        agent_identity=request.agent_identity,
+        current_time=request.current_time,
+        observation_content=request.observation_content,
+        dialogue_history=request.dialogue_history,
+        profile=request.profile,
+        retrieved_memories=request.retrieved_memories,
     )
 
     assert "[Identity Anchor - highest priority]" in prompt

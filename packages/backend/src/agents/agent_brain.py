@@ -6,7 +6,8 @@ from typing import Literal, Protocol, cast
 import numpy as np
 from agents.agent import AgentIdentity, AgentProfile
 from llm.embedding_encoder import EmbeddingEncodingContext
-from llm.llm_service import LlmService, ReactionDecision, ReactionDecisionInput
+from llm.llm_service import LlmService
+from llm.reaction_types import ReactionDecision, ReactionDecisionInput
 from llm.ollama_client import OllamaGenerateOptions
 
 from .memory.memory_object import MemoryObject
