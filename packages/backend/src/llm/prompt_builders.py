@@ -374,8 +374,7 @@ def _reaction_intent_question(agent_name: str) -> str:
         agent_name=agent_name,
         json_shape=REACTION_INTENT_JSON_SHAPE,
     ).strip()
-    lines = rendered.splitlines()
-    return lines[0] if lines else ""
+    return _first_content_line(rendered)
 
 
 def _reaction_intent_shape_line() -> str:
@@ -384,10 +383,13 @@ def _reaction_intent_shape_line() -> str:
         agent_name="agent",
         json_shape=REACTION_INTENT_JSON_SHAPE,
     ).strip()
-    lines = rendered.splitlines()
-    if len(lines) >= 2:
-        return lines[1]
-    return f"Return JSON only with this shape: {REACTION_INTENT_JSON_SHAPE}"
+    for line in rendered.splitlines():
+        if line.startswith("Return strict JSON only"):
+            return line
+    return (
+        "Return strict JSON only with this exact shape and no extra text: "
+        f"{REACTION_INTENT_JSON_SHAPE}"
+    )
 
 
 def _reaction_utterance_question(agent_name: str) -> str:
@@ -396,8 +398,7 @@ def _reaction_utterance_question(agent_name: str) -> str:
         agent_name=agent_name,
         json_shape=REACTION_UTTERANCE_JSON_SHAPE,
     ).strip()
-    lines = rendered.splitlines()
-    return lines[0] if lines else ""
+    return _first_content_line(rendered)
 
 
 def _reaction_utterance_shape_line() -> str:
@@ -406,10 +407,24 @@ def _reaction_utterance_shape_line() -> str:
         agent_name="agent",
         json_shape=REACTION_UTTERANCE_JSON_SHAPE,
     ).strip()
-    lines = rendered.splitlines()
-    if len(lines) >= 2:
-        return lines[1]
-    return f"Return JSON only with this shape: {REACTION_UTTERANCE_JSON_SHAPE}"
+    for line in rendered.splitlines():
+        if line.startswith("Return strict JSON only"):
+            return line
+    return (
+        "Return strict JSON only with this exact shape and no extra text: "
+        f"{REACTION_UTTERANCE_JSON_SHAPE}"
+    )
+
+
+def _first_content_line(rendered: str) -> str:
+    for line in rendered.splitlines():
+        stripped = line.strip()
+        if not stripped:
+            continue
+        if stripped.startswith("##"):
+            continue
+        return stripped
+    return ""
 
 
 def _build_agent_context_lines(

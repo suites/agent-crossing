@@ -1,18 +1,29 @@
-Name: $agent_name (age: $age)
-Innate traits: $innate_traits
-$persona_background
+## Persona Context
 
-On $yesterday_date_text, $agent_name 1) $yesterday_summary
+- Name: $agent_name (age: $age)
+- Innate traits: $innate_traits
+- Background: $persona_background
 
-Today is $today_date_text. Here is $agent_name's plan today in broad strokes: 1)
+## Yesterday Recap
+
+On $yesterday_date_text, $agent_name did the following:
+
+- $yesterday_summary
+
+## Today Plan Prompt
+
+Today is $today_date_text. Draft $agent_name's plan today in broad strokes.
+
+## Framing Reference
 
 Framing reference (for style, not output format):
-Name: Eddy Lin (age: 19)
-Innate traits: friendly, outgoing, hospitable
-On Tuesday February 12, Eddy 1) woke up and completed the morning routine at 7:00 am, [...] 6) got ready to sleep around 10 pm.
-Today is Wednesday February 13. Here is Eddy's plan today in broad strokes: 1)
 
-Requirements:
+- Name: Eddy Lin (age: 19)
+- Innate traits: friendly, outgoing, hospitable
+- On Tuesday February 12, Eddy completed his morning routine at 7:00 am and got ready to sleep around 10:00 pm.
+- Today is Wednesday February 13. Draft Eddy's plan today in broad strokes.
+
+## Requirements
 
 - Return 5 to 8 broad strokes.
 - Each stroke must be a single concise sentence and behavior-oriented.
@@ -21,4 +32,6 @@ Requirements:
 - Do not add additional keys or fields.
 - No duplicate or near-duplicate strokes.
 
-Return JSON only with this shape: $json_shape
+## Output Contract
+
+Return strict JSON only with this exact shape and no extra text: $json_shape

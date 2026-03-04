@@ -58,7 +58,7 @@ class LlmService:
             agent_name=agent_name,
             memories=memories,
         )
-        response_text = self.ollama_client.generate(prompt=prompt)
+        response_text = self.ollama_client.generate(prompt=prompt, format_json=True)
 
         try:
             parsed_data = cast(object, json.loads(response_text))

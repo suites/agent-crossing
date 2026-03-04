@@ -1,2 +1,7 @@
+## Task
+
 Should [$agent_name] react to the observation, and if so, what would be an appropriate reaction?
-Return JSON only with this shape: $json_shape
+
+## Output Contract
+
+Return strict JSON only with this exact shape and no extra text: $json_shape

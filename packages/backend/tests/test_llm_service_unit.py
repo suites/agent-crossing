@@ -11,6 +11,7 @@ from llm.prompt_builders import (
     build_day_plan_broad_strokes_prompt,
     build_reaction_intent_prompt,
     build_reaction_utterance_prompt,
+    build_salient_questions_prompt,
 )
 from llm.reaction_types import ReactionDecisionInput
 from llm.reaction_guards import EmbeddingEncoder
@@ -20,8 +21,10 @@ class StubOllamaClient:
     def __init__(self, responses: list[str]):
         self.responses: list[str] = list(responses)
         self.calls: int = 0
+        self.call_kwargs: list[dict[str, object]] = []
 
-    def generate(self, **_kwargs: object) -> str:
+    def generate(self, **kwargs: object) -> str:
+        self.call_kwargs.append(kwargs)
         index = min(self.calls, len(self.responses) - 1)
         self.calls += 1
         return self.responses[index]
@@ -361,9 +364,62 @@ def test_day_plan_prompt_contains_persona_and_json_shape() -> None:
     assert "Name: Eddy Lin (age: 19)" in prompt
     assert "Innate traits: friendly, outgoing, hospitable" in prompt
     assert "Today is Wednesday February 13" in prompt
-    assert "plan today in broad strokes: 1)" in prompt
+    assert "Draft Eddy Lin's plan today in broad strokes." in prompt
     assert "Framing reference (for style, not output format):" in prompt
+    assert "Return strict JSON only with this exact shape and no extra text:" in prompt
     assert '"broad_strokes": [' in prompt
+
+
+def test_salient_prompt_uses_strict_json_contract_line() -> None:
+    memory = MemoryObject(
+        id=1,
+        node_type=NodeType.OBSERVATION,
+        citations=None,
+        content="Met classmate at the cafe.",
+        created_at=datetime.datetime(2026, 2, 27, 10, 0, 0),
+        last_accessed_at=datetime.datetime(2026, 2, 27, 10, 0, 0),
+        importance=4,
+        embedding=np.asarray([0.1, 0.2], dtype=np.float32),
+    )
+    prompt = build_salient_questions_prompt(agent_name="Eddy Lin", memories=[memory])
+
+    assert "Return strict JSON only with this exact shape and no extra text:" in prompt
+    assert '"questions": [' in prompt
+
+
+def test_generate_salient_questions_requests_json_format() -> None:
+    client = StubOllamaClient(
+        responses=[
+            json.dumps(
+                {
+                    "questions": [
+                        "What should Eddy focus on first today?",
+                        "Who can help Eddy improve the composition?",
+                        "Which task gives the highest progress today?",
+                    ]
+                }
+            )
+        ]
+    )
+    service = LlmService(client)
+    memory = MemoryObject(
+        id=2,
+        node_type=NodeType.OBSERVATION,
+        citations=None,
+        content="Eddy wants to spend more hours on composition work.",
+        created_at=datetime.datetime(2026, 2, 27, 10, 0, 0),
+        last_accessed_at=datetime.datetime(2026, 2, 27, 10, 0, 0),
+        importance=5,
+        embedding=np.asarray([0.2, 0.3], dtype=np.float32),
+    )
+
+    questions = service.generate_salient_high_level_questions(
+        agent_name="Eddy Lin",
+        memories=[memory],
+    )
+
+    assert len(questions) == 3
+    assert client.call_kwargs[0].get("format_json") is True
 
 
 def test_generate_day_plan_broad_strokes_parses_json_list() -> None:
