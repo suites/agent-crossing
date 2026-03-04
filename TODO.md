@@ -189,6 +189,13 @@
     - [x] 품질 지표 계산을 metrics 모듈로 분리하고 harness는 출력만 담당한다
     - [x] engine/policy/metrics 경계 단위 테스트를 추가한다
 
+- [x] `P1` simulation 로그를 운영/디버그 모드로 분리하고 발화 의사결정 과정을 구조화한다
+  - Depends on: simulation 실행 코어를 engine/policy/metrics 레이어로 분리
+  - DoD:
+    - [x] 기본 로그에서 raw_response/상수 필드/빈 필드를 축소한다
+    - [x] 세션 시작 시 semantic threshold 등 상수 필드를 1회만 출력한다
+    - [x] 발화 결정 과정을 `decision_process`로 구조화해 턴 로그에 출력한다
+
 ### 4-A. Backend 실시간 파이프라인
 
 - [x] `P1` API runtime에서 world engine step 경로를 재사용한다

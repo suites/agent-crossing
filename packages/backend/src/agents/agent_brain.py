@@ -63,12 +63,20 @@ class ActionLoopResult:
     """행동 의도를 나타내는 구조화된 문자열."""
     thought: str = ""
     """행동 결정을 내릴 때의 내부 판단 근거."""
+    model_thought: str = ""
+    """LLM이 생성한 원본 thought 필드."""
+    self_critique: str = ""
+    """LLM이 생성한 critique 필드."""
+    decision_reason: str = ""
+    """LLM이 선택한 최종 reason 필드."""
     action_summary: str = ""
     """내부적으로 선택한 행동 요약."""
     silent_reason: str = ""
     """발화하지 않았을 때 원인."""
     reaction_trace: dict[str, object] | None = None
     """reaction decision 디버깅 추적 정보."""
+    decision_process: dict[str, object] | None = None
+    """발화 결정 과정을 단계별로 구조화한 정보."""
 
 
 class PromptBuildersModule(Protocol):
@@ -276,15 +284,31 @@ class AgentBrain:
             speak_decision=should_speak,
             action_intent=action_intent,
             thought=(reaction_decision.critique or reaction_decision.reason),
+            model_thought=reaction_decision.thought,
+            self_critique=reaction_decision.critique,
+            decision_reason=reaction_decision.reason,
             action_summary=(
                 f"speak_decision={should_speak}, "
                 f"action_intent={action_intent}, "
                 f"should_react={reaction_decision.should_react}, "
-                f"selected_reaction={reaction_decision.reaction or 'none'}, "
                 f"reason={reaction_decision.reason or 'n/a'}"
             ),
             silent_reason=silent_reason,
             reaction_trace=cast(dict[str, object], asdict(reaction_decision.trace)),
+            decision_process={
+                "llm_decision": {
+                    "should_react": reaction_decision.should_react,
+                    "reason": reaction_decision.reason,
+                    "model_thought": reaction_decision.thought,
+                    "self_critique": reaction_decision.critique,
+                    "candidate_reaction": reaction_decision.reaction,
+                },
+                "action": {
+                    "speak_decision": should_speak,
+                    "action_intent": action_intent,
+                    "silent_reason": silent_reason,
+                },
+            },
         )
 
     def _determine_reaction(

@@ -24,6 +24,12 @@ class SimulationStepResult:
     reply: str
     silent_reason: str
     parse_failure: bool
+    model_thought: str = ""
+    self_critique: str = ""
+    decision_reason: str = ""
+    action_intent: str = "continue_current_plan"
+    speak_decision: bool = False
+    decision_process: dict[str, object] | None = None
 
 
 @dataclass(frozen=True)
@@ -102,8 +108,19 @@ class SimulationEngine:
                 now=now,
                 speaker_name=speaker.name,
                 thought=action_result.thought,
+                model_thought=action_result.model_thought,
+                self_critique=action_result.self_critique,
+                decision_reason=action_result.decision_reason,
+                action_intent=action_result.action_intent,
+                speak_decision=action_result.speak_decision,
                 action_summary=action_result.action_summary,
                 trace=trace,
+                decision_process=self._build_decision_process(
+                    action_result=action_result,
+                    policy_suppress_reason=policy_result.suppress_reason,
+                    policy_fallback_reason=policy_result.fallback_reason,
+                    final_reply="",
+                ),
                 reply="",
                 silent_reason=silent_reason,
                 parse_failure=parse_failure,
@@ -124,12 +141,44 @@ class SimulationEngine:
             now=now,
             speaker_name=speaker.name,
             thought=action_result.thought,
+            model_thought=action_result.model_thought,
+            self_critique=action_result.self_critique,
+            decision_reason=action_result.decision_reason,
+            action_intent=action_result.action_intent,
+            speak_decision=action_result.speak_decision,
             action_summary=action_result.action_summary,
             trace=trace,
+            decision_process=self._build_decision_process(
+                action_result=action_result,
+                policy_suppress_reason=policy_result.suppress_reason,
+                policy_fallback_reason=policy_result.fallback_reason,
+                final_reply=policy_result.reply,
+            ),
             reply=policy_result.reply,
             silent_reason="",
             parse_failure=parse_failure,
         )
+
+    def _build_decision_process(
+        self,
+        *,
+        action_result: ActionLoopResult,
+        policy_suppress_reason: str,
+        policy_fallback_reason: str,
+        final_reply: str,
+    ) -> dict[str, object]:
+        base_process = dict(action_result.decision_process or {})
+        base_process["policy"] = {
+            "suppress_reason": policy_suppress_reason,
+            "fallback_reason": policy_fallback_reason,
+            "final_reply_empty": not bool(final_reply),
+        }
+        base_process["final_output"] = {
+            "reply": final_reply,
+            "action_intent": action_result.action_intent,
+            "speak_decision": action_result.speak_decision,
+        }
+        return base_process
 
     def _run_action_loop(
         self,
