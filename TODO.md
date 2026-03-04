@@ -181,6 +181,14 @@
     - [x] 발화 브로드캐스트와 incoming queue 갱신을 WorldConversationSession 메서드로 캡슐화한다
     - [x] 관련 단위 테스트를 world/session 경계 기준으로 보강한다
 
+- [x] `P1` simulation 실행 코어를 engine/policy/metrics 레이어로 분리한다
+  - Depends on: simulation harness에서 world 상태/이벤트 로직 분리
+  - DoD:
+    - [x] turn 1-step 실행 로직을 `SimulationEngine.step`으로 추출한다
+    - [x] 반복 억제/fallback 규칙을 dialogue policy 모듈로 분리한다
+    - [x] 품질 지표 계산을 metrics 모듈로 분리하고 harness는 출력만 담당한다
+    - [x] engine/policy/metrics 경계 단위 테스트를 추가한다
+
 ### 4-A. Backend 실시간 파이프라인
 
 - [ ] `P1` world clock와 tick scheduler를 붙인다

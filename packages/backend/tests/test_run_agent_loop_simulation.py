@@ -1,9 +1,10 @@
+from dialogue.reply_policy import (
+    is_repetitive_reply,
+    recent_replies_for_echo_check,
+)
+from metrics.conversation_metrics import semantic_repeat_rate, topic_progress_rate
 from run_agent_loop_simulation import (
     DEFAULT_CONFIG,
-    _is_repetitive_reply,
-    _recent_replies_for_echo_check,
-    _semantic_repeat_rate,
-    _topic_progress_rate,
 )
 from world.session import build_turn_observed_events
 
@@ -15,7 +16,7 @@ def test_recent_replies_for_echo_check_collects_cross_speaker_history() -> None:
         ("Jiho Park", "책 정리 마무리 중이에요."),
     ]
 
-    replies = _recent_replies_for_echo_check(session_history=history, window=2)
+    replies = recent_replies_for_echo_check(session_history=history, window=2)
 
     assert replies == ["안녕하세요!", "책 정리 마무리 중이에요."]
 
@@ -25,15 +26,15 @@ def test_is_repetitive_reply_blocks_cross_speaker_echo() -> None:
         ("Jiho Park", "안녕하세요!"),
         ("Sujin Lee", "안녕하세요!"),
     ]
-    recent_replies = _recent_replies_for_echo_check(session_history=history, window=4)
+    recent_replies = recent_replies_for_echo_check(session_history=history, window=4)
 
-    assert _is_repetitive_reply("안녕하세요.", recent_replies) is True
+    assert is_repetitive_reply("안녕하세요.", recent_replies) is True
 
 
 def test_recent_replies_for_echo_check_returns_empty_for_non_positive_window() -> None:
     history = [("Jiho Park", "안녕하세요!")]
 
-    replies = _recent_replies_for_echo_check(session_history=history, window=0)
+    replies = recent_replies_for_echo_check(session_history=history, window=0)
 
     assert replies == []
 
@@ -73,7 +74,7 @@ def test_semantic_repeat_rate_detects_highly_similar_replies() -> None:
         ("Jiho Park", "다른 주제도 괜찮아"),
     ]
 
-    rate = _semantic_repeat_rate(session_history=history)
+    rate = semantic_repeat_rate(session_history=history)
 
     assert rate > 0.0
 
@@ -85,6 +86,6 @@ def test_topic_progress_rate_rewards_new_content() -> None:
         ("Jiho Park", "그럼 원두 로스팅 차이도 같이 보자"),
     ]
 
-    rate = _topic_progress_rate(history)
+    rate = topic_progress_rate(history)
 
     assert rate >= 0.66

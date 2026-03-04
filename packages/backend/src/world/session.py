@@ -2,6 +2,7 @@ import datetime
 from typing import Literal
 
 from agents.sim_agent import SimAgent
+from world.observation_builder import format_other_said, format_self_said
 
 
 def build_turn_world_context(
@@ -39,20 +40,6 @@ def build_turn_observed_events(
     return [f"{speaker_name} encountered {partner_name} nearby."]
 
 
-def _format_self_said(language: Literal["ko", "en"], reply: str) -> str:
-    if language == "ko":
-        return f"나는 이렇게 말했다: {reply}"
-    return f"I said: {reply}"
-
-
-def _format_other_said(
-    language: Literal["ko", "en"], speaker_name: str, reply: str
-) -> str:
-    if language == "ko":
-        return f"{speaker_name}가 이렇게 말했다: {reply}"
-    return f"{speaker_name} said: {reply}"
-
-
 class WorldConversationSession:
     def __init__(
         self,
@@ -65,9 +52,9 @@ class WorldConversationSession:
         if dialogue_turn_window is not None and dialogue_turn_window < 1:
             raise ValueError("dialogue_turn_window must be at least 1")
 
-        self.agents = agents
-        self.dialogue_turn_window = dialogue_turn_window
-        self.turn_index = 0
+        self.agents: list[SimAgent] = agents
+        self.dialogue_turn_window: int | None = dialogue_turn_window
+        self.turn_index: int = 0
         self.history: list[tuple[str, str]] = []
         self.dialogue_history_by_agent: dict[str, list[tuple[str, str]]] = {
             agent.name: [] for agent in agents
@@ -134,14 +121,14 @@ class WorldConversationSession:
         for observer in self.agents:
             if observer is speaker:
                 observer.brain.queue_observation(
-                    content=_format_self_said(language, reply),
+                    content=format_self_said(language, reply),
                     now=now,
                     profile=observer.profile,
                 )
                 continue
 
             observer.brain.queue_observation(
-                content=_format_other_said(language, speaker.name, reply),
+                content=format_other_said(language, speaker.name, reply),
                 now=now,
                 profile=observer.profile,
             )
