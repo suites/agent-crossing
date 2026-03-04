@@ -1,14 +1,10 @@
-import datetime
 import json
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Literal
 
-from agents.world_factory import init_agents
-from llm.ollama_client import OllamaClient, OllamaGenerateOptions
-from metrics.conversation_metrics import build_conversation_metrics
-from world.engine import SimulationEngine, SimulationEngineConfig
-from world.session import WorldConversationSession
+from llm.ollama_client import OllamaGenerateOptions
+from world.runtime import WorldRuntimeConfig, build_world_runtime
 
 
 @dataclass(frozen=True)
@@ -56,54 +52,26 @@ def run_simulation(
     if len(agent_persona_names) != 2:
         raise ValueError("This simulation currently supports exactly two agents")
 
-    ollama_client = OllamaClient(
-        base_url=config.base_url,
-        timeout_seconds=config.timeout_seconds,
-    )
-    current_time = datetime.datetime.now()
-    agents = init_agents(
-        persona_dir=config.persona_dir,
-        agent_persona_names=agent_persona_names,
-        ollama_client=ollama_client,
-        llm_model=config.llm_model,
-        now=current_time,
-    )
-
-    parse_failures = 0
-    silent_turns = 0
-
-    session = WorldConversationSession(
-        agents=agents,
-        dialogue_turn_window=config.dialogue_turn_window,
-    )
-    engine = SimulationEngine(
-        session=session,
-        config=SimulationEngineConfig(
+    runtime = build_world_runtime(
+        config=WorldRuntimeConfig(
+            agent_persona_names=agent_persona_names,
+            base_url=config.base_url,
+            llm_model=config.llm_model,
+            timeout_seconds=config.timeout_seconds,
+            persona_dir=config.persona_dir,
+            dialogue_turn_window=config.dialogue_turn_window,
             language=language,
-            turn_time_step_seconds=config.turn_time_step_seconds,
+            fallback_on_empty_reply=config.fallback_on_empty_reply,
             suppress_repeated_replies=config.suppress_repeated_replies,
             repetition_window=config.repetition_window,
-            fallback_on_empty_reply=config.fallback_on_empty_reply,
+            turn_time_step_seconds=config.turn_time_step_seconds,
             reaction_generation_options=config.reaction_generation_options,
-        ),
+        )
     )
 
-    initiator = agents[0]
-    partner = agents[1]
-
     for turn in range(1, config.turns + 1):
-        speaker = session.next_speaker()
-        speaking_partner = partner if speaker is initiator else initiator
-
-        step_result = engine.step(
-            turn=turn,
-            current_time=current_time,
-            speaker=speaker,
-            speaking_partner=speaking_partner,
-        )
-
-        if step_result.parse_failure:
-            parse_failures += 1
+        speaker = runtime.session.agents[(turn - 1) % len(runtime.session.agents)]
+        step_result = runtime.step()
 
         print(f"[{turn:02d}] [THOUGHT] {speaker.name}: {step_result.thought}")
         print(f"[{turn:02d}] [ACTION] {speaker.name}: {step_result.action_summary}")
@@ -113,28 +81,20 @@ def run_simulation(
         )
 
         if not step_result.reply:
-            silent_turns += 1
             silent_reason = step_result.silent_reason or "unknown"
             print(f"[{turn:02d}] [SILENT] {speaker.name} reason={silent_reason}")
-            current_time = step_result.now
             continue
 
         print(f"{speaker.name}: {step_result.reply}")
-        current_time = step_result.now
 
     print("\nRecent memories")
-    for agent in agents:
+    for agent in runtime.agents:
         print(f"\n- {agent.name}")
         memories = agent.memory_service.get_recent_memories(limit=5)
         for memory in memories:
             print(f"  [{memory.node_type.value}] {memory.content}")
 
-    metrics = build_conversation_metrics(
-        turns=config.turns,
-        parse_failures=parse_failures,
-        silent_turns=silent_turns,
-        session_history=session.history,
-    )
+    metrics = runtime.metrics()
     print("\nSimulation metrics")
     print(f"- parse_failure_rate={metrics.parse_failure_rate:.3f}")
     print(f"- silent_rate={metrics.silent_rate:.3f}")

@@ -1,3 +1,10 @@
+from .runtime import (
+    WorldRuntime,
+    WorldRuntimeConfig,
+    WorldRuntimeState,
+    build_world_runtime,
+    default_persona_dir,
+)
 from .engine import SimulationEngine, SimulationEngineConfig, SimulationStepResult
 from .session import (
     WorldConversationSession,
@@ -9,7 +16,12 @@ __all__ = [
     "SimulationEngine",
     "SimulationEngineConfig",
     "SimulationStepResult",
+    "WorldRuntime",
+    "WorldRuntimeConfig",
+    "WorldRuntimeState",
     "WorldConversationSession",
     "build_turn_observed_events",
     "build_turn_world_context",
+    "build_world_runtime",
+    "default_persona_dir",
 ]

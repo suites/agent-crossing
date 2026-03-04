@@ -52,6 +52,7 @@ packages/
 
 - 의존성/스크립트는 `uv` 기반(`uv sync`, `uv run ...`).
 - API 경계, DTO, 도메인 모델에 타입 힌트와 Pydantic validation 사용을 일관되게 유지.
+- 내부 구현 전용이 아닌 클래스(예: API request/response schema, 공유 DTO)는 선언 파일에서 분리해 별도 모듈(예: `api/schemas.py`)로 관리한다.
 - 비동기 처리(`async/await`)를 우선 적용하고, 차단형 I/O를 동기 루틴으로 남기지 않는다.
 - 변경 시 가능하면 기존 함수 시그니처를 지키고, 예측 가능한 예외 경로를 명시한다.
 

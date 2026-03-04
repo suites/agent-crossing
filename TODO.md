@@ -191,6 +191,13 @@
 
 ### 4-A. Backend 실시간 파이프라인
 
+- [x] `P1` API runtime에서 world engine step 경로를 재사용한다
+  - Depends on: simulation 실행 코어를 engine/policy/metrics 레이어로 분리
+  - DoD:
+    - [x] app startup에서 world runtime(engine/session)를 초기화한다
+    - [x] `/world/state`, `/world/step` 엔드포인트로 코어 step을 호출한다
+    - [x] API 단위 테스트로 state/step 응답 계약을 검증한다
+
 - [ ] `P1` world clock와 tick scheduler를 붙인다
   - Depends on: Planning & Re-planning 핵심 완료
   - DoD:
