@@ -1,5 +1,5 @@
 import json
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from typing import cast
 
 from llm.ollama_client import JsonObject
@@ -10,6 +10,67 @@ from .reaction_types import (
     ReactionIntent,
     ReactionUtterance,
 )
+
+
+@dataclass(frozen=True)
+class DayPlanParseResult:
+    broad_strokes: list[str]
+
+
+class DayPlanParseError(ValueError):
+    reason: str
+
+    def __init__(self, reason: str):
+        super().__init__(reason)
+        self.reason = reason
+
+
+def try_parse_day_plan_broad_strokes(
+    response_text: str,
+    *,
+    min_items: int = 5,
+    max_items: int = 8,
+) -> DayPlanParseResult:
+    """Parse broad-strokes payload and enforce count/normalization constraints."""
+    payload = parse_json_object(response_text)
+    if payload is None:
+        payload = attempt_json_repair_once(response_text)
+    if payload is None:
+        raise DayPlanParseError("json_parse_error_or_non_object")
+
+    broad_strokes = payload.get("broad_strokes")
+    if not isinstance(broad_strokes, list):
+        raise DayPlanParseError("missing_or_invalid_broad_strokes")
+
+    normalized = _normalize_broad_strokes(cast(list[object], broad_strokes))
+    if len(normalized) > max_items:
+        normalized = normalized[:max_items]
+    if len(normalized) < min_items:
+        raise DayPlanParseError("insufficient_broad_strokes")
+
+    return DayPlanParseResult(broad_strokes=normalized)
+
+
+def _normalize_broad_strokes(raw_strokes: list[object]) -> list[str]:
+    normalized: list[str] = []
+    seen: set[str] = set()
+
+    for raw_stroke in raw_strokes:
+        if not isinstance(raw_stroke, str):
+            continue
+
+        stroke = raw_stroke.strip()
+        if not stroke:
+            continue
+
+        key = stroke.casefold()
+        if key in seen:
+            continue
+
+        seen.add(key)
+        normalized.append(stroke)
+
+    return normalized
 
 
 def parse_reaction_decision(response_text: str) -> ReactionDecision:

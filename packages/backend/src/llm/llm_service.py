@@ -17,7 +17,12 @@ from .reaction_guards import (
     recent_self_utterances,
     semantic_overlap_check,
 )
-from .reaction_parsing import parse_reaction_intent, parse_reaction_utterance
+from .reaction_parsing import (
+    DayPlanParseError,
+    parse_reaction_intent,
+    parse_reaction_utterance,
+    try_parse_day_plan_broad_strokes,
+)
 from .reaction_types import (
     GenerateClient,
     ReactionDecision,
@@ -130,6 +135,66 @@ class LlmService:
             return parsed_insights
         except json.JSONDecodeError:
             return []
+
+    def generate_day_plan_broad_strokes(
+        self,
+        *,
+        agent_name: str,
+        age: int,
+        innate_traits: list[str],
+        persona_background: str,
+        yesterday_date_text: str,
+        yesterday_summary: str,
+        today_date_text: str,
+    ) -> list[str]:
+        """Generate broad-strokes day plan with bounded retries on parse failures."""
+        prompt = prompt_builders.build_day_plan_broad_strokes_prompt(
+            agent_name=agent_name,
+            age=age,
+            innate_traits=innate_traits,
+            persona_background=persona_background,
+            yesterday_date_text=yesterday_date_text,
+            yesterday_summary=yesterday_summary,
+            today_date_text=today_date_text,
+        )
+
+        current_prompt = prompt
+        max_parse_retries = 2
+        for attempt in range(max_parse_retries + 1):
+            response_text = self.ollama_client.generate(
+                prompt=current_prompt,
+                format_json=True,
+            )
+
+            try:
+                return try_parse_day_plan_broad_strokes(response_text).broad_strokes
+            except DayPlanParseError as exc:
+                if attempt >= max_parse_retries:
+                    return []
+
+                current_prompt = self._build_day_plan_broad_strokes_retry_prompt(
+                    base_prompt=prompt,
+                    previous_error=exc.reason,
+                    previous_response=response_text,
+                )
+
+        return []
+
+    @staticmethod
+    def _build_day_plan_broad_strokes_retry_prompt(
+        *,
+        base_prompt: str,
+        previous_error: str,
+        previous_response: str,
+    ) -> str:
+        """Build a stricter follow-up prompt when prior JSON output is invalid."""
+        return (
+            f"{base_prompt}\n\n"
+            "The previous response did not match the required broad-strokes JSON schema.\n"
+            f"Failure reason: {previous_error}.\n\n"
+            'Return JSON only with this exact shape and no extra text: "{"broad_strokes": ["<stroke 1>", ...]}"\n'
+            f"Do not repeat this invalid output: {previous_response[:180]!r}"
+        )
 
     def decide_reaction(
         self,

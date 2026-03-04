@@ -8,6 +8,7 @@ from agents.memory.memory_object import MemoryObject, NodeType
 from llm.embedding_encoder import EmbeddingEncodingContext
 from llm.llm_service import LlmService
 from llm.prompt_builders import (
+    build_day_plan_broad_strokes_prompt,
     build_reaction_intent_prompt,
     build_reaction_utterance_prompt,
 )
@@ -340,3 +341,223 @@ def test_reaction_intent_prompt_requests_intent_shape() -> None:
 
     assert "Should [Jiho Park] react to the observation right now?" in prompt
     assert '"should_react": <boolean>' in prompt
+
+
+def test_day_plan_prompt_contains_persona_and_json_shape() -> None:
+    prompt = build_day_plan_broad_strokes_prompt(
+        agent_name="Eddy Lin",
+        age=19,
+        innate_traits=["friendly", "outgoing", "hospitable"],
+        persona_background=(
+            "Eddy Lin is a student at Oak Hill College studying music theory and composition."
+        ),
+        yesterday_date_text="Tuesday February 12",
+        yesterday_summary=(
+            "woke up and completed the morning routine at 7:00 am, [...] got ready to sleep around 10 pm."
+        ),
+        today_date_text="Wednesday February 13",
+    )
+
+    assert "Name: Eddy Lin (age: 19)" in prompt
+    assert "Innate traits: friendly, outgoing, hospitable" in prompt
+    assert "Today is Wednesday February 13" in prompt
+    assert "plan today in broad strokes: 1)" in prompt
+    assert "Framing reference (for style, not output format):" in prompt
+    assert '"broad_strokes": [' in prompt
+
+
+def test_generate_day_plan_broad_strokes_parses_json_list() -> None:
+    client = StubOllamaClient(
+        responses=[
+            json.dumps(
+                {
+                    "broad_strokes": [
+                        "Review composition notes over breakfast.",
+                        "Attend morning music theory class.",
+                        "Draft harmonic progression for project.",
+                        "Meet classmate for feedback session.",
+                        "Revise composition and annotate changes.",
+                    ]
+                }
+            )
+        ]
+    )
+    service = LlmService(client)
+
+    strokes = service.generate_day_plan_broad_strokes(
+        agent_name="Eddy Lin",
+        age=19,
+        innate_traits=["friendly", "outgoing", "hospitable"],
+        persona_background="Music theory student focusing on composition.",
+        yesterday_date_text="Tuesday February 12",
+        yesterday_summary="woke up at 7:00 am and got ready to sleep around 10 pm.",
+        today_date_text="Wednesday February 13",
+    )
+
+    assert len(strokes) == 5
+    assert strokes[0] == "Review composition notes over breakfast."
+
+
+def test_generate_day_plan_broad_strokes_returns_empty_on_parse_failure() -> None:
+    client = StubOllamaClient(responses=["not-json"])
+    service = LlmService(client)
+
+    strokes = service.generate_day_plan_broad_strokes(
+        agent_name="Eddy Lin",
+        age=19,
+        innate_traits=["friendly", "outgoing", "hospitable"],
+        persona_background="Music theory student focusing on composition.",
+        yesterday_date_text="Tuesday February 12",
+        yesterday_summary="woke up at 7:00 am and got ready to sleep around 10 pm.",
+        today_date_text="Wednesday February 13",
+    )
+
+    assert strokes == []
+
+
+def test_generate_day_plan_broad_strokes_returns_empty_if_too_few_items() -> None:
+    client = StubOllamaClient(
+        responses=[
+            json.dumps(
+                {
+                    "broad_strokes": [
+                        "Wake up and brush teeth.",
+                        "Have breakfast.",
+                        "Head to class.",
+                    ]
+                }
+            )
+        ]
+    )
+    service = LlmService(client)
+
+    strokes = service.generate_day_plan_broad_strokes(
+        agent_name="Eddy Lin",
+        age=19,
+        innate_traits=["friendly", "outgoing", "hospitable"],
+        persona_background="Music theory student focusing on composition.",
+        yesterday_date_text="Tuesday February 12",
+        yesterday_summary="woke up at 7:00 am and got ready to sleep around 10 pm.",
+        today_date_text="Wednesday February 13",
+    )
+
+    assert strokes == []
+
+
+def test_generate_day_plan_broad_strokes_dedupes_and_truncates_to_max() -> None:
+    client = StubOllamaClient(
+        responses=[
+            json.dumps(
+                {
+                    "broad_strokes": [
+                        "Review composition notes over breakfast.",
+                        "Review composition notes over breakfast. ",
+                        "Attend morning music theory class.",
+                        "Draft harmonic progression for project.",
+                        "Meet classmate for feedback session.",
+                        "Revise composition and annotate changes.",
+                        "Take lunch with classmate.",
+                        "Practice instrument for 30 minutes.",
+                        "Log today's notes in planner.",
+                    ]
+                }
+            )
+        ]
+    )
+    service = LlmService(client)
+
+    strokes = service.generate_day_plan_broad_strokes(
+        agent_name="Eddy Lin",
+        age=19,
+        innate_traits=["friendly", "outgoing", "hospitable"],
+        persona_background="Music theory student focusing on composition.",
+        yesterday_date_text="Tuesday February 12",
+        yesterday_summary="woke up at 7:00 am and got ready to sleep around 10 pm.",
+        today_date_text="Wednesday February 13",
+    )
+
+    assert len(strokes) == 8
+    assert strokes[0] == "Review composition notes over breakfast."
+    assert strokes[1] == "Attend morning music theory class."
+    assert strokes[-1] == "Log today's notes in planner."
+
+
+def test_generate_day_plan_broad_strokes_repairs_truncated_json_once() -> None:
+    client = StubOllamaClient(
+        responses=[
+            '{"broad_strokes": ["Wake up", "Eat breakfast", "Class", "Practice", "Review", "Reflect"]'
+        ]
+    )
+    service = LlmService(client)
+
+    strokes = service.generate_day_plan_broad_strokes(
+        agent_name="Eddy Lin",
+        age=19,
+        innate_traits=["friendly", "outgoing", "hospitable"],
+        persona_background="Music theory student focusing on composition.",
+        yesterday_date_text="Tuesday February 12",
+        yesterday_summary="woke up at 7:00 am and got ready to sleep around 10 pm.",
+        today_date_text="Wednesday February 13",
+    )
+
+    assert len(strokes) == 6
+    assert strokes[0] == "Wake up"
+
+
+def test_generate_day_plan_broad_strokes_retries_once_on_schema_validation_error() -> (
+    None
+):
+    client = StubOllamaClient(
+        responses=[
+            json.dumps({"broad_strokes": "invalid-format"}),
+            json.dumps(
+                {
+                    "broad_strokes": [
+                        "Review composition notes over breakfast.",
+                        "Attend morning music theory class.",
+                        "Draft harmonic progression for project.",
+                        "Meet classmate for feedback session.",
+                        "Revise composition and annotate changes.",
+                    ]
+                }
+            ),
+        ]
+    )
+    service = LlmService(client)
+
+    strokes = service.generate_day_plan_broad_strokes(
+        agent_name="Eddy Lin",
+        age=19,
+        innate_traits=["friendly", "outgoing", "hospitable"],
+        persona_background="Music theory student focusing on composition.",
+        yesterday_date_text="Tuesday February 12",
+        yesterday_summary="woke up at 7:00 am and got ready to sleep around 10 pm.",
+        today_date_text="Wednesday February 13",
+    )
+
+    assert len(strokes) == 5
+    assert client.calls == 2
+
+
+def test_generate_day_plan_broad_strokes_returns_empty_after_retry_exhaustion() -> None:
+    client = StubOllamaClient(
+        responses=[
+            "not-json",
+            json.dumps({"broad_strokes": ["Too few", "items"]}),
+            json.dumps({"broad_strokes": [1, 2, 3, 4, 5]}),
+        ]
+    )
+    service = LlmService(client)
+
+    strokes = service.generate_day_plan_broad_strokes(
+        agent_name="Eddy Lin",
+        age=19,
+        innate_traits=["friendly", "outgoing", "hospitable"],
+        persona_background="Music theory student focusing on composition.",
+        yesterday_date_text="Tuesday February 12",
+        yesterday_summary="woke up at 7:00 am and got ready to sleep around 10 pm.",
+        today_date_text="Wednesday February 13",
+    )
+
+    assert strokes == []
+    assert client.calls == 3

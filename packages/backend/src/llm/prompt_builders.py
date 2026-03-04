@@ -30,6 +30,10 @@ INSIGHTS_JSON_SHAPE = (
 
 IMPORTANCE_JSON_SHAPE = '{"importance": <int 1-10>, "reason": "<short>"}'
 
+DAY_PLAN_BROAD_STROKES_JSON_SHAPE = (
+    '{"broad_strokes": ["<stroke 1>", "<stroke 2>", "<stroke 3>"]}'
+)
+
 
 def build_salient_questions_prompt(
     *,
@@ -77,6 +81,31 @@ def build_importance_scoring_prompt(
         identity_text=identity_text,
         current_plan_text=current_plan_text,
         observation=observation,
+    )
+
+
+def build_day_plan_broad_strokes_prompt(
+    *,
+    agent_name: str,
+    age: int,
+    innate_traits: list[str],
+    persona_background: str,
+    yesterday_date_text: str,
+    yesterday_summary: str,
+    today_date_text: str,
+) -> str:
+    """Build a persona-grounded prompt for daily broad-strokes plan generation."""
+    traits_text = ", ".join(trait.strip() for trait in innate_traits if trait.strip())
+    return render_template(
+        "day_plan_broad_strokes_instruction.md",
+        agent_name=agent_name,
+        age=str(age),
+        innate_traits=traits_text or "N/A",
+        persona_background=persona_background.strip(),
+        yesterday_date_text=yesterday_date_text.strip(),
+        yesterday_summary=yesterday_summary.strip(),
+        today_date_text=today_date_text.strip(),
+        json_shape=DAY_PLAN_BROAD_STROKES_JSON_SHAPE,
     )
 
 
@@ -490,6 +519,7 @@ def template_file_plan() -> list[str]:
         "salient_questions_instruction.md",
         "insights_instruction.md",
         "importance_scoring.md",
+        "day_plan_broad_strokes_instruction.md",
         "reaction_guidelines.md",
         "reaction_few_shot_examples.md",
         "reaction_decision_question.md",
