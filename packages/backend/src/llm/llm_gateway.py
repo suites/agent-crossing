@@ -23,7 +23,7 @@ class InsightWithCitation:
     citation_memory_ids: list[int]
 
 
-class LlmService:
+class LlmGateway:
     def __init__(
         self,
         ollama_client: GenerateClient,

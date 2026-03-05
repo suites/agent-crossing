@@ -1,26 +1,26 @@
 import datetime
 
 from agents.reflection import Reflection
-from llm.llm_service import LlmService
+from llm.llm_gateway import LlmGateway
 
 from .memory.memory_object import MemoryObject
-from .memory.memory_service import MemoryService, ReflectionContext
+from .memory.memory_manager import MemoryManager, ReflectionContext
 
 
-class ReflectionService:
+class ReflectionWorkflow:
     """아주 최소한의 reflection 시작점(스캐폴딩 전용)."""
 
     def __init__(
         self,
         reflection: Reflection,
-        memory_service: MemoryService,
-        llm_service: LlmService,
+        memory_service: MemoryManager,
+        llm_service: LlmGateway,
         agent_name: str,
         identity_stable_set: list[str],
     ):
         self.reflection: Reflection = reflection
-        self.memory_service: MemoryService = memory_service
-        self.llm_service: LlmService = llm_service
+        self.memory_service: MemoryManager = memory_service
+        self.llm_service: LlmGateway = llm_service
         self.agent_name: str = agent_name
         self.identity_stable_set: list[str] = list(identity_stable_set)
 

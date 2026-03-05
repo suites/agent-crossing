@@ -7,12 +7,12 @@ import numpy as np
 from agents.agent import AgentIdentity, AgentProfile
 from llm.embedding_encoder import EmbeddingEncodingContext
 from llm.governance import ReactionDecision, ReactionDecisionInput
-from llm.llm_service import LlmService
+from llm.llm_gateway import LlmGateway
 from llm.ollama_client import OllamaGenerateOptions
 
 from .memory.memory_object import MemoryObject
-from .memory.memory_service import MemoryService, ObservationContext
-from .reflection_service import ReflectionService
+from .memory.memory_manager import MemoryManager, ObservationContext
+from .reflection_workflow import ReflectionWorkflow
 
 
 @dataclass(frozen=True)
@@ -97,13 +97,13 @@ class AgentBrain:
         self,
         *,
         agent_identity: AgentIdentity,
-        memory_service: MemoryService,
-        reflection_service: ReflectionService,
-        llm_service: LlmService,
+        memory_service: MemoryManager,
+        reflection_service: ReflectionWorkflow,
+        llm_service: LlmGateway,
     ):
-        self.memory_service: MemoryService = memory_service
-        self.reflection_service: ReflectionService = reflection_service
-        self.llm_service: LlmService = llm_service
+        self.memory_service: MemoryManager = memory_service
+        self.reflection_service: ReflectionWorkflow = reflection_service
+        self.llm_service: LlmGateway = llm_service
         self.agent_identity: AgentIdentity = agent_identity
 
     def queue_observation(

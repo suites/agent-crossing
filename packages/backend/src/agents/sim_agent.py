@@ -4,7 +4,7 @@ from typing import cast
 from agents.agent import AgentContext, AgentIdentity, AgentProfile
 from agents.agent_brain import AgentBrain
 
-from .memory.memory_service import MemoryService
+from .memory.memory_manager import MemoryManager
 
 
 @dataclass
@@ -28,5 +28,5 @@ class SimAgent:
         return cast(AgentBrain, self.context.brain)
 
     @property
-    def memory_service(self) -> MemoryService:
-        return cast(MemoryService, self.context.memory_service)
+    def memory_service(self) -> MemoryManager:
+        return cast(MemoryManager, self.context.memory_service)

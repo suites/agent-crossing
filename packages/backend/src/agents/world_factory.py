@@ -5,14 +5,14 @@ from agents.agent import AgentContext, AgentProfile, ExtendedPersona, FixedPerso
 from agents.agent_brain import AgentBrain
 from agents.persona_loader import AgentPersona, PersonaLoader, apply_persona_to_brain
 from agents.reflection import Reflection
-from agents.reflection_service import ReflectionService
+from agents.reflection_workflow import ReflectionWorkflow
 from agents.sim_agent import SimAgent
 from llm.embedding_encoder import OllamaEmbeddingEncoder
 from llm.importance_scorer import OllamaImportanceScorer
-from llm.llm_service import LlmService
+from llm.llm_gateway import LlmGateway
 from llm.ollama_client import OllamaClient
 
-from .memory.memory_service import MemoryService
+from .memory.memory_manager import MemoryManager
 from .memory.memory_stream import MemoryStream
 
 
@@ -32,13 +32,13 @@ def build_agent(
     memory_stream = MemoryStream()
     importance_scorer = OllamaImportanceScorer(client=ollama_client, model=llm_model)
     embedding_encoder = OllamaEmbeddingEncoder(client=ollama_client)
-    memory_service = MemoryService(
+    memory_service = MemoryManager(
         memory_stream=memory_stream,
         importance_scorer=importance_scorer,
         embedding_encoder=embedding_encoder,
     )
-    llm_service = LlmService(ollama_client, embedding_encoder=embedding_encoder)
-    reflection_service = ReflectionService(
+    llm_service = LlmGateway(ollama_client, embedding_encoder=embedding_encoder)
+    reflection_service = ReflectionWorkflow(
         reflection=Reflection(),
         memory_service=memory_service,
         llm_service=llm_service,

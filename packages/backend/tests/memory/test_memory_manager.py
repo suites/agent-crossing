@@ -1,14 +1,14 @@
 import datetime
 
 import numpy as np
-from agents.memory.memory_service import MemoryService
-from agents.memory.memory_service import ObservationContext
-from agents.memory.memory_service import ReflectionContext
+from agents.memory.memory_manager import MemoryManager
+from agents.memory.memory_manager import ObservationContext
+from agents.memory.memory_manager import ReflectionContext
 from agents.memory.memory_object import NodeType
 from agents.memory.memory_stream import MemoryStream
 from llm import ImportanceScoringContext
 from llm.embedding_encoder import EmbeddingEncodingContext
-from llm.llm_service import InsightWithCitation
+from llm.llm_gateway import InsightWithCitation
 from settings import EMBEDDING_DIMENSION
 
 
@@ -31,7 +31,7 @@ class StubEmbeddingEncoder:
 def test_create_observation_uses_scorer_when_importance_missing() -> None:
     stream = MemoryStream()
     scorer = StubScorer(score_value=9)
-    service = MemoryService(
+    service = MemoryManager(
         memory_stream=stream,
         importance_scorer=scorer,
         embedding_encoder=StubEmbeddingEncoder(),
@@ -59,7 +59,7 @@ def test_create_observation_uses_scorer_when_importance_missing() -> None:
 def test_create_observation_clamps_explicit_importance() -> None:
     stream = MemoryStream()
     scorer = StubScorer(score_value=5)
-    service = MemoryService(
+    service = MemoryManager(
         memory_stream=stream,
         importance_scorer=scorer,
         embedding_encoder=StubEmbeddingEncoder(),
@@ -82,7 +82,7 @@ def test_create_observation_clamps_explicit_importance() -> None:
 def test_create_observation_uses_scorer_value() -> None:
     stream = MemoryStream()
     scorer = StubScorer(score_value=3)
-    service = MemoryService(
+    service = MemoryManager(
         memory_stream=stream,
         importance_scorer=scorer,
         embedding_encoder=StubEmbeddingEncoder(),
@@ -104,7 +104,7 @@ def test_create_observation_uses_scorer_value() -> None:
 def test_create_reflection_stores_filtered_citations_and_scored_importance() -> None:
     stream = MemoryStream()
     scorer = StubScorer(score_value=11)
-    service = MemoryService(
+    service = MemoryManager(
         memory_stream=stream,
         importance_scorer=scorer,
         embedding_encoder=StubEmbeddingEncoder(),
@@ -153,7 +153,7 @@ def test_create_reflection_stores_filtered_citations_and_scored_importance() -> 
 def test_create_reflection_clamps_explicit_importance() -> None:
     stream = MemoryStream()
     scorer = StubScorer(score_value=5)
-    service = MemoryService(
+    service = MemoryManager(
         memory_stream=stream,
         importance_scorer=scorer,
         embedding_encoder=StubEmbeddingEncoder(),
@@ -177,7 +177,7 @@ def test_create_reflection_clamps_explicit_importance() -> None:
 def test_get_retrieval_memories_includes_reflection_nodes_with_scores() -> None:
     stream = MemoryStream()
     scorer = StubScorer(score_value=5)
-    service = MemoryService(
+    service = MemoryManager(
         memory_stream=stream,
         importance_scorer=scorer,
         embedding_encoder=StubEmbeddingEncoder(),
@@ -216,7 +216,7 @@ def test_get_retrieval_memories_includes_reflection_nodes_with_scores() -> None:
 def test_reflection_can_reference_prior_reflection_memory() -> None:
     stream = MemoryStream()
     scorer = StubScorer(score_value=8)
-    service = MemoryService(
+    service = MemoryManager(
         memory_stream=stream,
         importance_scorer=scorer,
         embedding_encoder=StubEmbeddingEncoder(),
@@ -271,7 +271,7 @@ def test_reflection_can_reference_prior_reflection_memory() -> None:
 # def test_create_observation_records_importance_to_reflection_service() -> None:
 #     stream = MemoryStream()
 #     reflection_service = StubReflectionService()
-#     service = MemoryService(memory_stream=stream, reflection_service=reflection_service)
+#     service = MemoryManager(memory_stream=stream, reflection_service=reflection_service)
 
 #     now = datetime.datetime(2026, 2, 13, 12, 0, 0)
 #     embedding = np.zeros(EMBEDDING_DIMENSION)

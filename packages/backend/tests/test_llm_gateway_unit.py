@@ -8,7 +8,7 @@ from agents.memory.memory_object import MemoryObject, NodeType
 from llm.embedding_encoder import EmbeddingEncodingContext
 from llm.guardrails.similarity import EmbeddingEncoder
 from llm.governance import ReactionDecisionInput
-from llm.llm_service import LlmService
+from llm.llm_gateway import LlmGateway
 from llm.prompt_builders import (
     build_day_plan_broad_strokes_prompt,
     build_reaction_intent_prompt,
@@ -128,7 +128,7 @@ def test_decide_reaction_retries_when_first_output_is_repetitive() -> None:
             ),
         ]
     )
-    service = LlmService(client)
+    service = LlmGateway(client)
 
     decision = service.decide_reaction(
         _input(
@@ -153,7 +153,7 @@ def test_decide_reaction_uses_first_output_when_not_repetitive() -> None:
             ),
         ]
     )
-    service = LlmService(client)
+    service = LlmGateway(client)
 
     decision = service.decide_reaction(
         _input(
@@ -190,7 +190,7 @@ def test_decide_reaction_semantic_retry_when_embedding_similarity_is_high() -> N
             "같은 말": [1.0, 0.0],
         }
     )
-    service = LlmService(client, embedding_encoder=cast(EmbeddingEncoder, embedding))
+    service = LlmGateway(client, embedding_encoder=cast(EmbeddingEncoder, embedding))
 
     decision = service.decide_reaction(
         _input(dialogue_history=[("partner", "같은 말")])
@@ -218,7 +218,7 @@ def test_decide_reaction_parses_thought_critique_and_utterance() -> None:
             ),
         ]
     )
-    service = LlmService(client)
+    service = LlmGateway(client)
 
     decision = service.decide_reaction(_input(dialogue_history=[]))
 
@@ -231,7 +231,7 @@ def test_decide_reaction_parses_thought_critique_and_utterance() -> None:
 
 def test_decide_reaction_records_parse_failure_trace() -> None:
     client = StubOllamaClient(responses=["not-json"])
-    service = LlmService(client)
+    service = LlmGateway(client)
 
     decision = service.decide_reaction(_input(dialogue_history=[]))
 
@@ -252,7 +252,7 @@ def test_decide_reaction_retries_once_for_partner_utterance_when_silent() -> Non
             ),
         ]
     )
-    service = LlmService(client)
+    service = LlmGateway(client)
 
     decision = service.decide_reaction(
         _input(dialogue_history=[("수진 씨, 오늘 테스트 어땠어요?", "none")])
@@ -270,7 +270,7 @@ def test_decide_reaction_repairs_truncated_json_once() -> None:
             '{"should_react": true, "utterance": "좋아요", "reason": "ok"',
         ]
     )
-    service = LlmService(client)
+    service = LlmGateway(client)
 
     decision = service.decide_reaction(_input(dialogue_history=[]))
 
@@ -401,7 +401,7 @@ def test_generate_salient_questions_requests_json_format() -> None:
             )
         ]
     )
-    service = LlmService(client)
+    service = LlmGateway(client)
     memory = MemoryObject(
         id=2,
         node_type=NodeType.OBSERVATION,
@@ -438,7 +438,7 @@ def test_generate_day_plan_broad_strokes_parses_json_list() -> None:
             )
         ]
     )
-    service = LlmService(client)
+    service = LlmGateway(client)
 
     strokes = service.generate_day_plan_broad_strokes(
         agent_name="Eddy Lin",
@@ -456,7 +456,7 @@ def test_generate_day_plan_broad_strokes_parses_json_list() -> None:
 
 def test_generate_day_plan_broad_strokes_returns_empty_on_parse_failure() -> None:
     client = StubOllamaClient(responses=["not-json"])
-    service = LlmService(client)
+    service = LlmGateway(client)
 
     strokes = service.generate_day_plan_broad_strokes(
         agent_name="Eddy Lin",
@@ -485,7 +485,7 @@ def test_generate_day_plan_broad_strokes_returns_empty_if_too_few_items() -> Non
             )
         ]
     )
-    service = LlmService(client)
+    service = LlmGateway(client)
 
     strokes = service.generate_day_plan_broad_strokes(
         agent_name="Eddy Lin",
@@ -520,7 +520,7 @@ def test_generate_day_plan_broad_strokes_dedupes_and_truncates_to_max() -> None:
             )
         ]
     )
-    service = LlmService(client)
+    service = LlmGateway(client)
 
     strokes = service.generate_day_plan_broad_strokes(
         agent_name="Eddy Lin",
@@ -544,7 +544,7 @@ def test_generate_day_plan_broad_strokes_repairs_truncated_json_once() -> None:
             '{"broad_strokes": ["Wake up", "Eat breakfast", "Class", "Practice", "Review", "Reflect"]'
         ]
     )
-    service = LlmService(client)
+    service = LlmGateway(client)
 
     strokes = service.generate_day_plan_broad_strokes(
         agent_name="Eddy Lin",
@@ -579,7 +579,7 @@ def test_generate_day_plan_broad_strokes_retries_once_on_schema_validation_error
             ),
         ]
     )
-    service = LlmService(client)
+    service = LlmGateway(client)
 
     strokes = service.generate_day_plan_broad_strokes(
         agent_name="Eddy Lin",
@@ -603,7 +603,7 @@ def test_generate_day_plan_broad_strokes_returns_empty_after_retry_exhaustion() 
             json.dumps({"broad_strokes": [1, 2, 3, 4, 5]}),
         ]
     )
-    service = LlmService(client)
+    service = LlmGateway(client)
 
     strokes = service.generate_day_plan_broad_strokes(
         agent_name="Eddy Lin",

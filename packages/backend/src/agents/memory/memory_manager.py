@@ -6,7 +6,7 @@ from typing import Protocol
 import numpy as np
 from llm import ImportanceScorer, ImportanceScoringContext, clamp_importance
 from llm.embedding_encoder import EmbeddingEncodingContext
-from llm.llm_service import InsightWithCitation
+from llm.llm_gateway import InsightWithCitation
 
 from .memory_object import MemoryObject, NodeType
 from .memory_stream import MemoryStream
@@ -35,7 +35,7 @@ class EmbeddingEncoder(Protocol):
     def encode(self, context: EmbeddingEncodingContext) -> np.ndarray: ...
 
 
-class MemoryService:
+class MemoryManager:
     def __init__(
         self,
         *,
