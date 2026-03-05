@@ -4,7 +4,7 @@ from typing import cast
 
 from llm.ollama_client import JsonObject
 
-from .reaction_types import (
+from .contracts import (
     ReactionDecision,
     ReactionDecisionTrace,
     ReactionIntent,
@@ -31,7 +31,6 @@ def try_parse_day_plan_broad_strokes(
     min_items: int = 5,
     max_items: int = 8,
 ) -> DayPlanParseResult:
-    """Parse broad-strokes payload and enforce count/normalization constraints."""
     payload = parse_json_object(response_text)
     if payload is None:
         payload = attempt_json_repair_once(response_text)

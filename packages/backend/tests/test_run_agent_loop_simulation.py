@@ -1,8 +1,9 @@
-from dialogue.reply_policy import (
+from llm.governance import (
     is_repetitive_reply,
     recent_replies_for_echo_check,
+    semantic_repeat_rate,
+    topic_progress_rate,
 )
-from metrics.conversation_metrics import semantic_repeat_rate, topic_progress_rate
 from run_agent_loop_simulation import (
     DEFAULT_CONFIG,
 )

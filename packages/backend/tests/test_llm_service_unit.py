@@ -6,6 +6,8 @@ import numpy as np
 from agents.agent import AgentIdentity, AgentProfile, ExtendedPersona, FixedPersona
 from agents.memory.memory_object import MemoryObject, NodeType
 from llm.embedding_encoder import EmbeddingEncodingContext
+from llm.guardrails.similarity import EmbeddingEncoder
+from llm.governance import ReactionDecisionInput
 from llm.llm_service import LlmService
 from llm.prompt_builders import (
     build_day_plan_broad_strokes_prompt,
@@ -13,8 +15,6 @@ from llm.prompt_builders import (
     build_reaction_utterance_prompt,
     build_salient_questions_prompt,
 )
-from llm.reaction_types import ReactionDecisionInput
-from llm.reaction_guards import EmbeddingEncoder
 
 
 class StubOllamaClient:

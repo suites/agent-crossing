@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Literal
 
 from llm.ollama_client import OllamaGenerateOptions
-from llm.reaction_guards import (
+from llm.guardrails.similarity import (
     SEMANTIC_HARD_BLOCK_THRESHOLD,
     SEMANTIC_SOFT_PENALTY_THRESHOLD,
 )

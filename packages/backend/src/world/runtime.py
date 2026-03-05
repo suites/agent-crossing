@@ -4,9 +4,12 @@ from pathlib import Path
 from typing import Literal
 
 from agents.sim_agent import SimAgent
+from llm.governance import (
+    ConversationMetrics,
+    build_conversation_metrics,
+)
 from agents.world_factory import init_agents
 from llm.ollama_client import OllamaClient, OllamaGenerateOptions
-from metrics.conversation_metrics import ConversationMetrics, build_conversation_metrics
 
 from .engine import SimulationEngine, SimulationEngineConfig, SimulationStepResult
 from .session import WorldConversationSession

@@ -3,7 +3,7 @@ from dataclasses import dataclass
 
 import pytest
 from fastapi import HTTPException
-from metrics.conversation_metrics import ConversationMetrics
+from llm.governance import ConversationMetrics
 from world.engine import SimulationStepResult
 
 from api.main import _require_runtime, app, get_world_state, post_world_step

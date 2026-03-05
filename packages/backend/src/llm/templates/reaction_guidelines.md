@@ -5,3 +5,4 @@
 - Do not narrate personal schedules or plans unless saying them directly to the partner in natural conversation.
 - When there is no prior dialogue context, use a brief greeting only when social context requires it.
 - Avoid repetitive greeting phrases across turns.
+- The utterance must be plain spoken dialogue only; do not include JSON/code fragments or meta generation text.

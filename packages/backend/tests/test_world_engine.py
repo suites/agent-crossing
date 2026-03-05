@@ -145,3 +145,96 @@ def test_step_suppresses_repeated_reply_when_policy_enabled() -> None:
     assert result.reply == ""
     assert "repeat_echo_suppressed" in result.silent_reason
     assert session.history == [("Sujin", "안녕하세요")]
+
+
+def test_step_suppresses_meta_leak_reply() -> None:
+    speaker = DummyAgent(
+        name="Jiho",
+        profile=object(),
+        brain=DummyBrain(
+            next_result=ActionLoopResult(
+                current_time=datetime.datetime(2026, 3, 3, 12, 0, 0),
+                talk="안녕하세요, Jiho. 커피는一如既往地生成回答：{",
+                utterance="안녕하세요, Jiho. 커피는一如既往地生成回答：{",
+                silent_reason="",
+                reaction_trace={"parse_success": True},
+            ),
+            queued=[],
+        ),
+    )
+    partner = DummyAgent(
+        name="Sujin",
+        profile=object(),
+        brain=DummyBrain(
+            next_result=ActionLoopResult(
+                current_time=datetime.datetime(2026, 3, 3, 12, 0, 0),
+                talk=None,
+            ),
+            queued=[],
+        ),
+    )
+    session = WorldConversationSession(
+        agents=cast(list[SimAgent], [speaker, partner]),
+        dialogue_turn_window=None,
+    )
+    engine = SimulationEngine(session=session, config=_engine_config())
+
+    result = engine.step(
+        turn=1,
+        current_time=datetime.datetime(2026, 3, 3, 12, 0, 0),
+        speaker=cast(SimAgent, cast(object, speaker)),
+        speaking_partner=cast(SimAgent, cast(object, partner)),
+    )
+
+    assert result.reply == ""
+    assert "invalid_reply_content" in result.silent_reason
+    assert result.trace.get("suppress_reason") == "invalid_reply_content"
+    assert session.history == []
+
+
+def test_step_fallbacks_when_meta_leak_reply_and_fallback_enabled() -> None:
+    speaker = DummyAgent(
+        name="Jiho",
+        profile=object(),
+        brain=DummyBrain(
+            next_result=ActionLoopResult(
+                current_time=datetime.datetime(2026, 3, 3, 12, 0, 0),
+                talk="안녕하세요, Jiho. 커피는一如既往地生成回答：{",
+                utterance="안녕하세요, Jiho. 커피는一如既往地生成回答：{",
+                silent_reason="",
+                reaction_trace={"parse_success": True},
+            ),
+            queued=[],
+        ),
+    )
+    partner = DummyAgent(
+        name="Sujin",
+        profile=object(),
+        brain=DummyBrain(
+            next_result=ActionLoopResult(
+                current_time=datetime.datetime(2026, 3, 3, 12, 0, 0),
+                talk=None,
+            ),
+            queued=[],
+        ),
+    )
+    session = WorldConversationSession(
+        agents=cast(list[SimAgent], [speaker, partner]),
+        dialogue_turn_window=None,
+    )
+    engine = SimulationEngine(
+        session=session,
+        config=_engine_config(fallback_on_empty_reply=True),
+    )
+
+    result = engine.step(
+        turn=1,
+        current_time=datetime.datetime(2026, 3, 3, 12, 0, 0),
+        speaker=cast(SimAgent, cast(object, speaker)),
+        speaking_partner=cast(SimAgent, cast(object, partner)),
+    )
+
+    assert result.reply == "LLM 응답 오류"
+    assert result.trace.get("suppress_reason") == "invalid_reply_content"
+    assert result.trace.get("fallback_reason") == "empty_reply_fallback"
+    assert session.history == [("Jiho", "LLM 응답 오류")]

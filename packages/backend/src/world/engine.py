@@ -4,7 +4,10 @@ from typing import Literal
 
 from agents.agent_brain import ActionLoopInput, ActionLoopResult
 from agents.sim_agent import SimAgent
-from dialogue.reply_policy import apply_reply_policy, recent_replies_for_echo_check
+from llm.governance import (
+    apply_reply_policy,
+    recent_replies_for_echo_check,
+)
 from llm.ollama_client import OllamaGenerateOptions
 
 from .session import (
