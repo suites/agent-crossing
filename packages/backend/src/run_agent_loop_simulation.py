@@ -62,7 +62,7 @@ DEFAULT_CONFIG = LoopSimulationConfig(
 )
 
 
-def run_simulation(
+def _run_simulation(
     *,
     config: LoopSimulationConfig,
 ) -> None:
@@ -170,7 +170,7 @@ def _format_decision_trace_for_log(
 
 
 def main() -> None:
-    run_simulation(config=DEFAULT_CONFIG)
+    _run_simulation(config=DEFAULT_CONFIG)
 
 
 if __name__ == "__main__":

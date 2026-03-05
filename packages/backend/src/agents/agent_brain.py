@@ -163,7 +163,7 @@ class AgentBrain:
         AgentBrain의 메인 루프.
         """
         # 1. 현재 상황을 인지한다. 인지할때 월드에서 현재 상황을 조회해서 주입한다.
-        observation = self.perceive(
+        observation = self._perceive(
             now=input.current_time,
             current_plan_context=input.profile.extended.current_plan_context,
             world_context=input.world_context,
@@ -196,7 +196,7 @@ class AgentBrain:
             reaction_decision=reaction_decision,
         )
 
-    def perceive(
+    def _perceive(
         self,
         *,
         now: datetime.datetime,

@@ -26,7 +26,7 @@ def _profile_from_persona(persona: AgentPersona) -> AgentProfile:
     )
 
 
-def build_agent(
+def _build_agent(
     persona: AgentPersona, ollama_client: OllamaClient, llm_model: str
 ) -> SimAgent:
     memory_stream = MemoryStream()
@@ -76,7 +76,7 @@ def init_agents(
     agents: list[SimAgent] = []
     for persona_name in agent_persona_names:
         persona = persona_loader.load(persona_name)
-        agent = build_agent(persona, ollama_client, llm_model)
+        agent = _build_agent(persona, ollama_client, llm_model)
         apply_persona_to_brain(brain=agent.brain, persona=persona, now=now)
         agents.append(agent)
 
