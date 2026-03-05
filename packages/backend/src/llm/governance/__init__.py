@@ -17,6 +17,11 @@ from .parsing import (
     try_parse_day_plan_broad_strokes,
 )
 from .pipeline import ReactionPipeline
+from .trace_payload import (
+    is_reaction_parse_failure,
+    merge_policy_trace,
+    reaction_trace_to_payload,
+)
 from .metrics import (
     ConversationMetrics,
     build_conversation_metrics,
@@ -50,13 +55,16 @@ __all__ = [
     "attempt_json_repair_once",
     "build_conversation_metrics",
     "fallback_reply",
+    "is_reaction_parse_failure",
     "is_repetitive_reply",
+    "merge_policy_trace",
     "normalize_reply_for_repeat_check",
     "parse_json_object",
     "parse_reaction_decision",
     "parse_reaction_intent",
     "parse_reaction_utterance",
     "recent_replies_for_echo_check",
+    "reaction_trace_to_payload",
     "semantic_repeat_rate",
     "semantic_similarity_proxy",
     "tokenize",

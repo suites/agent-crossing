@@ -6,6 +6,8 @@ from agents.agent_brain import ActionLoopInput, ActionLoopResult
 from agents.sim_agent import SimAgent
 from llm.governance import (
     apply_reply_policy,
+    is_reaction_parse_failure,
+    merge_policy_trace,
     recent_replies_for_echo_check,
 )
 from llm.ollama_client import OllamaGenerateOptions
@@ -89,12 +91,13 @@ class SimulationEngine:
             fallback_on_empty_reply=self.config.fallback_on_empty_reply,
         )
 
-        trace = dict(action_result.reaction_trace or {})
-        parse_failure = not bool(trace.get("parse_success", True))
-        if policy_result.suppress_reason:
-            trace["suppress_reason"] = policy_result.suppress_reason
-        if policy_result.fallback_reason:
-            trace["fallback_reason"] = policy_result.fallback_reason
+        trace = merge_policy_trace(
+            trace=action_result.reaction_trace,
+            suppress_reason=policy_result.suppress_reason,
+            fallback_reason=policy_result.fallback_reason,
+        )
+        parse_failure = is_reaction_parse_failure(trace=action_result.reaction_trace)
+        diagnostics = action_result.diagnostics
 
         if not policy_result.reply:
             silent_reason = ",".join(
@@ -110,13 +113,13 @@ class SimulationEngine:
             return SimulationStepResult(
                 now=now,
                 speaker_name=speaker.name,
-                thought=action_result.thought,
-                model_thought=action_result.model_thought,
-                self_critique=action_result.self_critique,
-                decision_reason=action_result.decision_reason,
+                thought=diagnostics.thought if diagnostics else "",
+                model_thought=diagnostics.model_thought if diagnostics else "",
+                self_critique=diagnostics.self_critique if diagnostics else "",
+                decision_reason=diagnostics.decision_reason if diagnostics else "",
                 action_intent=action_result.action_intent,
                 speak_decision=action_result.speak_decision,
-                action_summary=action_result.action_summary,
+                action_summary=diagnostics.action_summary if diagnostics else "",
                 trace=trace,
                 decision_process=self._build_decision_process(
                     action_result=action_result,
@@ -143,13 +146,13 @@ class SimulationEngine:
         return SimulationStepResult(
             now=now,
             speaker_name=speaker.name,
-            thought=action_result.thought,
-            model_thought=action_result.model_thought,
-            self_critique=action_result.self_critique,
-            decision_reason=action_result.decision_reason,
+            thought=diagnostics.thought if diagnostics else "",
+            model_thought=diagnostics.model_thought if diagnostics else "",
+            self_critique=diagnostics.self_critique if diagnostics else "",
+            decision_reason=diagnostics.decision_reason if diagnostics else "",
             action_intent=action_result.action_intent,
             speak_decision=action_result.speak_decision,
-            action_summary=action_result.action_summary,
+            action_summary=diagnostics.action_summary if diagnostics else "",
             trace=trace,
             decision_process=self._build_decision_process(
                 action_result=action_result,
@@ -170,7 +173,8 @@ class SimulationEngine:
         policy_fallback_reason: str,
         final_reply: str,
     ) -> dict[str, object]:
-        base_process = dict(action_result.decision_process or {})
+        diagnostics = action_result.diagnostics
+        base_process = dict(diagnostics.decision_process if diagnostics else {})
         base_process["policy"] = {
             "suppress_reason": policy_suppress_reason,
             "fallback_reason": policy_fallback_reason,

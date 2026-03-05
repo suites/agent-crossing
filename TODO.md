@@ -122,6 +122,13 @@
     - [x] 2차 호출에서 `utterance`를 생성하고 semantic/overlap guard를 적용한다
     - [x] 단위 테스트로 retry/parse-fallback 경로를 검증한다
 
+- [x] `P1` Brain/Governance/Diagnostics 경계를 분리한다
+  - Depends on: reaction 2-call 파이프라인 분리
+  - DoD:
+    - [x] ActionLoopResult에서 디버그/관측성 필드를 분리하고 핵심 행동 필드만 유지한다
+    - [x] reaction trace 머지 로직을 governance 계층 유틸로 이동한다
+    - [x] diagnostics 포맷팅(`action_summary`, `decision_process` 등)을 별도 모듈로 분리한다
+
 ## 3) Planning & Re-planning (논문 핵심 3)
 
 ### 3-A. 계층형 계획 생성

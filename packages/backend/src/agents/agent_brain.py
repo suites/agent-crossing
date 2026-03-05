@@ -1,15 +1,20 @@
 import datetime
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from importlib import import_module
 from typing import Literal, Protocol, cast
 
 import numpy as np
 from agents.agent import AgentIdentity, AgentProfile
 from llm.embedding_encoder import EmbeddingEncodingContext
-from llm.governance import ReactionDecision, ReactionDecisionInput
+from llm.governance import (
+    ReactionDecision,
+    ReactionDecisionInput,
+    ReactionDecisionTrace,
+)
 from llm.llm_gateway import LlmGateway
 from llm.ollama_client import OllamaGenerateOptions
 
+from .decision_diagnostics import ActionDiagnostics, build_action_diagnostics
 from .memory.memory_object import MemoryObject
 from .memory.memory_manager import MemoryManager, ObservationContext
 from .reflection_workflow import ReflectionWorkflow
@@ -61,22 +66,12 @@ class ActionLoopResult:
     """이번 턴에 실제 발화를 수행했는지 여부."""
     action_intent: str = "continue_current_plan"
     """행동 의도를 나타내는 구조화된 문자열."""
-    thought: str = ""
-    """행동 결정을 내릴 때의 내부 판단 근거."""
-    model_thought: str = ""
-    """LLM이 생성한 원본 thought 필드."""
-    self_critique: str = ""
-    """LLM이 생성한 critique 필드."""
-    decision_reason: str = ""
-    """LLM이 선택한 최종 reason 필드."""
-    action_summary: str = ""
-    """내부적으로 선택한 행동 요약."""
     silent_reason: str = ""
     """발화하지 않았을 때 원인."""
-    reaction_trace: dict[str, object] | None = None
-    """reaction decision 디버깅 추적 정보."""
-    decision_process: dict[str, object] | None = None
-    """발화 결정 과정을 단계별로 구조화한 정보."""
+    reaction_trace: ReactionDecisionTrace | None = None
+    """LLM governance에서 생성한 reaction 추적 정보."""
+    diagnostics: ActionDiagnostics | None = None
+    """행동 판단 관측용 진단 정보."""
 
 
 class PromptBuildersModule(Protocol):
@@ -283,32 +278,14 @@ class AgentBrain:
             utterance=talk,
             speak_decision=should_speak,
             action_intent=action_intent,
-            thought=(reaction_decision.critique or reaction_decision.reason),
-            model_thought=reaction_decision.thought,
-            self_critique=reaction_decision.critique,
-            decision_reason=reaction_decision.reason,
-            action_summary=(
-                f"speak_decision={should_speak}, "
-                f"action_intent={action_intent}, "
-                f"should_react={reaction_decision.should_react}, "
-                f"reason={reaction_decision.reason or 'n/a'}"
-            ),
             silent_reason=silent_reason,
-            reaction_trace=cast(dict[str, object], asdict(reaction_decision.trace)),
-            decision_process={
-                "llm_decision": {
-                    "should_react": reaction_decision.should_react,
-                    "reason": reaction_decision.reason,
-                    "model_thought": reaction_decision.thought,
-                    "self_critique": reaction_decision.critique,
-                    "candidate_reaction": reaction_decision.reaction,
-                },
-                "action": {
-                    "speak_decision": should_speak,
-                    "action_intent": action_intent,
-                    "silent_reason": silent_reason,
-                },
-            },
+            reaction_trace=reaction_decision.trace,
+            diagnostics=build_action_diagnostics(
+                reaction_decision=reaction_decision,
+                speak_decision=should_speak,
+                action_intent=action_intent,
+                silent_reason=silent_reason,
+            ),
         )
 
     def _determine_reaction(

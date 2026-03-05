@@ -3,6 +3,8 @@ from dataclasses import dataclass
 from typing import Literal, cast
 
 from agents.agent_brain import ActionLoopInput, ActionLoopResult
+from agents.decision_diagnostics import ActionDiagnostics
+from llm.governance import ReactionDecisionTrace
 from agents.sim_agent import SimAgent
 from llm.ollama_client import OllamaGenerateOptions
 from world.engine import SimulationEngine, SimulationEngineConfig
@@ -37,6 +39,17 @@ class DummyAgent:
     brain: DummyBrain
 
 
+def _diagnostics(*, thought: str = "") -> ActionDiagnostics:
+    return ActionDiagnostics(
+        thought=thought,
+        model_thought="",
+        self_critique="",
+        decision_reason="",
+        action_summary="react_to_partner",
+        decision_process={},
+    )
+
+
 def _engine_config(
     *,
     suppress_repeated_replies: bool = False,
@@ -61,9 +74,11 @@ def test_step_commits_reply_and_broadcasts_to_partner() -> None:
                 current_time=datetime.datetime(2026, 3, 3, 12, 0, 0),
                 talk="안녕하세요",
                 utterance="안녕하세요",
-                thought="반갑게 인사",
-                action_summary="react_to_partner",
-                reaction_trace={"parse_success": True},
+                diagnostics=_diagnostics(thought="반갑게 인사"),
+                reaction_trace=ReactionDecisionTrace(
+                    raw_response="",
+                    parse_success=True,
+                ),
             ),
             queued=[],
         ),
@@ -109,7 +124,11 @@ def test_step_suppresses_repeated_reply_when_policy_enabled() -> None:
                 talk="안녕하세요",
                 utterance="안녕하세요",
                 silent_reason="",
-                reaction_trace={"parse_success": True},
+                diagnostics=_diagnostics(),
+                reaction_trace=ReactionDecisionTrace(
+                    raw_response="",
+                    parse_success=True,
+                ),
             ),
             queued=[],
         ),
@@ -157,7 +176,11 @@ def test_step_suppresses_meta_leak_reply() -> None:
                 talk="안녕하세요, Jiho. 커피는一如既往地生成回答：{",
                 utterance="안녕하세요, Jiho. 커피는一如既往地生成回答：{",
                 silent_reason="",
-                reaction_trace={"parse_success": True},
+                diagnostics=_diagnostics(),
+                reaction_trace=ReactionDecisionTrace(
+                    raw_response="",
+                    parse_success=True,
+                ),
             ),
             queued=[],
         ),
@@ -202,7 +225,11 @@ def test_step_fallbacks_when_meta_leak_reply_and_fallback_enabled() -> None:
                 talk="안녕하세요, Jiho. 커피는一如既往地生成回答：{",
                 utterance="안녕하세요, Jiho. 커피는一如既往地生成回答：{",
                 silent_reason="",
-                reaction_trace={"parse_success": True},
+                diagnostics=_diagnostics(),
+                reaction_trace=ReactionDecisionTrace(
+                    raw_response="",
+                    parse_success=True,
+                ),
             ),
             queued=[],
         ),
