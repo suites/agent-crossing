@@ -45,16 +45,20 @@ class OllamaClient:
         self,
         base_url: str = "http://localhost:11434",
         timeout_seconds: float = 10.0,
+        default_generate_model: str = "qwen2.5:7b-instruct",
+        default_embedding_model: str = "bge-m3",
         request_fn: RequestFn | None = None,
     ) -> None:
         self.base_url: str = base_url.rstrip("/")
         self.timeout_seconds: float = timeout_seconds
+        self.default_generate_model: str = default_generate_model
+        self.default_embedding_model: str = default_embedding_model
         self._request_fn: RequestFn = request_fn or self._default_request
 
     def generate(
         self,
         *,
-        model: str = "qwen2.5:7b-instruct",
+        model: str | None = None,
         prompt: str,
         options: OllamaGenerateOptions | None = None,
         system: str | None = None,
@@ -74,7 +78,7 @@ class OllamaClient:
             option_payload["frequency_penalty"] = final_options.frequency_penalty
 
         payload: JsonObject = {
-            "model": model,
+            "model": model or self.default_generate_model,
             "prompt": prompt,
             "stream": False,
             "options": option_payload,
@@ -98,7 +102,7 @@ class OllamaClient:
     def embed(
         self,
         *,
-        model: str = "bge-m3",
+        model: str | None = None,
         input: str,
         truncate: bool = True,
         keep_alive: str = "30m",
@@ -111,7 +115,7 @@ class OllamaClient:
         )
 
         payload: JsonObject = {
-            "model": model,
+            "model": model or self.default_embedding_model,
             "input": input,
             "truncate": truncate,
             "keep_alive": keep_alive,

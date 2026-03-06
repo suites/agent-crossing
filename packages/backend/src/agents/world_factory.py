@@ -10,7 +10,7 @@ from agents.sim_agent import SimAgent
 from llm.embedding_encoder import OllamaEmbeddingEncoder
 from llm.importance_scorer import OllamaImportanceScorer
 from llm.llm_gateway import LlmGateway
-from llm.ollama_client import OllamaClient
+from llm.provider_factory import ProviderClient
 
 from .memory.memory_manager import MemoryManager
 from .memory.memory_stream import MemoryStream
@@ -27,17 +27,20 @@ def _profile_from_persona(persona: AgentPersona) -> AgentProfile:
 
 
 def _build_agent(
-    persona: AgentPersona, ollama_client: OllamaClient, llm_model: str
+    persona: AgentPersona,
+    llm_client: ProviderClient,
+    llm_model: str,
+    embedding_model: str,
 ) -> SimAgent:
     memory_stream = MemoryStream()
-    importance_scorer = OllamaImportanceScorer(client=ollama_client, model=llm_model)
-    embedding_encoder = OllamaEmbeddingEncoder(client=ollama_client)
+    importance_scorer = OllamaImportanceScorer(client=llm_client, model=llm_model)
+    embedding_encoder = OllamaEmbeddingEncoder(client=llm_client, model=embedding_model)
     memory_service = MemoryManager(
         memory_stream=memory_stream,
         importance_scorer=importance_scorer,
         embedding_encoder=embedding_encoder,
     )
-    llm_service = LlmGateway(ollama_client, embedding_encoder=embedding_encoder)
+    llm_service = LlmGateway(llm_client, embedding_encoder=embedding_encoder)
     reflection_service = ReflectionWorkflow(
         reflection=Reflection(),
         memory_service=memory_service,
@@ -64,8 +67,9 @@ def init_agents(
     *,
     persona_dir: str | Path,
     agent_persona_names: list[str],
-    ollama_client: OllamaClient,
+    llm_client: ProviderClient,
     llm_model: str,
+    embedding_model: str,
     now: datetime.datetime,
 ) -> list[SimAgent]:
     if not agent_persona_names:
@@ -76,7 +80,7 @@ def init_agents(
     agents: list[SimAgent] = []
     for persona_name in agent_persona_names:
         persona = persona_loader.load(persona_name)
-        agent = _build_agent(persona, ollama_client, llm_model)
+        agent = _build_agent(persona, llm_client, llm_model, embedding_model)
         apply_persona_to_brain(brain=agent.brain, persona=persona, now=now)
         agents.append(agent)
 

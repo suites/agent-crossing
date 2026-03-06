@@ -5,8 +5,6 @@ from typing import Protocol, cast
 
 from .ollama_client import (
     JsonObject,
-    OllamaClient,
-    OllamaClientError,
     OllamaGenerateOptions,
 )
 from .prompt_builders import build_importance_scoring_prompt
@@ -73,16 +71,27 @@ class ImportanceScorer(Protocol):
     def score(self, context: ImportanceScoringContext) -> int: ...
 
 
-class OllamaImportanceScorer:
+class ImportanceGenerateClient(Protocol):
+    def generate(
+        self,
+        *,
+        prompt: str,
+        options: OllamaGenerateOptions | None = None,
+        system: str | None = None,
+        format_json: bool = False,
+    ) -> str: ...
+
+
+class LlmImportanceScorer:
     def __init__(
         self,
-        client: OllamaClient,
-        model: str = "qwen2.5:7b-instruct",
+        client: ImportanceGenerateClient,
+        model: str | None = None,
         fallback_importance: int = 3,
         options: OllamaGenerateOptions | None = None,
     ) -> None:
-        self.client: OllamaClient = client
-        self.model: str = model
+        _ = model
+        self.client: ImportanceGenerateClient = client
         self.fallback_importance: int = clamp_importance(fallback_importance)
         self.options: OllamaGenerateOptions = options or OllamaGenerateOptions()
 
@@ -91,12 +100,11 @@ class OllamaImportanceScorer:
 
         try:
             response = self.client.generate(
-                model=self.model,
                 prompt=prompt,
                 options=self.options,
                 format_json=True,
             )
-        except (OllamaClientError, TimeoutError, ValueError):
+        except (RuntimeError, TimeoutError, ValueError):
             return self.fallback_importance
 
         return parse_importance_value(response, self.fallback_importance)
@@ -109,3 +117,6 @@ class OllamaImportanceScorer:
             current_plan=context.current_plan,
             observation=context.observation,
         )
+
+
+OllamaImportanceScorer = LlmImportanceScorer

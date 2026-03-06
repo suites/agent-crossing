@@ -8,8 +8,9 @@ from llm.governance import (
     ConversationMetrics,
     build_conversation_metrics,
 )
+from llm.provider_factory import ProviderName, build_provider_client
 from agents.world_factory import init_agents
-from llm.ollama_client import OllamaClient, OllamaGenerateOptions
+from llm.ollama_client import OllamaGenerateOptions
 
 from .engine import SimulationEngine, SimulationEngineConfig, SimulationStepResult
 from .session import WorldConversationSession
@@ -18,8 +19,11 @@ from .session import WorldConversationSession
 @dataclass(frozen=True)
 class WorldRuntimeConfig:
     agent_persona_names: list[str]
-    base_url: str
+    llm_provider: ProviderName
+    base_url: str | None
+    api_key: str | None
     llm_model: str
+    embedding_model: str
     timeout_seconds: float
     persona_dir: str
     dialogue_turn_window: int | None = None
@@ -110,15 +114,20 @@ class WorldRuntime:
 
 def build_world_runtime(*, config: WorldRuntimeConfig) -> WorldRuntime:
     now = datetime.datetime.now()
-    ollama_client = OllamaClient(
-        base_url=config.base_url,
+    llm_client = build_provider_client(
+        provider=config.llm_provider,
         timeout_seconds=config.timeout_seconds,
+        generation_model=config.llm_model,
+        embedding_model=config.embedding_model,
+        base_url=config.base_url,
+        api_key=config.api_key,
     )
     agents = init_agents(
         persona_dir=config.persona_dir,
         agent_persona_names=config.agent_persona_names,
-        ollama_client=ollama_client,
+        llm_client=llm_client,
         llm_model=config.llm_model,
+        embedding_model=config.embedding_model,
         now=now,
     )
     session = WorldConversationSession(

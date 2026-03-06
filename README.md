@@ -56,6 +56,24 @@ pnpm dev:backend
 pnpm dev:frontend
 ```
 
+### LLM provider switch
+
+Backend runtime supports both local Ollama and Google AI Studio. Set env vars before running backend:
+
+```bash
+# default (local ollama)
+export LLM_PROVIDER=ollama
+export LLM_BASE_URL=http://localhost:11434
+export LLM_MODEL=qwen2.5:7b-instruct
+export EMBEDDING_MODEL=bge-m3
+
+# or Google AI Studio
+export LLM_PROVIDER=google_ai_studio
+export GOOGLE_AI_STUDIO_API_KEY=your_api_key
+export LLM_MODEL=gemini-1.5-flash
+export EMBEDDING_MODEL=text-embedding-004
+```
+
 ### PostgreSQL + pgvector (Docker)
 
 ```bash

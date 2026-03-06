@@ -5,6 +5,14 @@ from agents.persona_loader import PersonaLoader
 from api.schemas import StatusResponse, WorldStateResponse, WorldStepResponse
 from db import init_db
 from fastapi import FastAPI, HTTPException
+from settings import (
+    EMBEDDING_MODEL,
+    GOOGLE_AI_STUDIO_API_KEY,
+    LLM_BASE_URL,
+    LLM_MODEL,
+    LLM_PROVIDER,
+    LLM_TIMEOUT_SECONDS,
+)
 from world.runtime import WorldRuntime, WorldRuntimeConfig, build_world_runtime
 
 app = FastAPI(title="Agent Crossing API")
@@ -22,9 +30,12 @@ def on_startup() -> None:
         app.state.world_runtime = build_world_runtime(
             config=WorldRuntimeConfig(
                 agent_persona_names=persona_names[:2],
-                base_url="http://localhost:11434",
-                llm_model="qwen2.5:7b-instruct",
-                timeout_seconds=30.0,
+                llm_provider=LLM_PROVIDER,
+                base_url=LLM_BASE_URL,
+                api_key=GOOGLE_AI_STUDIO_API_KEY,
+                llm_model=LLM_MODEL,
+                embedding_model=EMBEDDING_MODEL,
+                timeout_seconds=LLM_TIMEOUT_SECONDS,
                 persona_dir=str(persona_dir),
             )
         )

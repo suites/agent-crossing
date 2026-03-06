@@ -8,6 +8,15 @@ from llm.guardrails.similarity import (
     SEMANTIC_HARD_BLOCK_THRESHOLD,
     SEMANTIC_SOFT_PENALTY_THRESHOLD,
 )
+from llm.provider_factory import ProviderName
+from settings import (
+    EMBEDDING_MODEL,
+    GOOGLE_AI_STUDIO_API_KEY,
+    LLM_BASE_URL,
+    LLM_MODEL,
+    LLM_PROVIDER,
+    LLM_TIMEOUT_SECONDS,
+)
 from world.runtime import WorldRuntimeConfig, build_world_runtime
 
 
@@ -17,10 +26,16 @@ class LoopSimulationConfig:
     """시뮬레이션에 참여할 에이전트 persona id 목록."""
     turns: int
     """총 턴 수."""
-    base_url: str
-    """Ollama 서버 base URL."""
+    llm_provider: ProviderName
+    """LLM provider 식별자 (ollama | google_ai_studio)."""
+    base_url: str | None
+    """Provider 서버 base URL (ollama용)."""
+    api_key: str | None
+    """Provider API key (google_ai_studio용)."""
     llm_model: str
     """발화/추론에 사용할 LLM 모델명."""
+    embedding_model: str
+    """임베딩에 사용할 모델명."""
     timeout_seconds: float
     """LLM 요청 타임아웃(초)."""
     persona_dir: str
@@ -55,9 +70,12 @@ class LoopSimulationConfig:
 DEFAULT_CONFIG = LoopSimulationConfig(
     agent_persona_names=["Jiho", "Sujin"],
     turns=10,
-    base_url="http://localhost:11434",
-    llm_model="qwen2.5:7b-instruct",
-    timeout_seconds=30.0,
+    llm_provider=LLM_PROVIDER,
+    base_url=LLM_BASE_URL,
+    api_key=GOOGLE_AI_STUDIO_API_KEY,
+    llm_model=LLM_MODEL,
+    embedding_model=EMBEDDING_MODEL,
+    timeout_seconds=LLM_TIMEOUT_SECONDS,
     persona_dir=str(Path(__file__).resolve().parents[1] / "persona"),
 )
 
@@ -74,8 +92,11 @@ def _run_simulation(
     runtime = build_world_runtime(
         config=WorldRuntimeConfig(
             agent_persona_names=agent_persona_names,
+            llm_provider=config.llm_provider,
             base_url=config.base_url,
+            api_key=config.api_key,
             llm_model=config.llm_model,
+            embedding_model=config.embedding_model,
             timeout_seconds=config.timeout_seconds,
             persona_dir=config.persona_dir,
             dialogue_turn_window=config.dialogue_turn_window,
