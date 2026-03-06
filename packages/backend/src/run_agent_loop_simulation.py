@@ -3,12 +3,12 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Literal
 
-from llm.ollama_client import OllamaGenerateOptions
+from llm.clients.ollama import OllamaGenerateOptions
 from llm.guardrails.similarity import (
     SEMANTIC_HARD_BLOCK_THRESHOLD,
     SEMANTIC_SOFT_PENALTY_THRESHOLD,
 )
-from llm.provider_factory import ProviderName
+from llm.clients.provider_factory import ProviderName
 from settings import (
     EMBEDDING_MODEL,
     GOOGLE_AI_STUDIO_API_KEY,

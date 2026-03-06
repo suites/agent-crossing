@@ -2,9 +2,8 @@ import json
 from dataclasses import dataclass
 from typing import cast
 
-from agents.planning.models import DayPlanItem
 from agents.memory.memory_object import MemoryObject
-from llm.guardrails.similarity import EmbeddingEncoder
+from agents.planning.models import DayPlanItem
 from llm.governance import (
     DayPlanParseError,
     GenerateClient,
@@ -13,7 +12,8 @@ from llm.governance import (
     ReactionPipeline,
     try_parse_day_plan,
 )
-from llm.ollama_client import JsonObject, OllamaGenerateOptions
+from llm.guardrails.similarity import EmbeddingEncoder
+from llm.clients.ollama import JsonObject, OllamaGenerateOptions
 
 from . import prompt_builders
 

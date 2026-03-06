@@ -1,9 +1,9 @@
 import pytest
 from typing import cast
 
-from llm.google_ai_studio_client import GoogleAiStudioClient
-from llm.ollama_client import OllamaClient
-from llm.provider_factory import ProviderName, build_provider_client
+from llm.clients.google_ai_studio import GoogleAiStudioClient
+from llm.clients.ollama import OllamaClient
+from llm.clients.provider_factory import ProviderName, build_provider_client
 
 
 def test_build_provider_client_returns_ollama_client() -> None:

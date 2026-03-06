@@ -12,7 +12,7 @@ from llm.governance import (
     ReactionDecisionTrace,
 )
 from llm.llm_gateway import LlmGateway
-from llm.ollama_client import OllamaGenerateOptions
+from llm.clients.ollama import OllamaGenerateOptions
 
 from .decision_diagnostics import ActionDiagnostics, build_action_diagnostics
 from .memory.memory_object import MemoryObject

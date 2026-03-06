@@ -4,7 +4,7 @@ from typing import Literal, Protocol
 
 from agents.agent import AgentIdentity, AgentProfile
 from agents.memory.memory_object import MemoryObject
-from llm.ollama_client import OllamaGenerateOptions
+from llm.clients.ollama import OllamaGenerateOptions
 
 
 @dataclass(frozen=True)

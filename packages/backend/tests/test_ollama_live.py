@@ -16,7 +16,7 @@ from dataclasses import dataclass
 import pytest
 
 from llm import OllamaClient, OllamaGenerateOptions
-from llm.ollama_client import JsonObject
+from llm.clients.ollama import JsonObject
 
 
 @dataclass(frozen=True)
@@ -28,12 +28,19 @@ class OllamaContext:
 
 OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434").rstrip("/")
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "qwen2.5:7b-instruct")
-RUN_LIVE_OLLAMA = os.getenv("RUN_LIVE_OLLAMA", "").strip().lower() in {"1", "true", "yes", "on"}
+RUN_LIVE_OLLAMA = os.getenv("RUN_LIVE_OLLAMA", "").strip().lower() in {
+    "1",
+    "true",
+    "yes",
+    "on",
+}
 
 TIMEOUT_SECONDS = float(os.getenv("OLLAMA_TEST_TIMEOUT_SECONDS", "30"))
 RETRY_COUNT = int(os.getenv("OLLAMA_TEST_RETRY_COUNT", "3"))
 RETRY_BACKOFF_SECONDS = float(os.getenv("OLLAMA_TEST_RETRY_BACKOFF_SECONDS", "0.5"))
-INFERENCE_BUDGET_SECONDS = float(os.getenv("OLLAMA_TEST_INFERENCE_BUDGET_SECONDS", "20"))
+INFERENCE_BUDGET_SECONDS = float(
+    os.getenv("OLLAMA_TEST_INFERENCE_BUDGET_SECONDS", "20")
+)
 INFERENCE_MAX_TOKENS = int(os.getenv("OLLAMA_TEST_INFERENCE_MAX_TOKENS", "64"))
 
 
@@ -64,7 +71,9 @@ def _request_json(
                 url,
                 data=payload_bytes,
                 method=method,
-                headers={"Content-Type": "application/json"} if payload is not None else {},
+                headers={"Content-Type": "application/json"}
+                if payload is not None
+                else {},
             )
             with urllib.request.urlopen(request, timeout=timeout_seconds) as response:
                 raw = response.read()
@@ -82,11 +91,19 @@ def _request_json(
             if body:
                 message = f"{message}: {body}"
             error: Exception = RuntimeError(message)
-        except (urllib.error.URLError, TimeoutError, OSError, json.JSONDecodeError, AssertionError) as exc:
+        except (
+            urllib.error.URLError,
+            TimeoutError,
+            OSError,
+            json.JSONDecodeError,
+            AssertionError,
+        ) as exc:
             error = exc
 
         if attempt >= attempts:
-            raise RuntimeError(f"Ollama request failed after {attempts} attempts") from error
+            raise RuntimeError(
+                f"Ollama request failed after {attempts} attempts"
+            ) from error
 
         time.sleep(RETRY_BACKOFF_SECONDS * attempt)
 
@@ -116,7 +133,9 @@ def ollama_context() -> OllamaContext:
         raise RuntimeError("Ollama /api/tags response missing models list")
 
     model_names = [
-        model.get("name") for model in raw_models if isinstance(model, dict) and isinstance(model.get("name"), str)
+        model.get("name")
+        for model in raw_models
+        if isinstance(model, dict) and isinstance(model.get("name"), str)
     ]
 
     if not model_names:
@@ -133,8 +152,12 @@ def test_ollama_smoke_health(ollama_context: OllamaContext) -> None:
     assert ollama_context.model
 
 
-def test_ollama_generate_smoke_and_deterministic_shape(ollama_context: OllamaContext) -> None:
-    options = OllamaGenerateOptions(temperature=0.0, top_p=1.0, num_predict=INFERENCE_MAX_TOKENS)
+def test_ollama_generate_smoke_and_deterministic_shape(
+    ollama_context: OllamaContext,
+) -> None:
+    options = OllamaGenerateOptions(
+        temperature=0.0, top_p=1.0, num_predict=INFERENCE_MAX_TOKENS
+    )
 
     start = time.perf_counter()
     client = OllamaClient(
@@ -179,4 +202,6 @@ def test_ollama_generate_payload_contract(ollama_context: OllamaContext) -> None
     assert response.get("done") is True
     assert response.get("model") == ollama_context.model
     response_text = response.get("response")
-    assert isinstance(response_text, str) and response_text.strip(), "Generate response text must be non-empty"
+    assert isinstance(response_text, str) and response_text.strip(), (
+        "Generate response text must be non-empty"
+    )

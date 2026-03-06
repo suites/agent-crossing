@@ -3,7 +3,7 @@ import re
 from dataclasses import dataclass
 from typing import Protocol, cast
 
-from .ollama_client import (
+from .clients.ollama import (
     JsonObject,
     OllamaGenerateOptions,
 )
@@ -86,11 +86,9 @@ class LlmImportanceScorer:
     def __init__(
         self,
         client: ImportanceGenerateClient,
-        model: str | None = None,
         fallback_importance: int = 3,
         options: OllamaGenerateOptions | None = None,
     ) -> None:
-        _ = model
         self.client: ImportanceGenerateClient = client
         self.fallback_importance: int = clamp_importance(fallback_importance)
         self.options: OllamaGenerateOptions = options or OllamaGenerateOptions()

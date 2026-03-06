@@ -4,7 +4,7 @@ from dataclasses import dataclass, replace
 from typing import cast
 
 from agents.planning.models import DayPlanItem
-from llm.ollama_client import JsonObject
+from llm.clients.ollama import JsonObject
 
 from .contracts import (
     ReactionDecision,

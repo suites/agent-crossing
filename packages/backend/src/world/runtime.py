@@ -8,9 +8,9 @@ from llm.governance import (
     ConversationMetrics,
     build_conversation_metrics,
 )
-from llm.provider_factory import ProviderName, build_provider_client
+from llm.clients.provider_factory import ProviderName, build_provider_client
 from agents.world_factory import init_agents
-from llm.ollama_client import OllamaGenerateOptions
+from llm.clients.ollama import OllamaGenerateOptions
 
 from .engine import SimulationEngine, SimulationEngineConfig, SimulationStepResult
 from .session import WorldConversationSession
@@ -126,7 +126,6 @@ def build_world_runtime(*, config: WorldRuntimeConfig) -> WorldRuntime:
         persona_dir=config.persona_dir,
         agent_persona_names=config.agent_persona_names,
         llm_client=llm_client,
-        llm_model=config.llm_model,
         embedding_model=config.embedding_model,
         now=now,
     )

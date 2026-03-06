@@ -6,7 +6,7 @@ from agents.agent_brain import ActionLoopInput, ActionLoopResult
 from agents.decision_diagnostics import ActionDiagnostics
 from llm.governance import ReactionDecisionTrace
 from agents.sim_agent import SimAgent
-from llm.ollama_client import OllamaGenerateOptions
+from llm.clients.ollama import OllamaGenerateOptions
 from world.engine import SimulationEngine, SimulationEngineConfig
 from world.session import WorldConversationSession
 

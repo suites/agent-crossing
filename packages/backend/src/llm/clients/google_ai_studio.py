@@ -10,7 +10,7 @@ from urllib.parse import urlencode, urlsplit
 import certifi
 from settings import EMBEDDING_DIMENSION
 
-from .ollama_client import OllamaGenerateOptions
+from .ollama import OllamaGenerateOptions
 
 JsonObject: TypeAlias = dict[str, object]
 

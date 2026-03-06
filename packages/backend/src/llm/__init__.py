@@ -4,7 +4,7 @@ from .embedding_encoder import (
     LlmEmbeddingEncoder,
     OllamaEmbeddingEncoder,
 )
-from .google_ai_studio_client import GoogleAiStudioClient, GoogleAiStudioClientError
+from .clients.google_ai_studio import GoogleAiStudioClient, GoogleAiStudioClientError
 from .importance_scorer import (
     ImportanceScorer,
     ImportanceScoringContext,
@@ -13,8 +13,8 @@ from .importance_scorer import (
     clamp_importance,
     parse_importance_value,
 )
-from .ollama_client import OllamaClient, OllamaClientError, OllamaGenerateOptions
-from .provider_factory import ProviderName, build_provider_client
+from .clients.ollama import OllamaClient, OllamaClientError, OllamaGenerateOptions
+from .clients.provider_factory import ProviderName, build_provider_client
 
 __all__ = [
     "ImportanceScoringContext",

@@ -18,6 +18,7 @@
 - [x] 프로젝트 기본 골격 확정 (`packages/shared`, `packages/frontend`, `packages/backend`)
 - [x] Frontend 런타임 부팅 (React 19 + Phaser 3 + Zustand)
 - [x] Backend 런타임 부팅 (FastAPI + uv)
+- [x] LLM provider 클라이언트 경로를 정리하고 호환 import를 유지한다 (`packages/backend/src/llm/clients`)
 - [x] 로컬 LLM + 벡터 DB PoC 통과 (MLX/Vector DB)
 - [x] `P0` 메모리 영속 스토어 전환 확정 (PostgreSQL + pgvector)
 

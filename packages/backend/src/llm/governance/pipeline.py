@@ -12,7 +12,7 @@ from llm.guardrails.similarity import (
     recent_self_utterances,
     semantic_overlap_check,
 )
-from llm.ollama_client import OllamaGenerateOptions
+from llm.clients.ollama import OllamaGenerateOptions
 
 from .contracts import (
     GenerateClient,

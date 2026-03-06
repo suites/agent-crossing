@@ -7,7 +7,7 @@ from llm import (
     clamp_importance,
     parse_importance_value,
 )
-from llm.ollama_client import JsonObject
+from llm.clients.ollama import JsonObject
 
 
 def test_clamp_importance_bounds() -> None:

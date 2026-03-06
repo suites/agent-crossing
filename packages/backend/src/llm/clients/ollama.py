@@ -2,10 +2,10 @@ import json
 from dataclasses import dataclass
 from http.client import HTTPConnection, HTTPResponse, HTTPSConnection
 from typing import Callable, TypeAlias, cast
-
-from settings import EMBEDDING_DIMENSION
 from urllib import error
 from urllib.parse import urlsplit
+
+from settings import EMBEDDING_DIMENSION
 
 JsonObject: TypeAlias = dict[str, object]
 

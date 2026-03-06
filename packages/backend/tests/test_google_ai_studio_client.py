@@ -1,5 +1,5 @@
-from llm.google_ai_studio_client import GoogleAiStudioClient
-from llm.ollama_client import OllamaGenerateOptions
+from llm.clients.google_ai_studio import GoogleAiStudioClient
+from llm.clients.ollama import OllamaGenerateOptions
 
 
 def test_generate_uses_google_generate_content_shape() -> None:

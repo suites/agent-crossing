@@ -10,7 +10,7 @@ from llm.governance import (
     merge_policy_trace,
     recent_replies_for_echo_check,
 )
-from llm.ollama_client import OllamaGenerateOptions
+from llm.clients.ollama import OllamaGenerateOptions
 
 from .session import (
     WorldConversationSession,

@@ -1,7 +1,7 @@
 from typing import Literal, Protocol
 
-from .google_ai_studio_client import GoogleAiStudioClient
-from .ollama_client import OllamaClient, OllamaGenerateOptions
+from .google_ai_studio import GoogleAiStudioClient
+from .ollama import OllamaClient, OllamaGenerateOptions
 
 ProviderName = Literal["ollama", "google_ai_studio"]
 
@@ -53,3 +53,10 @@ def build_provider_client(
         )
 
     raise ValueError(f"Unsupported LLM provider: {provider}")
+
+
+__all__ = [
+    "ProviderClient",
+    "ProviderName",
+    "build_provider_client",
+]
