@@ -18,9 +18,28 @@ from llm.governance import (
     try_parse_minute_plan,
 )
 from llm.guardrails.similarity import EmbeddingEncoder
-from llm.clients.ollama import JsonObject
+from llm.clients.ollama import JsonObject, LlmGenerateOptions
 
 from . import prompt_builders
+
+
+DAY_PLAN_GENERATE_OPTIONS = LlmGenerateOptions(
+    temperature=0.0,
+    top_p=1.0,
+    num_predict=1024,
+)
+
+HOURLY_PLAN_GENERATE_OPTIONS = LlmGenerateOptions(
+    temperature=0.0,
+    top_p=1.0,
+    num_predict=1024,
+)
+
+MINUTE_PLAN_GENERATE_OPTIONS = LlmGenerateOptions(
+    temperature=0.0,
+    top_p=1.0,
+    num_predict=3072,
+)
 
 
 @dataclass(frozen=True)
@@ -159,6 +178,7 @@ class LlmGateway:
             response_text = self.ollama_client.generate(
                 prompt=current_prompt,
                 format_json=True,
+                options=DAY_PLAN_GENERATE_OPTIONS,
             )
 
             try:
@@ -195,6 +215,7 @@ class LlmGateway:
             response_text = self.ollama_client.generate(
                 prompt=current_prompt,
                 format_json=True,
+                options=HOURLY_PLAN_GENERATE_OPTIONS,
             )
 
             try:
@@ -233,6 +254,7 @@ class LlmGateway:
             response_text = self.ollama_client.generate(
                 prompt=current_prompt,
                 format_json=True,
+                options=MINUTE_PLAN_GENERATE_OPTIONS,
             )
 
             try:
