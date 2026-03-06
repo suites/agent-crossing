@@ -14,7 +14,7 @@ from .parsing import (
     parse_reaction_decision,
     parse_reaction_intent,
     parse_reaction_utterance,
-    try_parse_day_plan_broad_strokes,
+    try_parse_day_plan,
 )
 from .pipeline import ReactionPipeline
 from .trace_payload import (
@@ -69,5 +69,5 @@ __all__ = [
     "semantic_similarity_proxy",
     "tokenize",
     "topic_progress_rate",
-    "try_parse_day_plan_broad_strokes",
+    "try_parse_day_plan",
 ]

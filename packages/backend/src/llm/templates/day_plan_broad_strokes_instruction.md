@@ -12,7 +12,7 @@ On $yesterday_date_text, $agent_name did the following:
 
 ## Today Plan Prompt
 
-Today is $today_date_text. Draft $agent_name's plan today in broad strokes.
+Today is $today_date_text. Draft $agent_name's structured day plan.
 
 ## Framing Reference
 
@@ -21,16 +21,17 @@ Framing reference (for style, not output format):
 - Name: Eddy Lin (age: 19)
 - Innate traits: friendly, outgoing, hospitable
 - On Tuesday February 12, Eddy completed his morning routine at 7:00 am and got ready to sleep around 10:00 pm.
-- Today is Wednesday February 13. Draft Eddy's plan today in broad strokes.
+- Today is Wednesday February 13. Draft Eddy's structured day plan.
 
 ## Requirements
 
-- Return 5 to 8 broad strokes.
-- Each stroke must be a single concise sentence and behavior-oriented.
+- Return 5 to 8 plan items in `items`.
+- Each item must include all required fields: `start_time`, `duration_minutes`, `location`, `action_content`.
+- `start_time` must be an ISO 8601 datetime string.
+- `duration_minutes` must be a positive integer.
 - Keep chronological flow from morning to night.
-- Do not add numbering, bullets, markdown, or explanatory text.
-- Do not add additional keys or fields.
-- No duplicate or near-duplicate strokes.
+- Keep `location` and `action_content` behavior-oriented and non-empty.
+- Do not add numbering, bullets, markdown, explanatory text, or additional keys.
 
 ## Output Contract
 

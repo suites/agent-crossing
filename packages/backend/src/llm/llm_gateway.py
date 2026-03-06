@@ -2,6 +2,7 @@ import json
 from dataclasses import dataclass
 from typing import cast
 
+from agents.planning.models import DayPlanItem
 from agents.memory.memory_object import MemoryObject
 from llm.guardrails.similarity import EmbeddingEncoder
 from llm.governance import (
@@ -10,7 +11,7 @@ from llm.governance import (
     ReactionDecision,
     ReactionDecisionInput,
     ReactionPipeline,
-    try_parse_day_plan_broad_strokes,
+    try_parse_day_plan,
 )
 from llm.ollama_client import JsonObject, OllamaGenerateOptions
 
@@ -125,7 +126,7 @@ class LlmGateway:
         except json.JSONDecodeError:
             return []
 
-    def generate_day_plan_broad_strokes(
+    def generate_day_plan(
         self,
         *,
         agent_name: str,
@@ -135,9 +136,9 @@ class LlmGateway:
         yesterday_date_text: str,
         yesterday_summary: str,
         today_date_text: str,
-    ) -> list[str]:
-        """Generate broad-strokes day plan with bounded retries on parse failures."""
-        prompt = prompt_builders.build_day_plan_broad_strokes_prompt(
+    ) -> list[DayPlanItem]:
+        """Generate structured day plan with bounded retries on parse failures."""
+        prompt = prompt_builders.build_day_plan_prompt(
             agent_name=agent_name,
             age=age,
             innate_traits=innate_traits,
@@ -156,12 +157,12 @@ class LlmGateway:
             )
 
             try:
-                return try_parse_day_plan_broad_strokes(response_text).broad_strokes
+                return try_parse_day_plan(response_text).items
             except DayPlanParseError as exc:
                 if attempt >= max_parse_retries:
                     return []
 
-                current_prompt = self._build_day_plan_broad_strokes_retry_prompt(
+                current_prompt = self._build_day_plan_retry_prompt(
                     base_prompt=prompt,
                     previous_error=exc.reason,
                     previous_response=response_text,
@@ -170,7 +171,7 @@ class LlmGateway:
         return []
 
     @staticmethod
-    def _build_day_plan_broad_strokes_retry_prompt(
+    def _build_day_plan_retry_prompt(
         *,
         base_prompt: str,
         previous_error: str,
@@ -179,9 +180,9 @@ class LlmGateway:
         """Build a stricter follow-up prompt when prior JSON output is invalid."""
         return (
             f"{base_prompt}\n\n"
-            "The previous response did not match the required broad-strokes JSON schema.\n"
+            "The previous response did not match the required day-plan JSON schema.\n"
             f"Failure reason: {previous_error}.\n\n"
-            'Return JSON only with this exact shape and no extra text: "{"broad_strokes": ["<stroke 1>", ...]}"\n'
+            'Return JSON only with this exact shape and no extra text: "{"items": [{"start_time": "<ISO-8601 datetime>", "duration_minutes": <positive int>, "location": "<location>", "action_content": "<action text>"}, ...]}"\n'
             f"Do not repeat this invalid output: {previous_response[:180]!r}"
         )
 

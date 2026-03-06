@@ -30,8 +30,11 @@ INSIGHTS_JSON_SHAPE = (
 
 IMPORTANCE_JSON_SHAPE = '{"importance": <int 1-10>, "reason": "<short>"}'
 
-DAY_PLAN_BROAD_STROKES_JSON_SHAPE = (
-    '{"broad_strokes": ["<stroke 1>", "<stroke 2>", "<stroke 3>"]}'
+DAY_PLAN_JSON_SHAPE = (
+    '{"items": ['
+    '{"start_time": "<ISO-8601 datetime>", "duration_minutes": <positive int>, '
+    '"location": "<location>", "action_content": "<action text>"}'
+    "]}"
 )
 
 
@@ -84,7 +87,7 @@ def build_importance_scoring_prompt(
     )
 
 
-def build_day_plan_broad_strokes_prompt(
+def build_day_plan_prompt(
     *,
     agent_name: str,
     age: int,
@@ -94,7 +97,7 @@ def build_day_plan_broad_strokes_prompt(
     yesterday_summary: str,
     today_date_text: str,
 ) -> str:
-    """Build a persona-grounded prompt for daily broad-strokes plan generation."""
+    """Build a persona-grounded prompt for daily structured plan generation."""
     traits_text = ", ".join(trait.strip() for trait in innate_traits if trait.strip())
     return render_template(
         "day_plan_broad_strokes_instruction.md",
@@ -105,7 +108,7 @@ def build_day_plan_broad_strokes_prompt(
         yesterday_date_text=yesterday_date_text.strip(),
         yesterday_summary=yesterday_summary.strip(),
         today_date_text=today_date_text.strip(),
-        json_shape=DAY_PLAN_BROAD_STROKES_JSON_SHAPE,
+        json_shape=DAY_PLAN_JSON_SHAPE,
     )
 
 

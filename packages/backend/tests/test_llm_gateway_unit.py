@@ -10,7 +10,7 @@ from llm.guardrails.similarity import EmbeddingEncoder
 from llm.governance import ReactionDecisionInput
 from llm.llm_gateway import LlmGateway
 from llm.prompt_builders import (
-    build_day_plan_broad_strokes_prompt,
+    build_day_plan_prompt,
     build_reaction_intent_prompt,
     build_reaction_utterance_prompt,
     build_salient_questions_prompt,
@@ -347,7 +347,7 @@ def test_reaction_intent_prompt_requests_intent_shape() -> None:
 
 
 def test_day_plan_prompt_contains_persona_and_json_shape() -> None:
-    prompt = build_day_plan_broad_strokes_prompt(
+    prompt = build_day_plan_prompt(
         agent_name="Eddy Lin",
         age=19,
         innate_traits=["friendly", "outgoing", "hospitable"],
@@ -364,10 +364,11 @@ def test_day_plan_prompt_contains_persona_and_json_shape() -> None:
     assert "Name: Eddy Lin (age: 19)" in prompt
     assert "Innate traits: friendly, outgoing, hospitable" in prompt
     assert "Today is Wednesday February 13" in prompt
-    assert "Draft Eddy Lin's plan today in broad strokes." in prompt
+    assert "Draft Eddy Lin's structured day plan." in prompt
     assert "Framing reference (for style, not output format):" in prompt
     assert "Return strict JSON only with this exact shape and no extra text:" in prompt
-    assert '"broad_strokes": [' in prompt
+    assert '"items": [' in prompt
+    assert '"start_time": "<ISO-8601 datetime>"' in prompt
 
 
 def test_salient_prompt_uses_strict_json_contract_line() -> None:
@@ -422,17 +423,42 @@ def test_generate_salient_questions_requests_json_format() -> None:
     assert client.call_kwargs[0].get("format_json") is True
 
 
-def test_generate_day_plan_broad_strokes_parses_json_list() -> None:
+def test_generate_day_plan_parses_json_items() -> None:
     client = StubOllamaClient(
         responses=[
             json.dumps(
                 {
-                    "broad_strokes": [
-                        "Review composition notes over breakfast.",
-                        "Attend morning music theory class.",
-                        "Draft harmonic progression for project.",
-                        "Meet classmate for feedback session.",
-                        "Revise composition and annotate changes.",
+                    "items": [
+                        {
+                            "start_time": "2026-02-13T08:00:00",
+                            "duration_minutes": 90,
+                            "location": "Town > Home > Kitchen",
+                            "action_content": "Review composition notes over breakfast.",
+                        },
+                        {
+                            "start_time": "2026-02-13T09:45:00",
+                            "duration_minutes": 60,
+                            "location": "Town > College > Theory Room",
+                            "action_content": "Attend morning music theory class.",
+                        },
+                        {
+                            "start_time": "2026-02-13T11:00:00",
+                            "duration_minutes": 75,
+                            "location": "Town > College > Studio",
+                            "action_content": "Draft harmonic progression for project.",
+                        },
+                        {
+                            "start_time": "2026-02-13T13:00:00",
+                            "duration_minutes": 60,
+                            "location": "Town > Cafe > Patio",
+                            "action_content": "Meet classmate for feedback session.",
+                        },
+                        {
+                            "start_time": "2026-02-13T15:00:00",
+                            "duration_minutes": 80,
+                            "location": "Town > Home > Desk",
+                            "action_content": "Revise composition and annotate changes.",
+                        },
                     ]
                 }
             )
@@ -440,7 +466,7 @@ def test_generate_day_plan_broad_strokes_parses_json_list() -> None:
     )
     service = LlmGateway(client)
 
-    strokes = service.generate_day_plan_broad_strokes(
+    items = service.generate_day_plan(
         agent_name="Eddy Lin",
         age=19,
         innate_traits=["friendly", "outgoing", "hospitable"],
@@ -450,15 +476,17 @@ def test_generate_day_plan_broad_strokes_parses_json_list() -> None:
         today_date_text="Wednesday February 13",
     )
 
-    assert len(strokes) == 5
-    assert strokes[0] == "Review composition notes over breakfast."
+    assert len(items) == 5
+    assert items[0].action_content == "Review composition notes over breakfast."
+    assert items[0].location == "Town > Home > Kitchen"
+    assert items[0].start_time == datetime.datetime(2026, 2, 13, 8, 0, 0)
 
 
-def test_generate_day_plan_broad_strokes_returns_empty_on_parse_failure() -> None:
+def test_generate_day_plan_returns_empty_on_parse_failure() -> None:
     client = StubOllamaClient(responses=["not-json"])
     service = LlmGateway(client)
 
-    strokes = service.generate_day_plan_broad_strokes(
+    items = service.generate_day_plan(
         agent_name="Eddy Lin",
         age=19,
         innate_traits=["friendly", "outgoing", "hospitable"],
@@ -468,18 +496,33 @@ def test_generate_day_plan_broad_strokes_returns_empty_on_parse_failure() -> Non
         today_date_text="Wednesday February 13",
     )
 
-    assert strokes == []
+    assert items == []
 
 
-def test_generate_day_plan_broad_strokes_returns_empty_if_too_few_items() -> None:
+def test_generate_day_plan_returns_empty_if_too_few_items() -> None:
     client = StubOllamaClient(
         responses=[
             json.dumps(
                 {
-                    "broad_strokes": [
-                        "Wake up and brush teeth.",
-                        "Have breakfast.",
-                        "Head to class.",
+                    "items": [
+                        {
+                            "start_time": "2026-02-13T08:00:00",
+                            "duration_minutes": 30,
+                            "location": "Town > Home > Room",
+                            "action_content": "Wake up and brush teeth.",
+                        },
+                        {
+                            "start_time": "2026-02-13T08:40:00",
+                            "duration_minutes": 30,
+                            "location": "Town > Home > Kitchen",
+                            "action_content": "Have breakfast.",
+                        },
+                        {
+                            "start_time": "2026-02-13T09:30:00",
+                            "duration_minutes": 50,
+                            "location": "Town > Street > Bus Stop",
+                            "action_content": "Head to class.",
+                        },
                     ]
                 }
             )
@@ -487,7 +530,7 @@ def test_generate_day_plan_broad_strokes_returns_empty_if_too_few_items() -> Non
     )
     service = LlmGateway(client)
 
-    strokes = service.generate_day_plan_broad_strokes(
+    items = service.generate_day_plan(
         agent_name="Eddy Lin",
         age=19,
         innate_traits=["friendly", "outgoing", "hospitable"],
@@ -497,24 +540,69 @@ def test_generate_day_plan_broad_strokes_returns_empty_if_too_few_items() -> Non
         today_date_text="Wednesday February 13",
     )
 
-    assert strokes == []
+    assert items == []
 
 
-def test_generate_day_plan_broad_strokes_dedupes_and_truncates_to_max() -> None:
+def test_generate_day_plan_dedupes_and_truncates_to_max() -> None:
     client = StubOllamaClient(
         responses=[
             json.dumps(
                 {
-                    "broad_strokes": [
-                        "Review composition notes over breakfast.",
-                        "Review composition notes over breakfast. ",
-                        "Attend morning music theory class.",
-                        "Draft harmonic progression for project.",
-                        "Meet classmate for feedback session.",
-                        "Revise composition and annotate changes.",
-                        "Take lunch with classmate.",
-                        "Practice instrument for 30 minutes.",
-                        "Log today's notes in planner.",
+                    "items": [
+                        {
+                            "start_time": "2026-02-13T08:00:00",
+                            "duration_minutes": 90,
+                            "location": "Town > Home > Kitchen",
+                            "action_content": "Review composition notes over breakfast.",
+                        },
+                        {
+                            "start_time": "2026-02-13T08:00:00",
+                            "duration_minutes": 90,
+                            "location": "Town > Home > Kitchen",
+                            "action_content": "Review composition notes over breakfast. ",
+                        },
+                        {
+                            "start_time": "2026-02-13T09:45:00",
+                            "duration_minutes": 60,
+                            "location": "Town > College > Theory Room",
+                            "action_content": "Attend morning music theory class.",
+                        },
+                        {
+                            "start_time": "2026-02-13T11:00:00",
+                            "duration_minutes": 75,
+                            "location": "Town > College > Studio",
+                            "action_content": "Draft harmonic progression for project.",
+                        },
+                        {
+                            "start_time": "2026-02-13T13:00:00",
+                            "duration_minutes": 60,
+                            "location": "Town > Cafe > Patio",
+                            "action_content": "Meet classmate for feedback session.",
+                        },
+                        {
+                            "start_time": "2026-02-13T15:00:00",
+                            "duration_minutes": 80,
+                            "location": "Town > Home > Desk",
+                            "action_content": "Revise composition and annotate changes.",
+                        },
+                        {
+                            "start_time": "2026-02-13T17:00:00",
+                            "duration_minutes": 60,
+                            "location": "Town > Cafe > Table",
+                            "action_content": "Take lunch with classmate.",
+                        },
+                        {
+                            "start_time": "2026-02-13T19:00:00",
+                            "duration_minutes": 30,
+                            "location": "Town > Home > Practice Room",
+                            "action_content": "Practice instrument for 30 minutes.",
+                        },
+                        {
+                            "start_time": "2026-02-13T20:00:00",
+                            "duration_minutes": 40,
+                            "location": "Town > Home > Desk",
+                            "action_content": "Log today's notes in planner.",
+                        },
                     ]
                 }
             )
@@ -522,7 +610,7 @@ def test_generate_day_plan_broad_strokes_dedupes_and_truncates_to_max() -> None:
     )
     service = LlmGateway(client)
 
-    strokes = service.generate_day_plan_broad_strokes(
+    items = service.generate_day_plan(
         agent_name="Eddy Lin",
         age=19,
         innate_traits=["friendly", "outgoing", "hospitable"],
@@ -532,48 +620,55 @@ def test_generate_day_plan_broad_strokes_dedupes_and_truncates_to_max() -> None:
         today_date_text="Wednesday February 13",
     )
 
-    assert len(strokes) == 8
-    assert strokes[0] == "Review composition notes over breakfast."
-    assert strokes[1] == "Attend morning music theory class."
-    assert strokes[-1] == "Log today's notes in planner."
+    assert len(items) == 8
+    assert items[0].action_content == "Review composition notes over breakfast."
+    assert items[1].action_content == "Attend morning music theory class."
+    assert items[-1].action_content == "Log today's notes in planner."
 
 
-def test_generate_day_plan_broad_strokes_repairs_truncated_json_once() -> None:
+def test_generate_day_plan_retries_once_on_truncated_json() -> None:
     client = StubOllamaClient(
         responses=[
-            '{"broad_strokes": ["Wake up", "Eat breakfast", "Class", "Practice", "Review", "Reflect"]'
-        ]
-    )
-    service = LlmGateway(client)
-
-    strokes = service.generate_day_plan_broad_strokes(
-        agent_name="Eddy Lin",
-        age=19,
-        innate_traits=["friendly", "outgoing", "hospitable"],
-        persona_background="Music theory student focusing on composition.",
-        yesterday_date_text="Tuesday February 12",
-        yesterday_summary="woke up at 7:00 am and got ready to sleep around 10 pm.",
-        today_date_text="Wednesday February 13",
-    )
-
-    assert len(strokes) == 6
-    assert strokes[0] == "Wake up"
-
-
-def test_generate_day_plan_broad_strokes_retries_once_on_schema_validation_error() -> (
-    None
-):
-    client = StubOllamaClient(
-        responses=[
-            json.dumps({"broad_strokes": "invalid-format"}),
+            '{"items": [{"start_time": "2026-02-13T08:00:00", "duration_minutes": 20',
             json.dumps(
                 {
-                    "broad_strokes": [
-                        "Review composition notes over breakfast.",
-                        "Attend morning music theory class.",
-                        "Draft harmonic progression for project.",
-                        "Meet classmate for feedback session.",
-                        "Revise composition and annotate changes.",
+                    "items": [
+                        {
+                            "start_time": "2026-02-13T08:00:00",
+                            "duration_minutes": 20,
+                            "location": "Town > Home > Room",
+                            "action_content": "Wake up",
+                        },
+                        {
+                            "start_time": "2026-02-13T08:30:00",
+                            "duration_minutes": 30,
+                            "location": "Town > Home > Kitchen",
+                            "action_content": "Eat breakfast",
+                        },
+                        {
+                            "start_time": "2026-02-13T09:30:00",
+                            "duration_minutes": 60,
+                            "location": "Town > College > Theory Room",
+                            "action_content": "Class",
+                        },
+                        {
+                            "start_time": "2026-02-13T11:00:00",
+                            "duration_minutes": 40,
+                            "location": "Town > Home > Practice Room",
+                            "action_content": "Practice",
+                        },
+                        {
+                            "start_time": "2026-02-13T12:00:00",
+                            "duration_minutes": 40,
+                            "location": "Town > Home > Desk",
+                            "action_content": "Review",
+                        },
+                        {
+                            "start_time": "2026-02-13T13:00:00",
+                            "duration_minutes": 30,
+                            "location": "Town > Park > Bench",
+                            "action_content": "Reflect",
+                        },
                     ]
                 }
             ),
@@ -581,7 +676,7 @@ def test_generate_day_plan_broad_strokes_retries_once_on_schema_validation_error
     )
     service = LlmGateway(client)
 
-    strokes = service.generate_day_plan_broad_strokes(
+    items = service.generate_day_plan(
         agent_name="Eddy Lin",
         age=19,
         innate_traits=["friendly", "outgoing", "hospitable"],
@@ -591,21 +686,56 @@ def test_generate_day_plan_broad_strokes_retries_once_on_schema_validation_error
         today_date_text="Wednesday February 13",
     )
 
-    assert len(strokes) == 5
+    assert len(items) == 6
+    assert items[0].action_content == "Wake up"
     assert client.calls == 2
 
 
-def test_generate_day_plan_broad_strokes_returns_empty_after_retry_exhaustion() -> None:
+def test_generate_day_plan_retries_once_on_schema_validation_error() -> None:
     client = StubOllamaClient(
         responses=[
-            "not-json",
-            json.dumps({"broad_strokes": ["Too few", "items"]}),
-            json.dumps({"broad_strokes": [1, 2, 3, 4, 5]}),
+            json.dumps({"items": "invalid-format"}),
+            json.dumps(
+                {
+                    "items": [
+                        {
+                            "start_time": "2026-02-13T08:00:00",
+                            "duration_minutes": 90,
+                            "location": "Town > Home > Kitchen",
+                            "action_content": "Review composition notes over breakfast.",
+                        },
+                        {
+                            "start_time": "2026-02-13T09:45:00",
+                            "duration_minutes": 60,
+                            "location": "Town > College > Theory Room",
+                            "action_content": "Attend morning music theory class.",
+                        },
+                        {
+                            "start_time": "2026-02-13T11:00:00",
+                            "duration_minutes": 75,
+                            "location": "Town > College > Studio",
+                            "action_content": "Draft harmonic progression for project.",
+                        },
+                        {
+                            "start_time": "2026-02-13T13:00:00",
+                            "duration_minutes": 60,
+                            "location": "Town > Cafe > Patio",
+                            "action_content": "Meet classmate for feedback session.",
+                        },
+                        {
+                            "start_time": "2026-02-13T15:00:00",
+                            "duration_minutes": 80,
+                            "location": "Town > Home > Desk",
+                            "action_content": "Revise composition and annotate changes.",
+                        },
+                    ]
+                }
+            ),
         ]
     )
     service = LlmGateway(client)
 
-    strokes = service.generate_day_plan_broad_strokes(
+    items = service.generate_day_plan(
         agent_name="Eddy Lin",
         age=19,
         innate_traits=["friendly", "outgoing", "hospitable"],
@@ -615,5 +745,81 @@ def test_generate_day_plan_broad_strokes_returns_empty_after_retry_exhaustion() 
         today_date_text="Wednesday February 13",
     )
 
-    assert strokes == []
+    assert len(items) == 5
+    assert client.calls == 2
+
+
+def test_generate_day_plan_returns_empty_after_retry_exhaustion() -> None:
+    client = StubOllamaClient(
+        responses=[
+            "not-json",
+            json.dumps(
+                {
+                    "items": [
+                        {
+                            "start_time": "2026-02-13T08:00:00",
+                            "duration_minutes": 30,
+                            "location": "Town > Home > Room",
+                            "action_content": "Too few",
+                        },
+                        {
+                            "start_time": "2026-02-13T08:40:00",
+                            "duration_minutes": 20,
+                            "location": "Town > Home > Kitchen",
+                            "action_content": "items",
+                        },
+                    ]
+                }
+            ),
+            json.dumps(
+                {
+                    "items": [
+                        {
+                            "start_time": "bad-time",
+                            "duration_minutes": 20,
+                            "location": "Town > Home > Room",
+                            "action_content": "Wake",
+                        },
+                        {
+                            "start_time": "bad-time",
+                            "duration_minutes": 20,
+                            "location": "Town > Home > Room",
+                            "action_content": "Eat",
+                        },
+                        {
+                            "start_time": "bad-time",
+                            "duration_minutes": 20,
+                            "location": "Town > Home > Room",
+                            "action_content": "Class",
+                        },
+                        {
+                            "start_time": "bad-time",
+                            "duration_minutes": 20,
+                            "location": "Town > Home > Room",
+                            "action_content": "Practice",
+                        },
+                        {
+                            "start_time": "bad-time",
+                            "duration_minutes": 20,
+                            "location": "Town > Home > Room",
+                            "action_content": "Review",
+                        },
+                    ]
+                }
+            ),
+        ]
+    )
+    service = LlmGateway(client)
+
+    items = service.generate_day_plan(
+        agent_name="Eddy Lin",
+        age=19,
+        innate_traits=["friendly", "outgoing", "hospitable"],
+        persona_background="Music theory student focusing on composition.",
+        yesterday_date_text="Tuesday February 12",
+        yesterday_summary="woke up at 7:00 am and got ready to sleep around 10 pm.",
+        today_date_text="Wednesday February 13",
+    )
+
+    assert items == []
     assert client.calls == 3

@@ -1,7 +1,9 @@
 import json
+import datetime
 from dataclasses import dataclass, replace
 from typing import cast
 
+from agents.planning.models import DayPlanItem
 from llm.ollama_client import JsonObject
 
 from .contracts import (
@@ -14,7 +16,7 @@ from .contracts import (
 
 @dataclass(frozen=True)
 class DayPlanParseResult:
-    broad_strokes: list[str]
+    items: list[DayPlanItem]
 
 
 class DayPlanParseError(ValueError):
@@ -25,7 +27,7 @@ class DayPlanParseError(ValueError):
         self.reason = reason
 
 
-def try_parse_day_plan_broad_strokes(
+def try_parse_day_plan(
     response_text: str,
     *,
     min_items: int = 5,
@@ -37,39 +39,82 @@ def try_parse_day_plan_broad_strokes(
     if payload is None:
         raise DayPlanParseError("json_parse_error_or_non_object")
 
-    broad_strokes = payload.get("broad_strokes")
-    if not isinstance(broad_strokes, list):
-        raise DayPlanParseError("missing_or_invalid_broad_strokes")
+    raw_items = payload.get("items")
+    if not isinstance(raw_items, list):
+        raise DayPlanParseError("missing_or_invalid_items")
 
-    normalized = _normalize_broad_strokes(cast(list[object], broad_strokes))
+    normalized = _normalize_day_plan_items(cast(list[object], raw_items))
     if len(normalized) > max_items:
         normalized = normalized[:max_items]
     if len(normalized) < min_items:
-        raise DayPlanParseError("insufficient_broad_strokes")
+        raise DayPlanParseError("insufficient_day_plan_items")
 
-    return DayPlanParseResult(broad_strokes=normalized)
+    normalized.sort(key=lambda item: item.start_time)
+    return DayPlanParseResult(items=normalized)
 
 
-def _normalize_broad_strokes(raw_strokes: list[object]) -> list[str]:
-    normalized: list[str] = []
-    seen: set[str] = set()
+def _normalize_day_plan_items(raw_items: list[object]) -> list[DayPlanItem]:
+    normalized: list[DayPlanItem] = []
+    seen: set[tuple[str, str, str]] = set()
 
-    for raw_stroke in raw_strokes:
-        if not isinstance(raw_stroke, str):
+    for raw_item in raw_items:
+        if not isinstance(raw_item, dict):
             continue
 
-        stroke = raw_stroke.strip()
-        if not stroke:
+        payload = cast(JsonObject, raw_item)
+
+        start_time = _parse_iso_datetime(payload.get("start_time"))
+        if start_time is None:
             continue
 
-        key = stroke.casefold()
-        if key in seen:
+        duration_minutes = payload.get("duration_minutes")
+        if not isinstance(duration_minutes, int) or duration_minutes <= 0:
             continue
 
-        seen.add(key)
-        normalized.append(stroke)
+        location = payload.get("location")
+        if not isinstance(location, str) or not location.strip():
+            continue
+
+        action_content = payload.get("action_content")
+        if not isinstance(action_content, str) or not action_content.strip():
+            continue
+
+        normalized_location = location.strip()
+        normalized_action_content = action_content.strip()
+        dedupe_key = (
+            start_time.isoformat(),
+            normalized_location.casefold(),
+            normalized_action_content.casefold(),
+        )
+        if dedupe_key in seen:
+            continue
+
+        seen.add(dedupe_key)
+        normalized.append(
+            DayPlanItem(
+                start_time=start_time,
+                duration_minutes=duration_minutes,
+                location=normalized_location,
+                action_content=normalized_action_content,
+            )
+        )
 
     return normalized
+
+
+def _parse_iso_datetime(raw_value: object) -> datetime.datetime | None:
+    if not isinstance(raw_value, str):
+        return None
+
+    value = raw_value.strip()
+    if not value:
+        return None
+
+    candidate = value.replace("Z", "+00:00")
+    try:
+        return datetime.datetime.fromisoformat(candidate)
+    except ValueError:
+        return None
 
 
 def parse_reaction_decision(response_text: str) -> ReactionDecision:
