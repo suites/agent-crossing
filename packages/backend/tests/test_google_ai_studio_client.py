@@ -46,9 +46,12 @@ def test_generate_uses_google_generate_content_shape() -> None:
 
 
 def test_embed_reads_embedding_values() -> None:
+    captured_payloads: list[dict[str, object]] = []
+
     def request_fn(
-        _url: str, _payload: dict[str, object], _timeout_seconds: float
+        _url: str, payload: dict[str, object], _timeout_seconds: float
     ) -> dict[str, object]:
+        captured_payloads.append(payload)
         return {
             "embedding": {
                 "values": [0.1, 0.2, 0.3],
@@ -60,3 +63,5 @@ def test_embed_reads_embedding_values() -> None:
     embedding = client.embed(input="hello", expected_dimension=3)
 
     assert embedding == [0.1, 0.2, 0.3]
+    assert captured_payloads
+    assert captured_payloads[0]["outputDimensionality"] == 3

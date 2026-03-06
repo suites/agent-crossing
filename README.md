@@ -71,7 +71,7 @@ export EMBEDDING_MODEL=bge-m3
 export LLM_PROVIDER=google_ai_studio
 export GOOGLE_AI_STUDIO_API_KEY=your_api_key
 export LLM_MODEL=gemini-1.5-flash
-export EMBEDDING_MODEL=text-embedding-004
+export EMBEDDING_MODEL=gemini-embedding-001
 ```
 
 ### PostgreSQL + pgvector (Docker)

@@ -1,7 +1,13 @@
 """Backend-wide configuration constants."""
 
 import os
+from pathlib import Path
 from typing import Final, Literal, cast
+
+from dotenv import load_dotenv
+
+_ROOT_ENV_PATH = Path(__file__).resolve().parents[3] / ".env"
+load_dotenv(_ROOT_ENV_PATH)
 
 EMBEDDING_DIMENSION: Final[int] = 1024
 

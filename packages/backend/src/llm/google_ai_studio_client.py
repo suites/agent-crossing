@@ -1,10 +1,13 @@
 import json
+import os
+import ssl
 from dataclasses import dataclass
 from http.client import HTTPConnection, HTTPResponse, HTTPSConnection
 from typing import Callable, TypeAlias, cast
 from urllib import error
 from urllib.parse import urlencode, urlsplit
 
+import certifi
 from settings import EMBEDDING_DIMENSION
 
 from .ollama_client import OllamaGenerateOptions
@@ -16,6 +19,14 @@ RequestFn = Callable[[str, JsonObject, float], JsonObject]
 
 class GoogleAiStudioClientError(RuntimeError):
     pass
+
+
+def _build_ssl_context() -> ssl.SSLContext:
+    ssl_cert_file = os.getenv("SSL_CERT_FILE", "").strip()
+    if ssl_cert_file:
+        return ssl.create_default_context(cafile=ssl_cert_file)
+
+    return ssl.create_default_context(cafile=certifi.where())
 
 
 def _coerce_float_vector(value: object) -> list[float] | None:
@@ -143,7 +154,8 @@ class GoogleAiStudioClient:
         payload: JsonObject = {
             "content": {
                 "parts": [{"text": input}],
-            }
+            },
+            "outputDimensionality": expected_dim,
         }
         url = self._build_url(
             path=f"/v1beta/models/{selected_model}:embedContent",
@@ -183,10 +195,14 @@ class GoogleAiStudioClient:
         if parsed_url.query:
             path = f"{path}?{parsed_url.query}"
 
-        connection_cls = (
-            HTTPSConnection if parsed_url.scheme == "https" else HTTPConnection
-        )
-        connection = connection_cls(parsed_url.netloc, timeout=timeout_seconds)
+        if parsed_url.scheme == "https":
+            connection = HTTPSConnection(
+                parsed_url.netloc,
+                timeout=timeout_seconds,
+                context=_build_ssl_context(),
+            )
+        else:
+            connection = HTTPConnection(parsed_url.netloc, timeout=timeout_seconds)
         try:
             connection.request(
                 "POST",

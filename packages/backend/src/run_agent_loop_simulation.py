@@ -119,25 +119,43 @@ def _run_simulation(
             log_mode=config.log_mode,
         )
 
-        print(
-            f"[{turn:02d}] [CRITIQUE_OR_REASON] {speaker.name}: {step_result.thought}"
+        _print_log_line(
+            turn=turn,
+            tag="CRITIQUE_OR_REASON",
+            speaker_name=speaker.name,
+            message=step_result.thought,
         )
         if step_result.model_thought:
-            print(
-                f"[{turn:02d}] [MODEL_THOUGHT] {speaker.name}: {step_result.model_thought}"
+            _print_log_line(
+                turn=turn,
+                tag="MODEL_THOUGHT",
+                speaker_name=speaker.name,
+                message=step_result.model_thought,
             )
         if step_result.self_critique:
-            print(
-                f"[{turn:02d}] [SELF_CRITIQUE] {speaker.name}: {step_result.self_critique}"
+            _print_log_line(
+                turn=turn,
+                tag="SELF_CRITIQUE",
+                speaker_name=speaker.name,
+                message=step_result.self_critique,
             )
-        print(f"[{turn:02d}] [ACTION] {speaker.name}: {step_result.action_summary}")
-        print(
-            f"[{turn:02d}] [PROCESS] {speaker.name}: "
-            + json.dumps(step_result.decision_process or {}, ensure_ascii=False)
+        _print_log_line(
+            turn=turn,
+            tag="ACTION",
+            speaker_name=speaker.name,
+            message=step_result.action_summary,
         )
-        print(
-            f"[{turn:02d}] [DECISION_TRACE] {speaker.name}: "
-            + json.dumps(filtered_trace, ensure_ascii=False)
+        _print_log_json_block(
+            turn=turn,
+            tag="PROCESS",
+            speaker_name=speaker.name,
+            payload=step_result.decision_process or {},
+        )
+        _print_log_json_block(
+            turn=turn,
+            tag="DECISION_TRACE",
+            speaker_name=speaker.name,
+            payload=filtered_trace,
         )
 
         if not step_result.reply:
@@ -165,6 +183,8 @@ def _run_simulation(
 def _print_session_log_header(*, config: LoopSimulationConfig) -> None:
     print("Simulation log mode")
     print(f"- mode={config.log_mode}")
+    print(f"- provider={config.llm_provider}")
+    print(f"- llm_model={config.llm_model}")
     print(f"- semantic_hard_threshold={SEMANTIC_HARD_BLOCK_THRESHOLD}")
     print(f"- semantic_soft_threshold={SEMANTIC_SOFT_PENALTY_THRESHOLD}")
     print(f"- suppress_repeated_replies={config.suppress_repeated_replies}")
@@ -188,6 +208,23 @@ def _format_decision_trace_for_log(
             continue
         filtered[key] = value
     return filtered
+
+
+def _print_log_line(*, turn: int, tag: str, speaker_name: str, message: str) -> None:
+    print(f"[{turn:02d}] [{tag}] {speaker_name}: {message}")
+
+
+def _print_log_json_block(
+    *,
+    turn: int,
+    tag: str,
+    speaker_name: str,
+    payload: dict[str, object],
+) -> None:
+    print(f"[{turn:02d}] [{tag}] {speaker_name}:")
+    pretty_payload = json.dumps(payload, ensure_ascii=False, indent=2)
+    for line in pretty_payload.splitlines():
+        print(f"  {line}")
 
 
 def main() -> None:
