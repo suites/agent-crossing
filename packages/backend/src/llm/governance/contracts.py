@@ -4,7 +4,7 @@ from typing import Literal, Protocol
 
 from agents.agent import AgentIdentity, AgentProfile
 from agents.memory.memory_object import MemoryObject
-from llm.clients.ollama import OllamaGenerateOptions
+from llm.clients.ollama import LlmGenerateOptions
 
 
 @dataclass(frozen=True)
@@ -80,6 +80,6 @@ class GenerateClient(Protocol):
         *,
         prompt: str,
         system: str | None = None,
-        options: OllamaGenerateOptions | None = None,
+        options: LlmGenerateOptions | None = None,
         format_json: bool = False,
     ) -> str: ...

@@ -1,9 +1,9 @@
 import json
 import datetime
 from dataclasses import dataclass, replace
-from typing import cast
+from typing import Callable, TypeVar, cast
 
-from agents.planning.models import DayPlanItem
+from agents.planning.models import DayPlanItem, HourlyPlanItem, MinutePlanItem
 from llm.clients.ollama import JsonObject
 
 from .contracts import (
@@ -20,6 +20,32 @@ class DayPlanParseResult:
 
 
 class DayPlanParseError(ValueError):
+    reason: str
+
+    def __init__(self, reason: str):
+        super().__init__(reason)
+        self.reason = reason
+
+
+@dataclass(frozen=True)
+class HourPlanParseResult:
+    items: list[HourlyPlanItem]
+
+
+class HourPlanParseError(ValueError):
+    reason: str
+
+    def __init__(self, reason: str):
+        super().__init__(reason)
+        self.reason = reason
+
+
+@dataclass(frozen=True)
+class MinutePlanParseResult:
+    items: list[MinutePlanItem]
+
+
+class MinutePlanParseError(ValueError):
     reason: str
 
     def __init__(self, reason: str):
@@ -51,6 +77,67 @@ def try_parse_day_plan(
 
     normalized.sort(key=lambda item: item.start_time)
     return DayPlanParseResult(items=normalized)
+
+
+def try_parse_hour_plan(
+    response_text: str,
+    *,
+    min_items: int = 1,
+    max_items: int = 24,
+) -> HourPlanParseResult:
+    payload = parse_json_object(response_text)
+    if payload is None:
+        payload = attempt_json_repair_once(response_text)
+    if payload is None:
+        raise HourPlanParseError("json_parse_error_or_non_object")
+
+    raw_items = payload.get("items")
+    if not isinstance(raw_items, list):
+        raise HourPlanParseError("missing_or_invalid_items")
+
+    normalized = _normalize_plan_items(
+        raw_items=cast(list[object], raw_items),
+        item_factory=HourlyPlanItem,
+        min_duration=1,
+    )
+    if len(normalized) > max_items:
+        normalized = normalized[:max_items]
+    if len(normalized) < min_items:
+        raise HourPlanParseError("insufficient_hour_plan_items")
+
+    normalized.sort(key=lambda item: item.start_time)
+    return HourPlanParseResult(items=normalized)
+
+
+def try_parse_minute_plan(
+    response_text: str,
+    *,
+    min_items: int = 1,
+    max_items: int = 500,
+) -> MinutePlanParseResult:
+    payload = parse_json_object(response_text)
+    if payload is None:
+        payload = attempt_json_repair_once(response_text)
+    if payload is None:
+        raise MinutePlanParseError("json_parse_error_or_non_object")
+
+    raw_items = payload.get("items")
+    if not isinstance(raw_items, list):
+        raise MinutePlanParseError("missing_or_invalid_items")
+
+    normalized = _normalize_plan_items(
+        raw_items=cast(list[object], raw_items),
+        item_factory=MinutePlanItem,
+        min_duration=5,
+        max_duration=15,
+    )
+    if len(normalized) > max_items:
+        normalized = normalized[:max_items]
+    if len(normalized) < min_items:
+        raise MinutePlanParseError("insufficient_minute_plan_items")
+
+    normalized.sort(key=lambda item: item.start_time)
+    return MinutePlanParseResult(items=normalized)
 
 
 def _normalize_day_plan_items(raw_items: list[object]) -> list[DayPlanItem]:
@@ -296,6 +383,78 @@ def parse_reaction_utterance(response_text: str) -> ReactionUtterance:
             parse_error="repaired_once" if repaired_once else "",
         ),
     )
+
+
+TPlan = TypeVar("TPlan", DayPlanItem, HourlyPlanItem, MinutePlanItem)
+
+
+def _normalize_plan_items(
+    *,
+    raw_items: list[object],
+    item_factory: Callable[[datetime.datetime, int, str, str], TPlan],
+    min_duration: int,
+    max_duration: int | None = None,
+) -> list[TPlan]:
+    normalized: list[TPlan] = []
+    seen: set[tuple[str, str, str]] = set()
+
+    for raw_item in raw_items:
+        if not isinstance(raw_item, dict):
+            continue
+
+        payload = cast(JsonObject, raw_item)
+
+        start_time = _parse_iso_datetime(payload.get("start_time"))
+        if start_time is None:
+            continue
+
+        duration_minutes = _parse_duration_int(
+            payload.get("duration_minutes"),
+            min_duration=min_duration,
+            max_duration=max_duration,
+        )
+        if duration_minutes is None:
+            continue
+
+        location = payload.get("location")
+        if not isinstance(location, str) or not location.strip():
+            continue
+
+        action_content = payload.get("action_content")
+        if not isinstance(action_content, str) or not action_content.strip():
+            continue
+
+        normalized_location = location.strip()
+        normalized_action_content = action_content.strip()
+        dedupe_key = (
+            start_time.isoformat(),
+            normalized_location.casefold(),
+            normalized_action_content.casefold(),
+        )
+        if dedupe_key in seen:
+            continue
+
+        seen.add(dedupe_key)
+        normalized.append(
+            item_factory(
+                start_time,
+                duration_minutes,
+                normalized_location,
+                normalized_action_content,
+            )
+        )
+
+    return normalized
+
+
+def _parse_duration_int(
+    raw_value: object, *, min_duration: int, max_duration: int | None
+) -> int | None:
+    if not isinstance(raw_value, int) or raw_value < min_duration:
+        return None
+    if max_duration is not None and raw_value > max_duration:
+        return None
+    return raw_value
 
 
 def parse_json_object(text: str) -> JsonObject | None:

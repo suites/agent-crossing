@@ -1,6 +1,12 @@
+import datetime
 from typing import Protocol
 
-from .models import DayPlanBroadStrokesRequest, DayPlanItem
+from .models import (
+    DayPlanBroadStrokesRequest,
+    DayPlanItem,
+    HourlyPlanItem,
+    MinutePlanItem,
+)
 
 
 class DayPlanGenerator(Protocol):
@@ -15,6 +21,22 @@ class DayPlanGenerator(Protocol):
         yesterday_summary: str,
         today_date_text: str,
     ) -> list[DayPlanItem]: ...
+
+    def generate_hour_plan(
+        self,
+        *,
+        agent_name: str,
+        today_date_text: str,
+        day_plan_items: list[DayPlanItem],
+    ) -> list[HourlyPlanItem]: ...
+
+    def generate_minute_plan(
+        self,
+        *,
+        agent_name: str,
+        current_time: datetime.datetime,
+        hourly_plan_items: list[HourlyPlanItem],
+    ) -> list[MinutePlanItem]: ...
 
 
 class Planner:
@@ -37,8 +59,30 @@ class Planner:
             today_date_text=request.today_date_text,
         )
 
-    def generate_hourly_plan(self):
+    def generate_hourly_plan(
+        self,
+        *,
+        agent_name: str,
+        today_date_text: str,
+        day_plan_items: list[DayPlanItem],
+    ) -> list[HourlyPlanItem]:
         """시간 단위 계획을 생성합니다."""
+        return self.day_plan_generator.generate_hour_plan(
+            agent_name=agent_name,
+            today_date_text=today_date_text,
+            day_plan_items=day_plan_items,
+        )
 
-    def generate_minute_plan(self):
+    def generate_minute_plan(
+        self,
+        *,
+        agent_name: str,
+        current_time: datetime.datetime,
+        hourly_plan_items: list[HourlyPlanItem],
+    ) -> list[MinutePlanItem]:
         """분 단위 계획을 생성합니다."""
+        return self.day_plan_generator.generate_minute_plan(
+            agent_name=agent_name,
+            current_time=current_time,
+            hourly_plan_items=hourly_plan_items,
+        )

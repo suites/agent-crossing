@@ -6,7 +6,6 @@ from agents.agent_brain import ActionLoopInput, ActionLoopResult
 from agents.decision_diagnostics import ActionDiagnostics
 from llm.governance import ReactionDecisionTrace
 from agents.sim_agent import SimAgent
-from llm.clients.ollama import OllamaGenerateOptions
 from world.engine import SimulationEngine, SimulationEngineConfig
 from world.session import WorldConversationSession
 
@@ -61,7 +60,6 @@ def _engine_config(
         suppress_repeated_replies=suppress_repeated_replies,
         repetition_window=4,
         fallback_on_empty_reply=fallback_on_empty_reply,
-        reaction_generation_options=OllamaGenerateOptions(num_predict=128),
     )
 
 

@@ -4,6 +4,7 @@ from typing import Literal
 
 from agents.agent import AgentIdentity, AgentProfile
 from agents.memory.memory_object import MemoryObject
+from agents.planning.models import DayPlanItem, HourlyPlanItem
 
 from .template_loader import render_template
 
@@ -33,6 +34,20 @@ IMPORTANCE_JSON_SHAPE = '{"importance": <int 1-10>, "reason": "<short>"}'
 DAY_PLAN_JSON_SHAPE = (
     '{"items": ['
     '{"start_time": "<ISO-8601 datetime>", "duration_minutes": <positive int>, '
+    '"location": "<location>", "action_content": "<action text>"}'
+    "]}"
+)
+
+HOURLY_PLAN_JSON_SHAPE = (
+    '{"items": ['
+    '{"start_time": "<ISO-8601 datetime>", "duration_minutes": <positive int>, '
+    '"location": "<location>", "action_content": "<action text>"}'
+    "]}"
+)
+
+MINUTE_PLAN_JSON_SHAPE = (
+    '{"items": ['
+    '{"start_time": "<ISO-8601 datetime>", "duration_minutes": <int 5-15>, '
     '"location": "<location>", "action_content": "<action text>"}'
     "]}"
 )
@@ -109,6 +124,50 @@ def build_day_plan_prompt(
         yesterday_summary=yesterday_summary.strip(),
         today_date_text=today_date_text.strip(),
         json_shape=DAY_PLAN_JSON_SHAPE,
+    )
+
+
+def build_hourly_plan_prompt(
+    *,
+    agent_name: str,
+    today_date_text: str,
+    day_plan_items: list[DayPlanItem],
+) -> str:
+    day_plan_lines = "\n".join(
+        f"- {item.start_time.isoformat()} ({item.duration_minutes}m) | {item.location} | {item.action_content}"
+        for item in day_plan_items
+    )
+    if not day_plan_lines:
+        day_plan_lines = "- no day plan items"
+
+    return render_template(
+        "hourly_plan_instruction.md",
+        agent_name=agent_name,
+        today_date_text=today_date_text.strip(),
+        day_plan_lines=day_plan_lines,
+        json_shape=HOURLY_PLAN_JSON_SHAPE,
+    )
+
+
+def build_minute_plan_prompt(
+    *,
+    agent_name: str,
+    current_time: datetime.datetime,
+    hourly_plan_items: list[HourlyPlanItem],
+) -> str:
+    hourly_plan_lines = "\n".join(
+        f"- {item.start_time.isoformat()} ({item.duration_minutes}m) | {item.location} | {item.action_content}"
+        for item in hourly_plan_items
+    )
+    if not hourly_plan_lines:
+        hourly_plan_lines = "- no hourly plan items"
+
+    return render_template(
+        "minute_plan_instruction.md",
+        agent_name=agent_name,
+        current_time=current_time.isoformat(),
+        hourly_plan_lines=hourly_plan_lines,
+        json_shape=MINUTE_PLAN_JSON_SHAPE,
     )
 
 
@@ -538,6 +597,8 @@ def template_file_plan() -> list[str]:
         "insights_instruction.md",
         "importance_scoring.md",
         "day_plan_broad_strokes_instruction.md",
+        "hourly_plan_instruction.md",
+        "minute_plan_instruction.md",
         "reaction_guidelines.md",
         "reaction_few_shot_examples.md",
         "reaction_decision_question.md",

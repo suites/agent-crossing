@@ -1,7 +1,7 @@
 from typing import Literal, Protocol
 
 from .google_ai_studio import GoogleAiStudioClient
-from .ollama import OllamaClient, OllamaGenerateOptions
+from .ollama import LlmGenerateOptions, OllamaClient
 
 ProviderName = Literal["ollama", "google_ai_studio"]
 
@@ -12,7 +12,7 @@ class ProviderClient(Protocol):
         *,
         prompt: str,
         system: str | None = None,
-        options: OllamaGenerateOptions | None = None,
+        options: LlmGenerateOptions | None = None,
         format_json: bool = False,
     ) -> str: ...
 

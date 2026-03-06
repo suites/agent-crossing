@@ -8,6 +8,10 @@ from .contracts import (
 )
 from .parsing import (
     DayPlanParseError,
+    HourPlanParseError,
+    HourPlanParseResult,
+    MinutePlanParseError,
+    MinutePlanParseResult,
     DayPlanParseResult,
     attempt_json_repair_once,
     parse_json_object,
@@ -15,6 +19,8 @@ from .parsing import (
     parse_reaction_intent,
     parse_reaction_utterance,
     try_parse_day_plan,
+    try_parse_hour_plan,
+    try_parse_minute_plan,
 )
 from .pipeline import ReactionPipeline
 from .trace_payload import (
@@ -42,6 +48,10 @@ from .policies import (
 __all__ = [
     "ConversationMetrics",
     "DayPlanParseError",
+    "HourPlanParseError",
+    "HourPlanParseResult",
+    "MinutePlanParseError",
+    "MinutePlanParseResult",
     "DayPlanParseResult",
     "GenerateClient",
     "ReactionDecision",
@@ -70,4 +80,6 @@ __all__ = [
     "tokenize",
     "topic_progress_rate",
     "try_parse_day_plan",
+    "try_parse_hour_plan",
+    "try_parse_minute_plan",
 ]

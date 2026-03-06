@@ -10,7 +10,7 @@ from urllib.parse import urlencode, urlsplit
 import certifi
 from settings import EMBEDDING_DIMENSION
 
-from .ollama import OllamaGenerateOptions
+from .ollama import LlmGenerateOptions
 
 JsonObject: TypeAlias = dict[str, object]
 
@@ -67,11 +67,11 @@ class GoogleAiStudioClient:
         *,
         prompt: str,
         system: str | None = None,
-        options: OllamaGenerateOptions | None = None,
+        options: LlmGenerateOptions | None = None,
         format_json: bool = False,
         model: str | None = None,
     ) -> str:
-        final_options = options or OllamaGenerateOptions()
+        final_options = options or LlmGenerateOptions()
         generation_config: JsonObject = {
             "temperature": final_options.temperature,
             "topP": final_options.top_p,

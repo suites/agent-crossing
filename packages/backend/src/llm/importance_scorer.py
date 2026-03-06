@@ -5,7 +5,7 @@ from typing import Protocol, cast
 
 from .clients.ollama import (
     JsonObject,
-    OllamaGenerateOptions,
+    LlmGenerateOptions,
 )
 from .prompt_builders import build_importance_scoring_prompt
 
@@ -76,7 +76,7 @@ class ImportanceGenerateClient(Protocol):
         self,
         *,
         prompt: str,
-        options: OllamaGenerateOptions | None = None,
+        options: LlmGenerateOptions | None = None,
         system: str | None = None,
         format_json: bool = False,
     ) -> str: ...
@@ -87,11 +87,11 @@ class LlmImportanceScorer:
         self,
         client: ImportanceGenerateClient,
         fallback_importance: int = 3,
-        options: OllamaGenerateOptions | None = None,
+        options: LlmGenerateOptions | None = None,
     ) -> None:
         self.client: ImportanceGenerateClient = client
         self.fallback_importance: int = clamp_importance(fallback_importance)
-        self.options: OllamaGenerateOptions = options or OllamaGenerateOptions()
+        self.options: LlmGenerateOptions = options or LlmGenerateOptions()
 
     def score(self, context: ImportanceScoringContext) -> int:
         prompt = self._build_prompt(context)

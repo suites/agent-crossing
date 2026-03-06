@@ -1,9 +1,8 @@
 import json
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
 
-from llm.clients.ollama import OllamaGenerateOptions
 from llm.guardrails.similarity import (
     SEMANTIC_HARD_BLOCK_THRESHOLD,
     SEMANTIC_SOFT_PENALTY_THRESHOLD,
@@ -54,17 +53,6 @@ class LoopSimulationConfig:
     """한 턴당 시뮬레이션 시간 증가량(초)."""
     log_mode: Literal["basic", "debug"] = "basic"
     """로그 출력 모드. basic은 축약, debug는 원문 포함."""
-    reaction_generation_options: OllamaGenerateOptions = field(
-        default_factory=lambda: OllamaGenerateOptions(
-            temperature=0.35,
-            top_p=0.92,
-            num_predict=192,
-            repeat_penalty=1.1,
-            presence_penalty=0.2,
-            frequency_penalty=0.4,
-        )
-    )
-    """reaction 생성 시 사용할 LLM 샘플링 파라미터."""
 
 
 DEFAULT_CONFIG = LoopSimulationConfig(
@@ -105,7 +93,6 @@ def _run_simulation(
             suppress_repeated_replies=config.suppress_repeated_replies,
             repetition_window=config.repetition_window,
             turn_time_step_seconds=config.turn_time_step_seconds,
-            reaction_generation_options=config.reaction_generation_options,
         )
     )
 

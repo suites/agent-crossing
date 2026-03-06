@@ -15,8 +15,8 @@ from dataclasses import dataclass
 
 import pytest
 
-from llm import OllamaClient, OllamaGenerateOptions
-from llm.clients.ollama import JsonObject
+from llm import OllamaClient
+from llm.clients.ollama import JsonObject, LlmGenerateOptions
 
 
 @dataclass(frozen=True)
@@ -107,6 +107,8 @@ def _request_json(
 
         time.sleep(RETRY_BACKOFF_SECONDS * attempt)
 
+    raise RuntimeError("unreachable")
+
 
 @pytest.fixture(scope="session")
 def ollama_context() -> OllamaContext:
@@ -155,7 +157,7 @@ def test_ollama_smoke_health(ollama_context: OllamaContext) -> None:
 def test_ollama_generate_smoke_and_deterministic_shape(
     ollama_context: OllamaContext,
 ) -> None:
-    options = OllamaGenerateOptions(
+    options = LlmGenerateOptions(
         temperature=0.0, top_p=1.0, num_predict=INFERENCE_MAX_TOKENS
     )
 
@@ -180,7 +182,7 @@ def test_ollama_generate_smoke_and_deterministic_shape(
 
 
 def test_ollama_generate_payload_contract(ollama_context: OllamaContext) -> None:
-    generate_payload = {
+    generate_payload: JsonObject = {
         "model": ollama_context.model,
         "prompt": "Hello. Return one short sentence in Korean.",
         "stream": False,

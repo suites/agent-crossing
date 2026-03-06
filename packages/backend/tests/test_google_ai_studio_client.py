@@ -1,5 +1,5 @@
 from llm.clients.google_ai_studio import GoogleAiStudioClient
-from llm.clients.ollama import OllamaGenerateOptions
+from llm.clients.ollama import LlmGenerateOptions
 
 
 def test_generate_uses_google_generate_content_shape() -> None:
@@ -28,7 +28,7 @@ def test_generate_uses_google_generate_content_shape() -> None:
     response = client.generate(
         prompt="Return JSON",
         system="You are concise.",
-        options=OllamaGenerateOptions(temperature=0.3, top_p=0.8, num_predict=60),
+        options=LlmGenerateOptions(temperature=0.3, top_p=0.8, num_predict=60),
         format_json=True,
     )
 

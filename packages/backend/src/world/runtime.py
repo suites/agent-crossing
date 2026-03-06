@@ -1,5 +1,5 @@
 import datetime
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
 
@@ -10,7 +10,6 @@ from llm.governance import (
 )
 from llm.clients.provider_factory import ProviderName, build_provider_client
 from agents.world_factory import init_agents
-from llm.clients.ollama import OllamaGenerateOptions
 
 from .engine import SimulationEngine, SimulationEngineConfig, SimulationStepResult
 from .session import WorldConversationSession
@@ -32,16 +31,6 @@ class WorldRuntimeConfig:
     suppress_repeated_replies: bool = True
     repetition_window: int = 4
     turn_time_step_seconds: int = 45
-    reaction_generation_options: OllamaGenerateOptions = field(
-        default_factory=lambda: OllamaGenerateOptions(
-            temperature=0.35,
-            top_p=0.92,
-            num_predict=192,
-            repeat_penalty=1.1,
-            presence_penalty=0.2,
-            frequency_penalty=0.4,
-        )
-    )
 
 
 @dataclass(frozen=True)
@@ -141,7 +130,6 @@ def build_world_runtime(*, config: WorldRuntimeConfig) -> WorldRuntime:
             suppress_repeated_replies=config.suppress_repeated_replies,
             repetition_window=config.repetition_window,
             fallback_on_empty_reply=config.fallback_on_empty_reply,
-            reaction_generation_options=config.reaction_generation_options,
         ),
     )
     return WorldRuntime(

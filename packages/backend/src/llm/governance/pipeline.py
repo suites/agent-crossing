@@ -12,7 +12,16 @@ from llm.guardrails.similarity import (
     recent_self_utterances,
     semantic_overlap_check,
 )
-from llm.clients.ollama import OllamaGenerateOptions
+from llm.clients.ollama import LlmGenerateOptions
+
+REACTION_GENERATE_OPTIONS = LlmGenerateOptions(
+    temperature=0.35,
+    top_p=0.92,
+    num_predict=192,
+    repeat_penalty=1.1,
+    presence_penalty=0.2,
+    frequency_penalty=0.4,
+)
 
 from .contracts import (
     GenerateClient,
@@ -37,8 +46,6 @@ class ReactionPipeline:
     def decide_reaction(
         self,
         input: ReactionDecisionInput,
-        *,
-        generation_options: OllamaGenerateOptions | None = None,
     ) -> ReactionDecision:
         intent_prompt = prompt_builders.build_reaction_intent_prompt(
             agent_identity=input.agent_identity,
@@ -53,7 +60,7 @@ class ReactionPipeline:
         intent_response = self.ollama_client.generate(
             prompt=intent_prompt,
             system=system_prompt,
-            options=generation_options,
+            options=REACTION_GENERATE_OPTIONS,
             format_json=True,
         )
         intent = parse_reaction_intent(intent_response)
@@ -104,7 +111,7 @@ class ReactionPipeline:
             response_text = self.ollama_client.generate(
                 prompt=working_prompt,
                 system=system_prompt,
-                options=generation_options,
+                options=REACTION_GENERATE_OPTIONS,
                 format_json=True,
             )
             utterance_result = parse_reaction_utterance(response_text)

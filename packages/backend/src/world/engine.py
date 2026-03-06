@@ -10,7 +10,6 @@ from llm.governance import (
     merge_policy_trace,
     recent_replies_for_echo_check,
 )
-from llm.clients.ollama import OllamaGenerateOptions
 
 from .session import (
     WorldConversationSession,
@@ -44,7 +43,6 @@ class SimulationEngineConfig:
     suppress_repeated_replies: bool
     repetition_window: int
     fallback_on_empty_reply: bool
-    reaction_generation_options: OllamaGenerateOptions
 
 
 class SimulationEngine:
@@ -215,6 +213,5 @@ class SimulationEngine:
                 ),
                 observed_entities=[speaking_partner.name],
                 observed_events=observed_events,
-                reaction_generation_options=self.config.reaction_generation_options,
             )
         )

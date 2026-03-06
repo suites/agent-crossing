@@ -12,7 +12,6 @@ from llm.governance import (
     ReactionDecisionTrace,
 )
 from llm.llm_gateway import LlmGateway
-from llm.clients.ollama import OllamaGenerateOptions
 
 from .decision_diagnostics import ActionDiagnostics, build_action_diagnostics
 from .memory.memory_object import MemoryObject
@@ -37,7 +36,6 @@ class DetermineContext:
     dialogue_history: list[tuple[str, str]]
     profile: AgentProfile
     language: Literal["ko", "en"]
-    reaction_generation_options: OllamaGenerateOptions | None
 
 
 @dataclass(frozen=True)
@@ -51,7 +49,6 @@ class ActionLoopInput:
     world_context: dict[str, str] | None = None
     observed_entities: list[str] | None = None
     observed_events: list[str] | None = None
-    reaction_generation_options: OllamaGenerateOptions | None = None
 
 
 @dataclass(frozen=True)
@@ -178,7 +175,6 @@ class AgentBrain:
             dialogue_history=input.dialogue_history,
             profile=input.profile,
             language=input.language,
-            reaction_generation_options=input.reaction_generation_options,
         )
 
         # 4. 상황판단에 따라 반응을 결정한다.
@@ -296,7 +292,6 @@ class AgentBrain:
         dialogue_history: list[tuple[str, str]],
         profile: AgentProfile,
         language: Literal["ko", "en"],
-        reaction_generation_options: OllamaGenerateOptions | None,
     ) -> DetermineContext:
         # 1. 상황판단을 위해 기억을 검색한다.
         retrieval_query = self._build_retrieval_query(
@@ -313,7 +308,6 @@ class AgentBrain:
             profile=profile,
             retrieved_memories=retrieved_memories,
             language=language,
-            reaction_generation_options=reaction_generation_options,
         )
 
     def _build_retrieval_query(
@@ -348,8 +342,7 @@ class AgentBrain:
                 profile=determine_context.profile,
                 retrieved_memories=determine_context.retrieved_memories,
                 language=determine_context.language,
-            ),
-            generation_options=determine_context.reaction_generation_options,
+            )
         )
 
     def _save_observation_memory(

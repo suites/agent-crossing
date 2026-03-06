@@ -31,7 +31,7 @@ def _coerce_float_vector(value: object) -> list[float] | None:
 
 
 @dataclass(frozen=True)
-class OllamaGenerateOptions:
+class LlmGenerateOptions:
     temperature: float = 0.0
     top_p: float = 0.9
     num_predict: int = 80
@@ -60,11 +60,11 @@ class OllamaClient:
         *,
         model: str | None = None,
         prompt: str,
-        options: OllamaGenerateOptions | None = None,
+        options: LlmGenerateOptions | None = None,
         system: str | None = None,
         format_json: bool = False,
     ) -> str:
-        final_options = options or OllamaGenerateOptions()
+        final_options = options or LlmGenerateOptions()
         option_payload: JsonObject = {
             "temperature": final_options.temperature,
             "top_p": final_options.top_p,

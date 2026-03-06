@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from llm.clients.ollama import JsonObject, OllamaClient, OllamaGenerateOptions
+from llm.clients.ollama import JsonObject, LlmGenerateOptions, OllamaClient
 
 
 def test_generate_includes_penalty_options_when_configured() -> None:
@@ -13,7 +13,7 @@ def test_generate_includes_penalty_options_when_configured() -> None:
         return {"response": "ok"}
 
     client = OllamaClient(request_fn=request_fn)
-    options = OllamaGenerateOptions(
+    options = LlmGenerateOptions(
         temperature=0.3,
         top_p=0.95,
         num_predict=42,

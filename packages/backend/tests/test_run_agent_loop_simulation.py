@@ -64,8 +64,8 @@ def test_build_turn_observed_events_prefers_latest_utterance_when_present() -> N
     ]
 
 
-def test_default_reaction_num_predict_is_raised_for_truncation_safety() -> None:
-    assert DEFAULT_CONFIG.reaction_generation_options.num_predict == 192
+def test_default_turn_time_step_seconds() -> None:
+    assert DEFAULT_CONFIG.turn_time_step_seconds == 45
 
 
 def test_semantic_repeat_rate_detects_highly_similar_replies() -> None:

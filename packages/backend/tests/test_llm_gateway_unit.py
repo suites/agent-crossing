@@ -5,6 +5,7 @@ from typing import cast
 import numpy as np
 from agents.agent import AgentIdentity, AgentProfile, ExtendedPersona, FixedPersona
 from agents.memory.memory_object import MemoryObject, NodeType
+from agents.planning.models import DayPlanItem, HourlyPlanItem
 from llm.embedding_encoder import EmbeddingEncodingContext
 from llm.guardrails.similarity import EmbeddingEncoder
 from llm.governance import ReactionDecisionInput
@@ -13,6 +14,8 @@ from llm.prompt_builders import (
     build_day_plan_prompt,
     build_reaction_intent_prompt,
     build_reaction_utterance_prompt,
+    build_hourly_plan_prompt,
+    build_minute_plan_prompt,
     build_salient_questions_prompt,
 )
 
@@ -371,6 +374,52 @@ def test_day_plan_prompt_contains_persona_and_json_shape() -> None:
     assert '"start_time": "<ISO-8601 datetime>"' in prompt
 
 
+def test_hourly_plan_prompt_contains_context_and_json_shape() -> None:
+    prompt = build_hourly_plan_prompt(
+        agent_name="Eddy Lin",
+        today_date_text="Wednesday February 13",
+        day_plan_items=[
+            DayPlanItem(
+                start_time=datetime.datetime(2026, 2, 13, 8, 0, 0),
+                duration_minutes=120,
+                location="Town > Home > Kitchen",
+                action_content="Review composition notes and plan",
+            ),
+            DayPlanItem(
+                start_time=datetime.datetime(2026, 2, 13, 10, 0, 0),
+                duration_minutes=90,
+                location="Town > College > Lab",
+                action_content="Attend class",
+            ),
+        ],
+    )
+
+    assert "Convert the day plan into a chronological hourly plan." in prompt
+    assert "Return strict JSON only with this exact shape and no extra text:" in prompt
+    assert "'items': [" not in prompt
+    assert '"items": [' in prompt
+
+
+def test_minute_plan_prompt_contains_context_and_json_shape() -> None:
+    prompt = build_minute_plan_prompt(
+        agent_name="Eddy Lin",
+        current_time=datetime.datetime(2026, 2, 13, 12, 0, 0),
+        hourly_plan_items=[
+            HourlyPlanItem(
+                start_time=datetime.datetime(2026, 2, 13, 12, 0, 0),
+                duration_minutes=60,
+                location="Town > Home > Study",
+                action_content="Draft project outline",
+            ),
+        ],
+    )
+
+    assert "Generate an executable minute plan for the current phase." in prompt
+    assert "duration_minutes" in prompt
+    assert "Return strict JSON only with this exact shape and no extra text:" in prompt
+    assert '"duration_minutes": <int 5-15>' in prompt
+
+
 def test_salient_prompt_uses_strict_json_contract_line() -> None:
     memory = MemoryObject(
         id=1,
@@ -421,6 +470,242 @@ def test_generate_salient_questions_requests_json_format() -> None:
 
     assert len(questions) == 3
     assert client.call_kwargs[0].get("format_json") is True
+
+
+def test_generate_hour_plan_parses_json_items() -> None:
+    service = LlmGateway(
+        StubOllamaClient(
+            responses=[
+                json.dumps(
+                    {
+                        "items": [
+                            {
+                                "start_time": "2026-02-13T08:00:00",
+                                "duration_minutes": 90,
+                                "location": "Town > Home > Kitchen",
+                                "action_content": "Review composition notes over breakfast.",
+                            },
+                            {
+                                "start_time": "2026-02-13T09:45:00",
+                                "duration_minutes": 60,
+                                "location": "Town > College > Theory Room",
+                                "action_content": "Attend morning music theory class.",
+                            },
+                        ]
+                    }
+                )
+            ]
+        )
+    )
+
+    items = service.generate_hour_plan(
+        agent_name="Eddy Lin",
+        today_date_text="Wednesday February 13",
+        day_plan_items=[
+            DayPlanItem(
+                start_time=datetime.datetime(2026, 2, 13, 8, 0, 0),
+                duration_minutes=120,
+                location="Town > Home > Kitchen",
+                action_content="Review composition notes and plan",
+            ),
+            DayPlanItem(
+                start_time=datetime.datetime(2026, 2, 13, 10, 0, 0),
+                duration_minutes=90,
+                location="Town > College > Lab",
+                action_content="Attend class",
+            ),
+        ],
+    )
+
+    assert len(items) == 2
+    assert items[0].duration_minutes == 90
+    assert items[0].start_time == datetime.datetime(2026, 2, 13, 8, 0, 0)
+
+
+def test_generate_hour_plan_retries_once_on_truncated_json() -> None:
+    client = StubOllamaClient(
+        responses=[
+            '{"items": [{"start_time": "2026-02-13T08:00:00", "duration_minutes": 90',
+            json.dumps(
+                {
+                    "items": [
+                        {
+                            "start_time": "2026-02-13T08:00:00",
+                            "duration_minutes": 90,
+                            "location": "Town > Home > Kitchen",
+                            "action_content": "Review composition notes over breakfast.",
+                        },
+                        {
+                            "start_time": "2026-02-13T09:45:00",
+                            "duration_minutes": 60,
+                            "location": "Town > College > Theory Room",
+                            "action_content": "Attend morning music theory class.",
+                        },
+                    ]
+                }
+            ),
+        ]
+    )
+    service = LlmGateway(client)
+
+    items = service.generate_hour_plan(
+        agent_name="Eddy Lin",
+        today_date_text="Wednesday February 13",
+        day_plan_items=[
+            DayPlanItem(
+                start_time=datetime.datetime(2026, 2, 13, 8, 0, 0),
+                duration_minutes=120,
+                location="Town > Home > Kitchen",
+                action_content="Review composition notes and plan",
+            ),
+            DayPlanItem(
+                start_time=datetime.datetime(2026, 2, 13, 10, 0, 0),
+                duration_minutes=90,
+                location="Town > College > Lab",
+                action_content="Attend class",
+            ),
+        ],
+    )
+
+    assert len(items) == 2
+    assert client.calls == 2
+
+
+def test_generate_hour_plan_returns_empty_after_retry_exhaustion() -> None:
+    client = StubOllamaClient(
+        responses=[
+            "not-json",
+            json.dumps(
+                {
+                    "items": [
+                        {
+                            "start_time": "bad-time",
+                            "duration_minutes": 30,
+                            "location": "Town > Home > Kitchen",
+                            "action_content": "Wake up",
+                        }
+                    ]
+                }
+            ),
+            json.dumps(
+                {
+                    "items": [
+                        {
+                            "start_time": "also-bad",
+                            "duration_minutes": 30,
+                            "location": "Town > Home > Kitchen",
+                            "action_content": "Breakfast",
+                        }
+                    ]
+                }
+            ),
+        ]
+    )
+    service = LlmGateway(client)
+
+    items = service.generate_hour_plan(
+        agent_name="Eddy Lin",
+        today_date_text="Wednesday February 13",
+        day_plan_items=[
+            DayPlanItem(
+                start_time=datetime.datetime(2026, 2, 13, 8, 0, 0),
+                duration_minutes=120,
+                location="Town > Home > Kitchen",
+                action_content="Review composition notes and plan",
+            ),
+            DayPlanItem(
+                start_time=datetime.datetime(2026, 2, 13, 10, 0, 0),
+                duration_minutes=90,
+                location="Town > College > Lab",
+                action_content="Attend class",
+            ),
+        ],
+    )
+
+    assert items == []
+    assert client.calls == 3
+
+
+def test_generate_minute_plan_parses_json_items() -> None:
+    service = LlmGateway(
+        StubOllamaClient(
+            responses=[
+                json.dumps(
+                    {
+                        "items": [
+                            {
+                                "start_time": "2026-02-13T12:00:00",
+                                "duration_minutes": 10,
+                                "location": "Town > Home > Study",
+                                "action_content": "Review motif variations.",
+                            },
+                            {
+                                "start_time": "2026-02-13T12:10:00",
+                                "duration_minutes": 5,
+                                "location": "Town > Home > Study",
+                                "action_content": "Write transition phrase.",
+                            },
+                        ]
+                    }
+                )
+            ]
+        )
+    )
+
+    items = service.generate_minute_plan(
+        agent_name="Eddy Lin",
+        current_time=datetime.datetime(2026, 2, 13, 12, 0, 0),
+        hourly_plan_items=[
+            HourlyPlanItem(
+                start_time=datetime.datetime(2026, 2, 13, 12, 0, 0),
+                duration_minutes=60,
+                location="Town > Home > Study",
+                action_content="Draft project outline",
+            )
+        ],
+    )
+
+    assert len(items) == 2
+    assert items[1].duration_minutes == 5
+    assert items[0].action_content == "Review motif variations."
+
+
+def test_generate_minute_plan_retries_once_on_schema_validation_error() -> None:
+    client = StubOllamaClient(
+        responses=[
+            json.dumps({"items": "invalid-format"}),
+            json.dumps(
+                {
+                    "items": [
+                        {
+                            "start_time": "2026-02-13T12:00:00",
+                            "duration_minutes": 12,
+                            "location": "Town > Home > Study",
+                            "action_content": "Review motif variations.",
+                        }
+                    ]
+                }
+            ),
+        ]
+    )
+    service = LlmGateway(client)
+
+    items = service.generate_minute_plan(
+        agent_name="Eddy Lin",
+        current_time=datetime.datetime(2026, 2, 13, 12, 0, 0),
+        hourly_plan_items=[
+            HourlyPlanItem(
+                start_time=datetime.datetime(2026, 2, 13, 12, 0, 0),
+                duration_minutes=60,
+                location="Town > Home > Study",
+                action_content="Draft project outline",
+            )
+        ],
+    )
+
+    assert len(items) == 1
+    assert items[0].duration_minutes == 12
+    assert client.calls == 2
 
 
 def test_generate_day_plan_parses_json_items() -> None:

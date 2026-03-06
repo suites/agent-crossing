@@ -13,7 +13,7 @@ from .importance_scorer import (
     clamp_importance,
     parse_importance_value,
 )
-from .clients.ollama import OllamaClient, OllamaClientError, OllamaGenerateOptions
+from .clients.ollama import OllamaClient, OllamaClientError
 from .clients.provider_factory import ProviderName, build_provider_client
 
 __all__ = [
@@ -28,7 +28,6 @@ __all__ = [
     "OllamaEmbeddingEncoder",
     "OllamaClient",
     "OllamaClientError",
-    "OllamaGenerateOptions",
     "OllamaImportanceScorer",
     "ProviderName",
     "build_provider_client",
