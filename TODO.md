@@ -61,12 +61,12 @@
 
 ### 2-A. Trigger와 누적값 관리
 
-- [ ] `P1` Reflection trigger를 임계치 기반으로 동작시킨다
+- [x] `P1` Reflection trigger를 임계치 기반으로 동작시킨다
   - Depends on: Retrieval scoring 구현
   - DoD:
     - [x] 최근 이벤트 누적 중요도 `>= 150`에서 reflection을 실행한다
     - [x] reflection 실행 후 누적값 리셋 정책을 적용한다
-    - [ ] 임계치 테스트를 추가한다
+  - [x] 임계치 테스트를 추가한다
 
 ### 2-B. Reflection 생성 파이프라인 세분화
 
