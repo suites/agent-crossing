@@ -108,9 +108,9 @@ def build_day_plan_prompt(
     age: int,
     innate_traits: list[str],
     persona_background: str,
-    yesterday_date_text: str,
+    yesterday_date: datetime.datetime,
     yesterday_summary: str,
-    today_date_text: str,
+    today_date: datetime.datetime,
 ) -> str:
     """Build a persona-grounded prompt for daily structured plan generation."""
     traits_text = ", ".join(trait.strip() for trait in innate_traits if trait.strip())
@@ -120,9 +120,9 @@ def build_day_plan_prompt(
         age=str(age),
         innate_traits=traits_text or "N/A",
         persona_background=persona_background.strip(),
-        yesterday_date_text=yesterday_date_text.strip(),
+        yesterday_date_text=yesterday_date.isoformat(),
         yesterday_summary=yesterday_summary.strip(),
-        today_date_text=today_date_text.strip(),
+        today_date_text=today_date.isoformat(),
         json_shape=DAY_PLAN_JSON_SHAPE,
     )
 
@@ -130,7 +130,7 @@ def build_day_plan_prompt(
 def build_hourly_plan_prompt(
     *,
     agent_name: str,
-    today_date_text: str,
+    current_time: datetime.datetime,
     day_plan_items: list[DayPlanItem],
 ) -> str:
     day_plan_lines = "\n".join(
@@ -143,7 +143,7 @@ def build_hourly_plan_prompt(
     return render_template(
         "hourly_plan_instruction.md",
         agent_name=agent_name,
-        today_date_text=today_date_text.strip(),
+        current_time=current_time.isoformat(),
         day_plan_lines=day_plan_lines,
         json_shape=HOURLY_PLAN_JSON_SHAPE,
     )

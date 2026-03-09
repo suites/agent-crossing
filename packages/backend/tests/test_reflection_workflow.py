@@ -2,9 +2,8 @@ import datetime
 from typing import cast
 
 import numpy as np
-
-from agents.memory.memory_object import MemoryObject, NodeType
 from agents.memory.memory_manager import MemoryManager
+from agents.memory.memory_object import MemoryObject, NodeType
 from agents.reflection import Reflection
 from agents.reflection_workflow import ReflectionWorkflow
 from llm.llm_gateway import InsightWithCitation, LlmGateway
@@ -117,8 +116,8 @@ def test_reflection_workflow_clears_importance_after_reflect() -> None:
     )
     workflow = ReflectionWorkflow(
         reflection=Reflection(),
-        memory_service=cast(MemoryManager, cast(object, memory_service)),
-        llm_service=cast(LlmGateway, cast(object, llm_service)),
+        memory_manager=cast(MemoryManager, cast(object, memory_service)),
+        llm_gateway=cast(LlmGateway, cast(object, llm_service)),
         agent_name="Eddy Lin",
         identity_stable_set=["composer"],
     )

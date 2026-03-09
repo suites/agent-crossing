@@ -7,15 +7,15 @@ from agents.agent import AgentIdentity, AgentProfile, ExtendedPersona, FixedPers
 from agents.memory.memory_object import MemoryObject, NodeType
 from agents.planning.models import DayPlanItem, HourlyPlanItem
 from llm.embedding_encoder import EmbeddingEncodingContext
-from llm.guardrails.similarity import EmbeddingEncoder
 from llm.governance import ReactionDecisionInput
+from llm.guardrails.similarity import EmbeddingEncoder
 from llm.llm_gateway import LlmGateway
 from llm.prompt_builders import (
     build_day_plan_prompt,
-    build_reaction_intent_prompt,
-    build_reaction_utterance_prompt,
     build_hourly_plan_prompt,
     build_minute_plan_prompt,
+    build_reaction_intent_prompt,
+    build_reaction_utterance_prompt,
     build_salient_questions_prompt,
 )
 
@@ -357,11 +357,11 @@ def test_day_plan_prompt_contains_persona_and_json_shape() -> None:
         persona_background=(
             "Eddy Lin is a student at Oak Hill College studying music theory and composition."
         ),
-        yesterday_date_text="Tuesday February 12",
+        yesterday_date=datetime.datetime(2026, 2, 12),
         yesterday_summary=(
             "woke up and completed the morning routine at 7:00 am, [...] got ready to sleep around 10 pm."
         ),
-        today_date_text="Wednesday February 13",
+        today_date=datetime.datetime(2026, 2, 13),
     )
 
     assert "Name: Eddy Lin (age: 19)" in prompt
@@ -377,7 +377,7 @@ def test_day_plan_prompt_contains_persona_and_json_shape() -> None:
 def test_hourly_plan_prompt_contains_context_and_json_shape() -> None:
     prompt = build_hourly_plan_prompt(
         agent_name="Eddy Lin",
-        today_date_text="Wednesday February 13",
+        current_time=datetime.datetime(2026, 2, 13, 8, 0, 0),
         day_plan_items=[
             DayPlanItem(
                 start_time=datetime.datetime(2026, 2, 13, 8, 0, 0),
@@ -500,7 +500,7 @@ def test_generate_hour_plan_parses_json_items() -> None:
 
     items = service.generate_hour_plan(
         agent_name="Eddy Lin",
-        today_date_text="Wednesday February 13",
+        current_time=datetime.datetime(2026, 2, 13, 8, 0, 0),
         day_plan_items=[
             DayPlanItem(
                 start_time=datetime.datetime(2026, 2, 13, 8, 0, 0),
@@ -550,7 +550,7 @@ def test_generate_hour_plan_retries_once_on_truncated_json() -> None:
 
     items = service.generate_hour_plan(
         agent_name="Eddy Lin",
-        today_date_text="Wednesday February 13",
+        current_time=datetime.datetime(2026, 2, 13),
         day_plan_items=[
             DayPlanItem(
                 start_time=datetime.datetime(2026, 2, 13, 8, 0, 0),
@@ -605,7 +605,7 @@ def test_generate_hour_plan_returns_empty_after_retry_exhaustion() -> None:
 
     items = service.generate_hour_plan(
         agent_name="Eddy Lin",
-        today_date_text="Wednesday February 13",
+        current_time=datetime.datetime(2026, 2, 13, 8, 0, 0),
         day_plan_items=[
             DayPlanItem(
                 start_time=datetime.datetime(2026, 2, 13, 8, 0, 0),
@@ -756,9 +756,9 @@ def test_generate_day_plan_parses_json_items() -> None:
         age=19,
         innate_traits=["friendly", "outgoing", "hospitable"],
         persona_background="Music theory student focusing on composition.",
-        yesterday_date_text="Tuesday February 12",
+        yesterday_date=datetime.datetime(2026, 2, 12),
         yesterday_summary="woke up at 7:00 am and got ready to sleep around 10 pm.",
-        today_date_text="Wednesday February 13",
+        today_date=datetime.datetime(2026, 2, 13),
     )
 
     assert len(items) == 5
@@ -776,9 +776,9 @@ def test_generate_day_plan_returns_empty_on_parse_failure() -> None:
         age=19,
         innate_traits=["friendly", "outgoing", "hospitable"],
         persona_background="Music theory student focusing on composition.",
-        yesterday_date_text="Tuesday February 12",
+        yesterday_date=datetime.datetime(2026, 2, 12),
         yesterday_summary="woke up at 7:00 am and got ready to sleep around 10 pm.",
-        today_date_text="Wednesday February 13",
+        today_date=datetime.datetime(2026, 2, 13),
     )
 
     assert items == []
@@ -820,9 +820,9 @@ def test_generate_day_plan_returns_empty_if_too_few_items() -> None:
         age=19,
         innate_traits=["friendly", "outgoing", "hospitable"],
         persona_background="Music theory student focusing on composition.",
-        yesterday_date_text="Tuesday February 12",
+        yesterday_date=datetime.datetime(2026, 2, 12),
         yesterday_summary="woke up at 7:00 am and got ready to sleep around 10 pm.",
-        today_date_text="Wednesday February 13",
+        today_date=datetime.datetime(2026, 2, 13),
     )
 
     assert items == []
@@ -900,9 +900,9 @@ def test_generate_day_plan_dedupes_and_truncates_to_max() -> None:
         age=19,
         innate_traits=["friendly", "outgoing", "hospitable"],
         persona_background="Music theory student focusing on composition.",
-        yesterday_date_text="Tuesday February 12",
+        yesterday_date=datetime.datetime(2026, 2, 12),
         yesterday_summary="woke up at 7:00 am and got ready to sleep around 10 pm.",
-        today_date_text="Wednesday February 13",
+        today_date=datetime.datetime(2026, 2, 13),
     )
 
     assert len(items) == 8
@@ -966,9 +966,9 @@ def test_generate_day_plan_retries_once_on_truncated_json() -> None:
         age=19,
         innate_traits=["friendly", "outgoing", "hospitable"],
         persona_background="Music theory student focusing on composition.",
-        yesterday_date_text="Tuesday February 12",
+        yesterday_date=datetime.datetime(2026, 2, 12),
         yesterday_summary="woke up at 7:00 am and got ready to sleep around 10 pm.",
-        today_date_text="Wednesday February 13",
+        today_date=datetime.datetime(2026, 2, 13),
     )
 
     assert len(items) == 6
@@ -1025,9 +1025,9 @@ def test_generate_day_plan_retries_once_on_schema_validation_error() -> None:
         age=19,
         innate_traits=["friendly", "outgoing", "hospitable"],
         persona_background="Music theory student focusing on composition.",
-        yesterday_date_text="Tuesday February 12",
+        yesterday_date=datetime.datetime(2026, 2, 12),
         yesterday_summary="woke up at 7:00 am and got ready to sleep around 10 pm.",
-        today_date_text="Wednesday February 13",
+        today_date=datetime.datetime(2026, 2, 13),
     )
 
     assert len(items) == 5
@@ -1101,9 +1101,9 @@ def test_generate_day_plan_returns_empty_after_retry_exhaustion() -> None:
         age=19,
         innate_traits=["friendly", "outgoing", "hospitable"],
         persona_background="Music theory student focusing on composition.",
-        yesterday_date_text="Tuesday February 12",
+        yesterday_date=datetime.datetime(2026, 2, 12),
         yesterday_summary="woke up at 7:00 am and got ready to sleep around 10 pm.",
-        today_date_text="Wednesday February 13",
+        today_date=datetime.datetime(2026, 2, 13),
     )
 
     assert items == []

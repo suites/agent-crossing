@@ -14,8 +14,8 @@ from llm.governance import (
 from llm.llm_gateway import LlmGateway
 
 from .decision_diagnostics import ActionDiagnostics, build_action_diagnostics
-from .memory.memory_object import MemoryObject
 from .memory.memory_manager import MemoryManager, ObservationContext
+from .memory.memory_object import MemoryObject
 from .reflection_workflow import ReflectionWorkflow
 
 
@@ -89,13 +89,13 @@ class AgentBrain:
         self,
         *,
         agent_identity: AgentIdentity,
-        memory_service: MemoryManager,
-        reflection_service: ReflectionWorkflow,
-        llm_service: LlmGateway,
+        memory_manager: MemoryManager,
+        reflection_workflow: ReflectionWorkflow,
+        llm_gateway: LlmGateway,
     ):
-        self.memory_service: MemoryManager = memory_service
-        self.reflection_service: ReflectionWorkflow = reflection_service
-        self.llm_service: LlmGateway = llm_service
+        self.memory_manager: MemoryManager = memory_manager
+        self.reflection_workflow: ReflectionWorkflow = reflection_workflow
+        self.llm_gateway: LlmGateway = llm_gateway
         self.agent_identity: AgentIdentity = agent_identity
 
     def queue_observation(
@@ -113,7 +113,7 @@ class AgentBrain:
             final_current_plan = profile.extended.current_plan_context[0]
         else:
             final_current_plan = None
-        memory = self.memory_service.create_observation_from_text(
+        memory = self.memory_manager.create_observation_from_text(
             content=content,
             now=now,
             context=ObservationContext(
@@ -123,7 +123,7 @@ class AgentBrain:
             ),
             importance=importance,
         )
-        self.reflection_service.record_observation_importance(
+        self.reflection_workflow.record_observation_importance(
             importance=memory.importance
         )
 
@@ -136,7 +136,7 @@ class AgentBrain:
         identity_stable_set: list[str],
         current_plan: str | None,
     ) -> None:
-        memory = self.memory_service.create_observation_from_text(
+        memory = self.memory_manager.create_observation_from_text(
             content=content,
             now=now,
             context=ObservationContext(
@@ -146,7 +146,7 @@ class AgentBrain:
             ),
             importance=importance,
         )
-        self.reflection_service.record_observation_importance(
+        self.reflection_workflow.record_observation_importance(
             importance=memory.importance
         )
 
@@ -165,8 +165,8 @@ class AgentBrain:
 
         # 2. 인지된 정보들을 observation으로 메모리에 저장 (reflection 조건 충족 시 reflection도 함께 저장)
         self._save_observation_memory(observation, input.profile)
-        if self.reflection_service.should_reflect():
-            self.reflection_service.reflect(now=input.current_time)
+        if self.reflection_workflow.should_reflect():
+            self.reflection_workflow.reflect(now=input.current_time)
 
         # 3. 상황판단을 한다.
         determine_result = self._determine_reaction(
@@ -221,7 +221,7 @@ class AgentBrain:
 
         content = "\n".join(lines)
 
-        embedding = self.memory_service.embedding_encoder.encode(
+        embedding = self.memory_manager.embedding_encoder.encode(
             EmbeddingEncodingContext(text=content)
         )
         return Observation(
@@ -299,7 +299,7 @@ class AgentBrain:
             dialogue_history=dialogue_history,
             profile=profile,
         )
-        retrieved_memories = self.memory_service.get_retrieval_memories(
+        retrieved_memories = self.memory_manager.get_retrieval_memories(
             query=retrieval_query, current_time=current_time
         )
         return DetermineContext(
@@ -333,7 +333,7 @@ class AgentBrain:
         # 4-1. 관찰 결과가 단순하다면 기존 계획을 수행한다.
         # 4-2. 관찰 결과가 중요하거나 예상치 못하면 기존 계획을 멈추고 반응한다.
         # 4-2-1. 반응하기로 결정했으면 행동 계획을 재생성하고, 대화중이라면 자연어 대화도 생성한다.
-        return self.llm_service.decide_reaction(
+        return self.llm_gateway.decide_reaction(
             ReactionDecisionInput(
                 agent_identity=self.agent_identity,
                 current_time=determine_context.observation.now,
@@ -355,7 +355,7 @@ class AgentBrain:
         - 목적: observation 저장 + (조건 충족 시) reflection 엔트리 호출.
         - 입력/출력: 관찰 입력값들 -> (observation 1개, reflection 리스트)
         """
-        memory = self.memory_service.create_observation(
+        memory = self.memory_manager.create_observation(
             content=observation.content,
             now=observation.now,
             embedding=observation.embedding,
@@ -367,6 +367,6 @@ class AgentBrain:
             importance=observation.importance,
         )
 
-        self.reflection_service.record_observation_importance(
+        self.reflection_workflow.record_observation_importance(
             importance=memory.importance
         )

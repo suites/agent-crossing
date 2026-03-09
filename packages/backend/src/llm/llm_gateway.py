@@ -5,6 +5,7 @@ from typing import cast
 
 from agents.memory.memory_object import MemoryObject
 from agents.planning.models import DayPlanItem, HourlyPlanItem, MinutePlanItem
+from llm.clients.ollama import JsonObject, LlmGenerateOptions
 from llm.governance import (
     DayPlanParseError,
     GenerateClient,
@@ -18,10 +19,8 @@ from llm.governance import (
     try_parse_minute_plan,
 )
 from llm.guardrails.similarity import EmbeddingEncoder
-from llm.clients.ollama import JsonObject, LlmGenerateOptions
 
 from . import prompt_builders
-
 
 DAY_PLAN_GENERATE_OPTIONS = LlmGenerateOptions(
     temperature=0.0,
@@ -157,9 +156,9 @@ class LlmGateway:
         age: int,
         innate_traits: list[str],
         persona_background: str,
-        yesterday_date_text: str,
+        yesterday_date: datetime.datetime,
         yesterday_summary: str,
-        today_date_text: str,
+        today_date: datetime.datetime,
     ) -> list[DayPlanItem]:
         """Generate structured day plan with bounded retries on parse failures."""
         prompt = prompt_builders.build_day_plan_prompt(
@@ -167,9 +166,9 @@ class LlmGateway:
             age=age,
             innate_traits=innate_traits,
             persona_background=persona_background,
-            yesterday_date_text=yesterday_date_text,
+            yesterday_date=yesterday_date,
             yesterday_summary=yesterday_summary,
-            today_date_text=today_date_text,
+            today_date=today_date,
         )
 
         current_prompt = prompt
@@ -199,13 +198,13 @@ class LlmGateway:
         self,
         *,
         agent_name: str,
-        today_date_text: str,
+        current_time: datetime.datetime,
         day_plan_items: list[DayPlanItem],
     ) -> list[HourlyPlanItem]:
         """Generate structured hourly plan with bounded retries on parse failures."""
         prompt = prompt_builders.build_hourly_plan_prompt(
             agent_name=agent_name,
-            today_date_text=today_date_text,
+            current_time=current_time,
             day_plan_items=day_plan_items,
         )
 

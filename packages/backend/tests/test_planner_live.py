@@ -31,9 +31,9 @@ def test_planner_live_with_provider_factory() -> None:
             age=19,
             innate_traits=["friendly", "outgoing", "hospitable"],
             persona_background="Music theory student focusing on composition.",
-            yesterday_date_text="Tuesday February 12",
+            yesterday_date=datetime.datetime(2026, 2, 12),
             yesterday_summary="Studied harmony and practiced composition in the evening.",
-            today_date_text="Wednesday February 13",
+            today_date=datetime.datetime(2026, 2, 13),
         )
     )
 
@@ -42,7 +42,7 @@ def test_planner_live_with_provider_factory() -> None:
 
     hourly_plan_items = planner.generate_hourly_plan(
         agent_name="Eddy Lin",
-        today_date_text="Wednesday February 13",
+        current_time=datetime.datetime(2026, 2, 13, 0, 0, 0),
         day_plan_items=day_plan_items,
     )
 

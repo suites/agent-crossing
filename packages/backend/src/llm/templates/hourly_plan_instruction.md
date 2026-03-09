@@ -1,7 +1,7 @@
 ## Planning Context
 
 - Agent: $agent_name
-- Date: $today_date_text
+- Date: $current_time
 
 ## Input Day Plan
 

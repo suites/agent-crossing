@@ -122,13 +122,13 @@ class DayPlanBroadStrokesRequest:
     persona_background: str
 
     """어제 날짜를 나타내는 텍스트."""
-    yesterday_date_text: str
+    yesterday_date: datetime.datetime
 
     """어제 활동 요약."""
     yesterday_summary: str
 
     """오늘 날짜를 나타내는 텍스트."""
-    today_date_text: str
+    today_date: datetime.datetime
 
     def __post_init__(self) -> None:
         if not self.agent_name.strip():
@@ -139,12 +139,12 @@ class DayPlanBroadStrokesRequest:
             raise ValueError("innate_traits must contain at least one non-empty trait")
         if not self.persona_background.strip():
             raise ValueError("persona_background must not be blank")
-        if not self.yesterday_date_text.strip():
-            raise ValueError("yesterday_date_text must not be blank")
+        if not self.yesterday_date:
+            raise ValueError("yesterday_date must not be blank")
         if not self.yesterday_summary.strip():
             raise ValueError("yesterday_summary must not be blank")
-        if not self.today_date_text.strip():
-            raise ValueError("today_date_text must not be blank")
+        if not self.today_date:
+            raise ValueError("today_date must not be blank")
 
 
 @dataclass(frozen=True)

@@ -7,10 +7,10 @@ from agents.persona_loader import AgentPersona, PersonaLoader, apply_persona_to_
 from agents.reflection import Reflection
 from agents.reflection_workflow import ReflectionWorkflow
 from agents.sim_agent import SimAgent
+from llm.clients.provider_factory import ProviderClient
 from llm.embedding_encoder import OllamaEmbeddingEncoder
 from llm.importance_scorer import OllamaImportanceScorer
 from llm.llm_gateway import LlmGateway
-from llm.clients.provider_factory import ProviderClient
 
 from .memory.memory_manager import MemoryManager
 from .memory.memory_stream import MemoryStream
@@ -34,30 +34,30 @@ def _build_agent(
     memory_stream = MemoryStream()
     importance_scorer = OllamaImportanceScorer(client=llm_client)
     embedding_encoder = OllamaEmbeddingEncoder(client=llm_client, model=embedding_model)
-    memory_service = MemoryManager(
+    memory_manager = MemoryManager(
         memory_stream=memory_stream,
         importance_scorer=importance_scorer,
         embedding_encoder=embedding_encoder,
     )
-    llm_service = LlmGateway(llm_client, embedding_encoder=embedding_encoder)
-    reflection_service = ReflectionWorkflow(
+    llm_gateway = LlmGateway(llm_client, embedding_encoder=embedding_encoder)
+    reflection_workflow = ReflectionWorkflow(
         reflection=Reflection(),
-        memory_service=memory_service,
-        llm_service=llm_service,
+        memory_manager=memory_manager,
+        llm_gateway=llm_gateway,
         agent_name=persona.agent.name,
         identity_stable_set=list(persona.identity_stable_set),
     )
     brain = AgentBrain(
         agent_identity=persona.agent,
-        memory_service=memory_service,
-        reflection_service=reflection_service,
-        llm_service=llm_service,
+        memory_manager=memory_manager,
+        reflection_workflow=reflection_workflow,
+        llm_gateway=llm_gateway,
     )
     context = AgentContext(
         identity=persona.agent,
         profile=_profile_from_persona(persona),
         brain=brain,
-        memory_service=memory_service,
+        memory_service=memory_manager,
     )
     return SimAgent(context=context)
 
