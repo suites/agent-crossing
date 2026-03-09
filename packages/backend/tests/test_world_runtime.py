@@ -3,7 +3,11 @@ from dataclasses import dataclass
 from typing import cast
 
 from agents.sim_agent import SimAgent
-from world.engine import SimulationEngine, SimulationStepResult
+from world.engine import (
+    SimulationEngine,
+    SimulationStepObservability,
+    SimulationStepResult,
+)
 from world.runtime import WorldRuntime
 from world.session import WorldConversationSession
 
@@ -46,12 +50,18 @@ def test_world_runtime_updates_counters_on_step() -> None:
                     result=SimulationStepResult(
                         now=datetime.datetime(2026, 3, 4, 10, 0, 0),
                         speaker_name="Jiho",
-                        thought="",
-                        action_summary="",
                         trace={"parse_success": False},
                         reply="",
                         silent_reason="llm_declined",
                         parse_failure=True,
+                        observability=SimulationStepObservability(
+                            thought="",
+                            model_thought="",
+                            self_critique="",
+                            decision_reason="",
+                            action_summary="",
+                            decision_process={},
+                        ),
                     )
                 ),
             ),

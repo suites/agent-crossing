@@ -4,7 +4,7 @@ from dataclasses import dataclass
 import pytest
 from fastapi import HTTPException
 from llm.governance import ConversationMetrics
-from world.engine import SimulationStepResult
+from world.engine import SimulationStepObservability, SimulationStepResult
 
 from api.main import _require_runtime, app, get_world_state, post_world_step
 
@@ -64,12 +64,18 @@ async def test_get_world_state_returns_runtime_snapshot() -> None:
         _step=SimulationStepResult(
             now=datetime.datetime(2026, 3, 4, 10, 31, 0),
             speaker_name="Jiho",
-            thought="hi",
-            action_summary="react",
             trace={"parse_success": True},
             reply="안녕하세요",
             silent_reason="",
             parse_failure=False,
+            observability=SimulationStepObservability(
+                thought="hi",
+                model_thought="",
+                self_critique="",
+                decision_reason="",
+                action_summary="react",
+                decision_process={},
+            ),
         ),
         _metrics=ConversationMetrics(
             parse_failure_rate=0.1,
@@ -102,12 +108,18 @@ async def test_post_world_step_returns_metrics_and_trace() -> None:
         _step=SimulationStepResult(
             now=datetime.datetime(2026, 3, 4, 10, 31, 0),
             speaker_name="Jiho",
-            thought="greet",
-            action_summary="react_to_partner",
             trace={"parse_success": True},
             reply="안녕하세요",
             silent_reason="",
             parse_failure=False,
+            observability=SimulationStepObservability(
+                thought="greet",
+                model_thought="",
+                self_critique="",
+                decision_reason="",
+                action_summary="react_to_partner",
+                decision_process={},
+            ),
         ),
         _metrics=ConversationMetrics(
             parse_failure_rate=0.0,

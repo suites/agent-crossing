@@ -105,38 +105,39 @@ def _run_simulation(
             trace=step_result.trace,
             log_mode=config.log_mode,
         )
+        observability = step_result.observability
 
         _print_log_line(
             turn=turn,
             tag="CRITIQUE_OR_REASON",
             speaker_name=speaker.name,
-            message=step_result.thought,
+            message=observability.thought,
         )
-        if step_result.model_thought:
+        if observability.model_thought:
             _print_log_line(
                 turn=turn,
                 tag="MODEL_THOUGHT",
                 speaker_name=speaker.name,
-                message=step_result.model_thought,
+                message=observability.model_thought,
             )
-        if step_result.self_critique:
+        if observability.self_critique:
             _print_log_line(
                 turn=turn,
                 tag="SELF_CRITIQUE",
                 speaker_name=speaker.name,
-                message=step_result.self_critique,
+                message=observability.self_critique,
             )
         _print_log_line(
             turn=turn,
             tag="ACTION",
             speaker_name=speaker.name,
-            message=step_result.action_summary,
+            message=observability.action_summary,
         )
         _print_log_json_block(
             turn=turn,
             tag="PROCESS",
             speaker_name=speaker.name,
-            payload=step_result.decision_process or {},
+            payload=observability.decision_process,
         )
         _print_log_json_block(
             turn=turn,

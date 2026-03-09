@@ -20,28 +20,54 @@ from .session import (
 
 @dataclass(frozen=True)
 class SimulationStepResult:
+    """시뮬레이션 한 턴의 실행 결과."""
+
+    """이번 턴의 시뮬레이션 실행 결과 시각."""
     now: datetime.datetime
+    """발화 주체 에이전트 이름."""
     speaker_name: str
-    thought: str
-    action_summary: str
+    """거버넌스 추적과 정책 병합 정보를 담은 진단 트레이스."""
     trace: dict[str, object]
+    """정책 적용 이후 최종 확정된 발화문."""
     reply: str
+    """무발화 시점의 억제/침묵 사유."""
     silent_reason: str
+    """LLM 반응 파싱 실패 여부."""
     parse_failure: bool
-    model_thought: str = ""
-    self_critique: str = ""
-    decision_reason: str = ""
-    action_intent: str = "continue_current_plan"
-    speak_decision: bool = False
-    decision_process: dict[str, object] | None = None
+    """관측/로그 출력용 진단 페이로드."""
+    observability: "SimulationStepObservability"
+
+
+@dataclass(frozen=True)
+class SimulationStepObservability:
+    """행동 판단 과정의 요약 사고 텍스트."""
+
+    thought: str
+    """모델이 생성한 내부 사고 텍스트."""
+    model_thought: str
+    """모델 자기 비평 텍스트."""
+    self_critique: str
+    """최종 의사결정 근거 요약."""
+    decision_reason: str
+    """이번 턴의 행동 결정 요약 문자열."""
+    action_summary: str
+    """의사결정 중간 산출물과 정책 결과를 담은 상세 구조."""
+    decision_process: dict[str, object]
 
 
 @dataclass(frozen=True)
 class SimulationEngineConfig:
+    """시뮬레이션 엔진 동작 정책 설정."""
+
+    """시뮬레이션 출력/정책에 사용할 언어."""
     language: Literal["ko", "en"]
+    """턴마다 증가시킬 시뮬레이션 시간(초)."""
     turn_time_step_seconds: int
+    """최근 발화와 중복된 응답을 억제할지 여부."""
     suppress_repeated_replies: bool
+    """중복 판정을 위해 비교할 최근 발화 개수."""
     repetition_window: int
+    """최종 응답이 비었을 때 폴백 문장을 주입할지 여부."""
     fallback_on_empty_reply: bool
 
 
@@ -95,7 +121,12 @@ class SimulationEngine:
             fallback_reason=policy_result.fallback_reason,
         )
         parse_failure = is_reaction_parse_failure(trace=action_result.reaction_trace)
-        diagnostics = action_result.diagnostics
+        observability = self._build_observability(
+            action_result=action_result,
+            policy_suppress_reason=policy_result.suppress_reason,
+            policy_fallback_reason=policy_result.fallback_reason,
+            final_reply=policy_result.reply,
+        )
 
         if not policy_result.reply:
             silent_reason = ",".join(
@@ -111,23 +142,11 @@ class SimulationEngine:
             return SimulationStepResult(
                 now=now,
                 speaker_name=speaker.name,
-                thought=diagnostics.thought if diagnostics else "",
-                model_thought=diagnostics.model_thought if diagnostics else "",
-                self_critique=diagnostics.self_critique if diagnostics else "",
-                decision_reason=diagnostics.decision_reason if diagnostics else "",
-                action_intent=action_result.action_intent,
-                speak_decision=action_result.speak_decision,
-                action_summary=diagnostics.action_summary if diagnostics else "",
                 trace=trace,
-                decision_process=self._build_decision_process(
-                    action_result=action_result,
-                    policy_suppress_reason=policy_result.suppress_reason,
-                    policy_fallback_reason=policy_result.fallback_reason,
-                    final_reply="",
-                ),
                 reply="",
                 silent_reason=silent_reason,
                 parse_failure=parse_failure,
+                observability=observability,
             )
 
         self.session.commit_speaker_reply(
@@ -144,23 +163,34 @@ class SimulationEngine:
         return SimulationStepResult(
             now=now,
             speaker_name=speaker.name,
+            trace=trace,
+            reply=policy_result.reply,
+            silent_reason="",
+            parse_failure=parse_failure,
+            observability=observability,
+        )
+
+    def _build_observability(
+        self,
+        *,
+        action_result: ActionLoopResult,
+        policy_suppress_reason: str,
+        policy_fallback_reason: str,
+        final_reply: str,
+    ) -> SimulationStepObservability:
+        diagnostics = action_result.diagnostics
+        return SimulationStepObservability(
             thought=diagnostics.thought if diagnostics else "",
             model_thought=diagnostics.model_thought if diagnostics else "",
             self_critique=diagnostics.self_critique if diagnostics else "",
             decision_reason=diagnostics.decision_reason if diagnostics else "",
-            action_intent=action_result.action_intent,
-            speak_decision=action_result.speak_decision,
             action_summary=diagnostics.action_summary if diagnostics else "",
-            trace=trace,
             decision_process=self._build_decision_process(
                 action_result=action_result,
-                policy_suppress_reason=policy_result.suppress_reason,
-                policy_fallback_reason=policy_result.fallback_reason,
-                final_reply=policy_result.reply,
+                policy_suppress_reason=policy_suppress_reason,
+                policy_fallback_reason=policy_fallback_reason,
+                final_reply=final_reply,
             ),
-            reply=policy_result.reply,
-            silent_reason="",
-            parse_failure=parse_failure,
         )
 
     def _build_decision_process(
