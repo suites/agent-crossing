@@ -371,7 +371,7 @@ def test_day_plan_prompt_contains_persona_and_json_shape() -> None:
     assert "Framing reference (for style, not output format):" in prompt
     assert "Return strict JSON only with this exact shape and no extra text:" in prompt
     assert '"items": [' in prompt
-    assert '"start_time": "<ISO-8601 datetime>"' in prompt
+    assert '"start_time": "<ISO-8601 datetime on exact hour>"' in prompt
 
 
 def test_hourly_plan_prompt_contains_context_and_json_shape() -> None:
@@ -387,7 +387,7 @@ def test_hourly_plan_prompt_contains_context_and_json_shape() -> None:
             ),
             DayPlanItem(
                 start_time=datetime.datetime(2026, 2, 13, 10, 0, 0),
-                duration_minutes=90,
+                duration_minutes=120,
                 location="Town > College > Lab",
                 action_content="Attend class",
             ),
@@ -395,6 +395,7 @@ def test_hourly_plan_prompt_contains_context_and_json_shape() -> None:
     )
 
     assert "Convert the day plan into a chronological hourly plan." in prompt
+    assert "Friday February 13 at 8:00 AM" in prompt
     assert "Return strict JSON only with this exact shape and no extra text:" in prompt
     assert "'items': [" not in prompt
     assert '"items": [' in prompt
@@ -415,6 +416,7 @@ def test_minute_plan_prompt_contains_context_and_json_shape() -> None:
     )
 
     assert "Generate an executable minute plan for the current phase." in prompt
+    assert "Friday February 13 at 12:00 PM" in prompt
     assert "duration_minutes" in prompt
     assert "Return strict JSON only with this exact shape and no extra text:" in prompt
     assert '"duration_minutes": <int 5-15>' in prompt
@@ -481,12 +483,12 @@ def test_generate_hour_plan_parses_json_items() -> None:
                         "items": [
                             {
                                 "start_time": "2026-02-13T08:00:00",
-                                "duration_minutes": 90,
+                                "duration_minutes": 120,
                                 "location": "Town > Home > Kitchen",
                                 "action_content": "Review composition notes over breakfast.",
                             },
                             {
-                                "start_time": "2026-02-13T09:45:00",
+                                "start_time": "2026-02-13T10:00:00",
                                 "duration_minutes": 60,
                                 "location": "Town > College > Theory Room",
                                 "action_content": "Attend morning music theory class.",
@@ -510,7 +512,7 @@ def test_generate_hour_plan_parses_json_items() -> None:
             ),
             DayPlanItem(
                 start_time=datetime.datetime(2026, 2, 13, 10, 0, 0),
-                duration_minutes=90,
+                duration_minutes=120,
                 location="Town > College > Lab",
                 action_content="Attend class",
             ),
@@ -518,7 +520,7 @@ def test_generate_hour_plan_parses_json_items() -> None:
     )
 
     assert len(items) == 2
-    assert items[0].duration_minutes == 90
+    assert items[0].duration_minutes == 120
     assert items[0].start_time == datetime.datetime(2026, 2, 13, 8, 0, 0)
 
 
@@ -531,12 +533,12 @@ def test_generate_hour_plan_retries_once_on_truncated_json() -> None:
                     "items": [
                         {
                             "start_time": "2026-02-13T08:00:00",
-                            "duration_minutes": 90,
+                            "duration_minutes": 120,
                             "location": "Town > Home > Kitchen",
                             "action_content": "Review composition notes over breakfast.",
                         },
                         {
-                            "start_time": "2026-02-13T09:45:00",
+                            "start_time": "2026-02-13T10:00:00",
                             "duration_minutes": 60,
                             "location": "Town > College > Theory Room",
                             "action_content": "Attend morning music theory class.",
@@ -560,7 +562,7 @@ def test_generate_hour_plan_retries_once_on_truncated_json() -> None:
             ),
             DayPlanItem(
                 start_time=datetime.datetime(2026, 2, 13, 10, 0, 0),
-                duration_minutes=90,
+                duration_minutes=120,
                 location="Town > College > Lab",
                 action_content="Attend class",
             ),
@@ -615,7 +617,7 @@ def test_generate_hour_plan_returns_empty_after_retry_exhaustion() -> None:
             ),
             DayPlanItem(
                 start_time=datetime.datetime(2026, 2, 13, 10, 0, 0),
-                duration_minutes=90,
+                duration_minutes=120,
                 location="Town > College > Lab",
                 action_content="Attend class",
             ),
@@ -716,31 +718,31 @@ def test_generate_day_plan_parses_json_items() -> None:
                     "items": [
                         {
                             "start_time": "2026-02-13T08:00:00",
-                            "duration_minutes": 90,
+                            "duration_minutes": 120,
                             "location": "Town > Home > Kitchen",
                             "action_content": "Review composition notes over breakfast.",
                         },
                         {
-                            "start_time": "2026-02-13T09:45:00",
-                            "duration_minutes": 60,
+                            "start_time": "2026-02-13T10:00:00",
+                            "duration_minutes": 120,
                             "location": "Town > College > Theory Room",
                             "action_content": "Attend morning music theory class.",
                         },
                         {
-                            "start_time": "2026-02-13T11:00:00",
-                            "duration_minutes": 75,
+                            "start_time": "2026-02-13T12:00:00",
+                            "duration_minutes": 120,
                             "location": "Town > College > Studio",
                             "action_content": "Draft harmonic progression for project.",
                         },
                         {
-                            "start_time": "2026-02-13T13:00:00",
+                            "start_time": "2026-02-13T15:00:00",
                             "duration_minutes": 60,
                             "location": "Town > Cafe > Patio",
                             "action_content": "Meet classmate for feedback session.",
                         },
                         {
-                            "start_time": "2026-02-13T15:00:00",
-                            "duration_minutes": 80,
+                            "start_time": "2026-02-13T17:00:00",
+                            "duration_minutes": 120,
                             "location": "Town > Home > Desk",
                             "action_content": "Revise composition and annotate changes.",
                         },
@@ -792,19 +794,19 @@ def test_generate_day_plan_returns_empty_if_too_few_items() -> None:
                     "items": [
                         {
                             "start_time": "2026-02-13T08:00:00",
-                            "duration_minutes": 30,
+                            "duration_minutes": 60,
                             "location": "Town > Home > Room",
                             "action_content": "Wake up and brush teeth.",
                         },
                         {
-                            "start_time": "2026-02-13T08:40:00",
-                            "duration_minutes": 30,
+                            "start_time": "2026-02-13T09:00:00",
+                            "duration_minutes": 60,
                             "location": "Town > Home > Kitchen",
                             "action_content": "Have breakfast.",
                         },
                         {
-                            "start_time": "2026-02-13T09:30:00",
-                            "duration_minutes": 50,
+                            "start_time": "2026-02-13T10:00:00",
+                            "duration_minutes": 60,
                             "location": "Town > Street > Bus Stop",
                             "action_content": "Head to class.",
                         },
@@ -836,55 +838,55 @@ def test_generate_day_plan_dedupes_and_truncates_to_max() -> None:
                     "items": [
                         {
                             "start_time": "2026-02-13T08:00:00",
-                            "duration_minutes": 90,
+                            "duration_minutes": 120,
                             "location": "Town > Home > Kitchen",
                             "action_content": "Review composition notes over breakfast.",
                         },
                         {
                             "start_time": "2026-02-13T08:00:00",
-                            "duration_minutes": 90,
+                            "duration_minutes": 120,
                             "location": "Town > Home > Kitchen",
                             "action_content": "Review composition notes over breakfast. ",
                         },
                         {
-                            "start_time": "2026-02-13T09:45:00",
+                            "start_time": "2026-02-13T10:00:00",
                             "duration_minutes": 60,
                             "location": "Town > College > Theory Room",
                             "action_content": "Attend morning music theory class.",
                         },
                         {
-                            "start_time": "2026-02-13T11:00:00",
-                            "duration_minutes": 75,
+                            "start_time": "2026-02-13T12:00:00",
+                            "duration_minutes": 120,
                             "location": "Town > College > Studio",
                             "action_content": "Draft harmonic progression for project.",
                         },
                         {
-                            "start_time": "2026-02-13T13:00:00",
+                            "start_time": "2026-02-13T14:00:00",
                             "duration_minutes": 60,
                             "location": "Town > Cafe > Patio",
                             "action_content": "Meet classmate for feedback session.",
                         },
                         {
-                            "start_time": "2026-02-13T15:00:00",
-                            "duration_minutes": 80,
+                            "start_time": "2026-02-13T16:00:00",
+                            "duration_minutes": 120,
                             "location": "Town > Home > Desk",
                             "action_content": "Revise composition and annotate changes.",
                         },
                         {
-                            "start_time": "2026-02-13T17:00:00",
+                            "start_time": "2026-02-13T18:00:00",
                             "duration_minutes": 60,
                             "location": "Town > Cafe > Table",
                             "action_content": "Take lunch with classmate.",
                         },
                         {
-                            "start_time": "2026-02-13T19:00:00",
-                            "duration_minutes": 30,
+                            "start_time": "2026-02-13T20:00:00",
+                            "duration_minutes": 60,
                             "location": "Town > Home > Practice Room",
                             "action_content": "Practice instrument for 30 minutes.",
                         },
                         {
-                            "start_time": "2026-02-13T20:00:00",
-                            "duration_minutes": 40,
+                            "start_time": "2026-02-13T21:00:00",
+                            "duration_minutes": 60,
                             "location": "Town > Home > Desk",
                             "action_content": "Log today's notes in planner.",
                         },
@@ -920,37 +922,37 @@ def test_generate_day_plan_retries_once_on_truncated_json() -> None:
                     "items": [
                         {
                             "start_time": "2026-02-13T08:00:00",
-                            "duration_minutes": 20,
+                            "duration_minutes": 60,
                             "location": "Town > Home > Room",
                             "action_content": "Wake up",
                         },
                         {
-                            "start_time": "2026-02-13T08:30:00",
-                            "duration_minutes": 30,
+                            "start_time": "2026-02-13T09:00:00",
+                            "duration_minutes": 60,
                             "location": "Town > Home > Kitchen",
                             "action_content": "Eat breakfast",
                         },
                         {
-                            "start_time": "2026-02-13T09:30:00",
+                            "start_time": "2026-02-13T10:00:00",
                             "duration_minutes": 60,
                             "location": "Town > College > Theory Room",
                             "action_content": "Class",
                         },
                         {
                             "start_time": "2026-02-13T11:00:00",
-                            "duration_minutes": 40,
+                            "duration_minutes": 60,
                             "location": "Town > Home > Practice Room",
                             "action_content": "Practice",
                         },
                         {
                             "start_time": "2026-02-13T12:00:00",
-                            "duration_minutes": 40,
+                            "duration_minutes": 60,
                             "location": "Town > Home > Desk",
                             "action_content": "Review",
                         },
                         {
                             "start_time": "2026-02-13T13:00:00",
-                            "duration_minutes": 30,
+                            "duration_minutes": 60,
                             "location": "Town > Park > Bench",
                             "action_content": "Reflect",
                         },
@@ -985,31 +987,31 @@ def test_generate_day_plan_retries_once_on_schema_validation_error() -> None:
                     "items": [
                         {
                             "start_time": "2026-02-13T08:00:00",
-                            "duration_minutes": 90,
+                            "duration_minutes": 120,
                             "location": "Town > Home > Kitchen",
                             "action_content": "Review composition notes over breakfast.",
                         },
                         {
-                            "start_time": "2026-02-13T09:45:00",
+                            "start_time": "2026-02-13T10:00:00",
                             "duration_minutes": 60,
                             "location": "Town > College > Theory Room",
                             "action_content": "Attend morning music theory class.",
                         },
                         {
-                            "start_time": "2026-02-13T11:00:00",
-                            "duration_minutes": 75,
+                            "start_time": "2026-02-13T12:00:00",
+                            "duration_minutes": 120,
                             "location": "Town > College > Studio",
                             "action_content": "Draft harmonic progression for project.",
                         },
                         {
-                            "start_time": "2026-02-13T13:00:00",
+                            "start_time": "2026-02-13T14:00:00",
                             "duration_minutes": 60,
                             "location": "Town > Cafe > Patio",
                             "action_content": "Meet classmate for feedback session.",
                         },
                         {
-                            "start_time": "2026-02-13T15:00:00",
-                            "duration_minutes": 80,
+                            "start_time": "2026-02-13T16:00:00",
+                            "duration_minutes": 120,
                             "location": "Town > Home > Desk",
                             "action_content": "Revise composition and annotate changes.",
                         },

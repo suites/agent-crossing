@@ -99,6 +99,8 @@ def try_parse_hour_plan(
         raw_items=cast(list[object], raw_items),
         item_factory=HourlyPlanItem,
         min_duration=1,
+        duration_step=60,
+        require_exact_hour=True,
     )
     if len(normalized) > max_items:
         normalized = normalized[:max_items]
@@ -130,6 +132,7 @@ def try_parse_minute_plan(
         item_factory=MinutePlanItem,
         min_duration=5,
         max_duration=15,
+        require_exact_minute=True,
     )
     if len(normalized) > max_items:
         normalized = normalized[:max_items]
@@ -151,11 +154,15 @@ def _normalize_day_plan_items(raw_items: list[object]) -> list[DayPlanItem]:
         payload = cast(JsonObject, raw_item)
 
         start_time = _parse_iso_datetime(payload.get("start_time"))
-        if start_time is None:
+        if start_time is None or not _is_exact_hour(start_time):
             continue
 
         duration_minutes = payload.get("duration_minutes")
-        if not isinstance(duration_minutes, int) or duration_minutes <= 0:
+        if (
+            not isinstance(duration_minutes, int)
+            or duration_minutes <= 0
+            or duration_minutes % 60 != 0
+        ):
             continue
 
         location = payload.get("location")
@@ -394,6 +401,9 @@ def _normalize_plan_items(
     item_factory: Callable[[datetime.datetime, int, str, str], TPlan],
     min_duration: int,
     max_duration: int | None = None,
+    duration_step: int | None = None,
+    require_exact_hour: bool = False,
+    require_exact_minute: bool = False,
 ) -> list[TPlan]:
     normalized: list[TPlan] = []
     seen: set[tuple[str, str, str]] = set()
@@ -407,11 +417,16 @@ def _normalize_plan_items(
         start_time = _parse_iso_datetime(payload.get("start_time"))
         if start_time is None:
             continue
+        if require_exact_hour and not _is_exact_hour(start_time):
+            continue
+        if require_exact_minute and not _is_exact_minute(start_time):
+            continue
 
         duration_minutes = _parse_duration_int(
             payload.get("duration_minutes"),
             min_duration=min_duration,
             max_duration=max_duration,
+            step=duration_step,
         )
         if duration_minutes is None:
             continue
@@ -448,13 +463,27 @@ def _normalize_plan_items(
 
 
 def _parse_duration_int(
-    raw_value: object, *, min_duration: int, max_duration: int | None
+    raw_value: object,
+    *,
+    min_duration: int,
+    max_duration: int | None,
+    step: int | None = None,
 ) -> int | None:
     if not isinstance(raw_value, int) or raw_value < min_duration:
         return None
     if max_duration is not None and raw_value > max_duration:
         return None
+    if step is not None and raw_value % step != 0:
+        return None
     return raw_value
+
+
+def _is_exact_hour(value: datetime.datetime) -> bool:
+    return value.minute == 0 and value.second == 0 and value.microsecond == 0
+
+
+def _is_exact_minute(value: datetime.datetime) -> bool:
+    return value.second == 0 and value.microsecond == 0
 
 
 def parse_json_object(text: str) -> JsonObject | None:

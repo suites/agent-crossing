@@ -33,24 +33,55 @@ IMPORTANCE_JSON_SHAPE = '{"importance": <int 1-10>, "reason": "<short>"}'
 
 DAY_PLAN_JSON_SHAPE = (
     '{"items": ['
-    '{"start_time": "<ISO-8601 datetime>", "duration_minutes": <positive int>, '
+    '{"start_time": "<ISO-8601 datetime on exact hour>", "duration_minutes": <positive int multiple of 60>, '
     '"location": "<location>", "action_content": "<action text>"}'
     "]}"
 )
 
 HOURLY_PLAN_JSON_SHAPE = (
     '{"items": ['
-    '{"start_time": "<ISO-8601 datetime>", "duration_minutes": <positive int>, '
+    '{"start_time": "<ISO-8601 datetime on exact hour>", "duration_minutes": <positive int multiple of 60>, '
     '"location": "<location>", "action_content": "<action text>"}'
     "]}"
 )
 
 MINUTE_PLAN_JSON_SHAPE = (
     '{"items": ['
-    '{"start_time": "<ISO-8601 datetime>", "duration_minutes": <int 5-15>, '
+    '{"start_time": "<ISO-8601 datetime to minute precision>", "duration_minutes": <int 5-15>, '
     '"location": "<location>", "action_content": "<action text>"}'
     "]}"
 )
+
+
+def _format_date_text(value: datetime.datetime) -> str:
+    return value.strftime("%A %B %d").replace(" 0", " ")
+
+
+def _format_time_text(value: datetime.datetime) -> str:
+    return value.strftime("%I:%M %p").lstrip("0")
+
+
+def _format_datetime_text(value: datetime.datetime) -> str:
+    return f"{_format_date_text(value)} at {_format_time_text(value)}"
+
+
+def _format_plan_line(
+    *,
+    start_time: datetime.datetime,
+    duration_minutes: int,
+    location: str,
+    action_content: str,
+) -> str:
+    duration_hours = duration_minutes / 60
+    if duration_hours.is_integer():
+        duration_text = f"{int(duration_hours)}h"
+    else:
+        duration_text = f"{duration_minutes}m"
+
+    return (
+        f"- {_format_datetime_text(start_time)} ({duration_text}) | "
+        f"{location} | {action_content}"
+    )
 
 
 def build_salient_questions_prompt(
@@ -120,9 +151,9 @@ def build_day_plan_prompt(
         age=str(age),
         innate_traits=traits_text or "N/A",
         persona_background=persona_background.strip(),
-        yesterday_date_text=yesterday_date.isoformat(),
+        yesterday_date_text=_format_date_text(yesterday_date),
         yesterday_summary=yesterday_summary.strip(),
-        today_date_text=today_date.isoformat(),
+        today_date_text=_format_date_text(today_date),
         json_shape=DAY_PLAN_JSON_SHAPE,
     )
 
@@ -134,7 +165,12 @@ def build_hourly_plan_prompt(
     day_plan_items: list[DayPlanItem],
 ) -> str:
     day_plan_lines = "\n".join(
-        f"- {item.start_time.isoformat()} ({item.duration_minutes}m) | {item.location} | {item.action_content}"
+        _format_plan_line(
+            start_time=item.start_time,
+            duration_minutes=item.duration_minutes,
+            location=item.location,
+            action_content=item.action_content,
+        )
         for item in day_plan_items
     )
     if not day_plan_lines:
@@ -143,7 +179,7 @@ def build_hourly_plan_prompt(
     return render_template(
         "hourly_plan_instruction.md",
         agent_name=agent_name,
-        current_time=current_time.isoformat(),
+        current_time=_format_datetime_text(current_time),
         day_plan_lines=day_plan_lines,
         json_shape=HOURLY_PLAN_JSON_SHAPE,
     )
@@ -156,7 +192,12 @@ def build_minute_plan_prompt(
     hourly_plan_items: list[HourlyPlanItem],
 ) -> str:
     hourly_plan_lines = "\n".join(
-        f"- {item.start_time.isoformat()} ({item.duration_minutes}m) | {item.location} | {item.action_content}"
+        _format_plan_line(
+            start_time=item.start_time,
+            duration_minutes=item.duration_minutes,
+            location=item.location,
+            action_content=item.action_content,
+        )
         for item in hourly_plan_items
     )
     if not hourly_plan_lines:
@@ -165,7 +206,7 @@ def build_minute_plan_prompt(
     return render_template(
         "minute_plan_instruction.md",
         agent_name=agent_name,
-        current_time=current_time.isoformat(),
+        current_time=_format_datetime_text(current_time),
         hourly_plan_lines=hourly_plan_lines,
         json_shape=MINUTE_PLAN_JSON_SHAPE,
     )

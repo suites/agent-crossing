@@ -2,6 +2,14 @@ import datetime
 from dataclasses import dataclass
 
 
+def _is_exact_hour(value: datetime.datetime) -> bool:
+    return value.minute == 0 and value.second == 0 and value.microsecond == 0
+
+
+def _is_exact_minute(value: datetime.datetime) -> bool:
+    return value.second == 0 and value.microsecond == 0
+
+
 @dataclass(frozen=True)
 class DayPlanItem:
     """하루 계획의 단일 실행 항목."""
@@ -19,8 +27,12 @@ class DayPlanItem:
     action_content: str
 
     def __post_init__(self) -> None:
+        if not _is_exact_hour(self.start_time):
+            raise ValueError("day plan start_time must align to the exact hour")
         if self.duration_minutes <= 0:
             raise ValueError("duration_minutes must be greater than 0")
+        if self.duration_minutes % 60 != 0:
+            raise ValueError("day plan duration_minutes must be a whole-hour increment")
         if not self.location.strip():
             raise ValueError("location must not be blank")
         if not self.action_content.strip():
@@ -44,8 +56,14 @@ class HourlyPlanItem:
     action_content: str
 
     def __post_init__(self) -> None:
+        if not _is_exact_hour(self.start_time):
+            raise ValueError("hourly plan start_time must align to the exact hour")
         if self.duration_minutes <= 0:
             raise ValueError("duration_minutes must be greater than 0")
+        if self.duration_minutes % 60 != 0:
+            raise ValueError(
+                "hourly plan duration_minutes must be a whole-hour increment"
+            )
         if not self.location.strip():
             raise ValueError("location must not be blank")
         if not self.action_content.strip():
@@ -69,6 +87,8 @@ class MinutePlanItem:
     action_content: str
 
     def __post_init__(self) -> None:
+        if not _is_exact_minute(self.start_time):
+            raise ValueError("minute plan start_time must use minute precision")
         if self.duration_minutes < 5 or self.duration_minutes > 15:
             raise ValueError("minute plan duration_minutes must be in range [5, 15]")
         if not self.location.strip():
