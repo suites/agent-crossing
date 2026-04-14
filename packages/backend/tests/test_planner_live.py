@@ -1,9 +1,18 @@
 from __future__ import annotations
 
 import datetime
+import json
 import os
+import time
+from collections.abc import Sequence
+from dataclasses import asdict
 
-from agents.planning.models import DayPlanBroadStrokesRequest
+from agents.planning.models import (
+    DayPlanBroadStrokesRequest,
+    DayPlanItem,
+    HourlyPlanItem,
+    MinutePlanItem,
+)
 from agents.planning.planner import Planner
 from llm.clients.provider_factory import build_provider_client
 from llm.llm_gateway import LlmGateway
@@ -13,6 +22,20 @@ LLM_PROVIDER = os.getenv("LLM_PROVIDER", "google_ai_studio")
 GENERATION_MODEL = os.getenv("LLM_MODEL", "gemini-1.5-flash")
 EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "text-embedding-004")
 TIMEOUT_SECONDS = float(os.getenv("LLM_TIMEOUT_SECONDS", "30"))
+
+
+PlanItem = DayPlanItem | HourlyPlanItem | MinutePlanItem
+
+
+def _print_plan_items(title: str, items: Sequence[PlanItem]) -> None:
+    payload: list[dict[str, str | int]] = []
+    for item in items:
+        serialized_item = asdict(item)
+        serialized_item["start_time"] = item.start_time.isoformat(timespec="minutes")
+        serialized_item["end_time"] = item.end_time.isoformat(timespec="minutes")
+        payload.append(serialized_item)
+
+    print(f"{title}:\n{json.dumps(payload, ensure_ascii=False, indent=2)}")
 
 
 def test_planner_live_with_provider_factory() -> None:
@@ -37,23 +60,31 @@ def test_planner_live_with_provider_factory() -> None:
         )
     )
 
-    print("Day Plan Items:", day_plan_items)
+    _print_plan_items("Day Plan Items", day_plan_items)
     assert 5 <= len(day_plan_items) <= 8
+
+    hourly_plan_time = day_plan_items[0].start_time + datetime.timedelta(minutes=30)
+
+    time.sleep(1)
 
     hourly_plan_items = planner.generate_hourly_plan(
         agent_name="Eddy Lin",
-        current_time=datetime.datetime(2026, 2, 13, 0, 0, 0),
-        day_plan_items=day_plan_items,
+        current_time=hourly_plan_time,
+        day_plan_item=day_plan_items[0],
     )
 
-    print("Hourly Plan Items:", hourly_plan_items)
+    _print_plan_items("Hourly Plan Items", hourly_plan_items)
     assert len(hourly_plan_items) > 0
+
+    minute_plan_time = hourly_plan_items[0].start_time + datetime.timedelta(minutes=10)
+
+    time.sleep(1)
 
     minute_plan_items = planner.generate_minute_plan(
         agent_name="Eddy Lin",
-        current_time=datetime.datetime(2026, 2, 13, 9, 0, 0),
-        hourly_plan_items=hourly_plan_items,
+        current_time=minute_plan_time,
+        hourly_plan_item=hourly_plan_items[0],
     )
 
-    print("Minute Plan Items:", minute_plan_items)
+    _print_plan_items("Minute Plan Items", minute_plan_items)
     assert len(minute_plan_items) > 0

@@ -2,12 +2,29 @@ import datetime
 from dataclasses import dataclass
 
 
-def _is_exact_hour(value: datetime.datetime) -> bool:
-    return value.minute == 0 and value.second == 0 and value.microsecond == 0
-
-
 def _is_exact_minute(value: datetime.datetime) -> bool:
     return value.second == 0 and value.microsecond == 0
+
+
+def _duration_minutes_between(
+    start_time: datetime.datetime, end_time: datetime.datetime
+) -> int:
+    return int((end_time - start_time).total_seconds() // 60)
+
+
+def _validate_time_window(
+    *,
+    start_time: datetime.datetime,
+    end_time: datetime.datetime,
+    label: str,
+) -> int:
+    if not _is_exact_minute(start_time):
+        raise ValueError(f"{label} start_time must use minute precision")
+    if not _is_exact_minute(end_time):
+        raise ValueError(f"{label} end_time must use minute precision")
+    if end_time <= start_time:
+        raise ValueError(f"{label} end_time must be later than start_time")
+    return _duration_minutes_between(start_time, end_time)
 
 
 @dataclass(frozen=True)
@@ -17,8 +34,8 @@ class DayPlanItem:
     """계획 시작 시각."""
     start_time: datetime.datetime
 
-    """행동 지속 시간(분 단위)."""
-    duration_minutes: int
+    """계획 종료 시각."""
+    end_time: datetime.datetime
 
     """행동이 수행되는 위치."""
     location: str
@@ -27,16 +44,19 @@ class DayPlanItem:
     action_content: str
 
     def __post_init__(self) -> None:
-        if not _is_exact_hour(self.start_time):
-            raise ValueError("day plan start_time must align to the exact hour")
-        if self.duration_minutes <= 0:
-            raise ValueError("duration_minutes must be greater than 0")
-        if self.duration_minutes % 60 != 0:
-            raise ValueError("day plan duration_minutes must be a whole-hour increment")
+        _ = _validate_time_window(
+            start_time=self.start_time,
+            end_time=self.end_time,
+            label="day plan",
+        )
         if not self.location.strip():
             raise ValueError("location must not be blank")
         if not self.action_content.strip():
             raise ValueError("action_content must not be blank")
+
+    @property
+    def duration_minutes(self) -> int:
+        return _duration_minutes_between(self.start_time, self.end_time)
 
 
 @dataclass(frozen=True)
@@ -46,8 +66,8 @@ class HourlyPlanItem:
     """시간 단위 계획 시작 시각."""
     start_time: datetime.datetime
 
-    """시간 단위 행동 지속 시간(분 단위)."""
-    duration_minutes: int
+    """시간 단위 계획 종료 시각."""
+    end_time: datetime.datetime
 
     """시간 단위 행동이 수행되는 위치."""
     location: str
@@ -56,18 +76,19 @@ class HourlyPlanItem:
     action_content: str
 
     def __post_init__(self) -> None:
-        if not _is_exact_hour(self.start_time):
-            raise ValueError("hourly plan start_time must align to the exact hour")
-        if self.duration_minutes <= 0:
-            raise ValueError("duration_minutes must be greater than 0")
-        if self.duration_minutes % 60 != 0:
-            raise ValueError(
-                "hourly plan duration_minutes must be a whole-hour increment"
-            )
+        _ = _validate_time_window(
+            start_time=self.start_time,
+            end_time=self.end_time,
+            label="hourly plan",
+        )
         if not self.location.strip():
             raise ValueError("location must not be blank")
         if not self.action_content.strip():
             raise ValueError("action_content must not be blank")
+
+    @property
+    def duration_minutes(self) -> int:
+        return _duration_minutes_between(self.start_time, self.end_time)
 
 
 @dataclass(frozen=True)
@@ -77,8 +98,8 @@ class MinutePlanItem:
     """분 단위 계획 시작 시각."""
     start_time: datetime.datetime
 
-    """분 단위 행동 지속 시간(5~15분)."""
-    duration_minutes: int
+    """분 단위 계획 종료 시각."""
+    end_time: datetime.datetime
 
     """분 단위 행동이 수행되는 위치."""
     location: str
@@ -87,14 +108,21 @@ class MinutePlanItem:
     action_content: str
 
     def __post_init__(self) -> None:
-        if not _is_exact_minute(self.start_time):
-            raise ValueError("minute plan start_time must use minute precision")
-        if self.duration_minutes < 5 or self.duration_minutes > 15:
+        duration_minutes = _validate_time_window(
+            start_time=self.start_time,
+            end_time=self.end_time,
+            label="minute plan",
+        )
+        if duration_minutes < 5 or duration_minutes > 15:
             raise ValueError("minute plan duration_minutes must be in range [5, 15]")
         if not self.location.strip():
             raise ValueError("location must not be blank")
         if not self.action_content.strip():
             raise ValueError("action_content must not be blank")
+
+    @property
+    def duration_minutes(self) -> int:
+        return _duration_minutes_between(self.start_time, self.end_time)
 
 
 @dataclass(frozen=True)

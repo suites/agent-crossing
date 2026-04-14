@@ -138,18 +138,19 @@
   - Depends on: Reflection Loop 핵심 완료
   - DoD:
     - [ ] day plan 항목 수가 5~8 범위를 만족한다
-    - [ ] 각 항목에 `start_time`, `duration`, `location`이 포함된다
+    - [ ] 각 항목에 `start_time`, `end_time`, `location`, `action_content`가 포함된다
 
 - [ ] `P1` hourly plan 생성기를 구현한다
   - Depends on: day plan 생성기 구현
   - DoD:
-    - [ ] day plan을 기준으로 hourly plan을 생성한다
+    - [ ] 현재 시점의 active day plan 항목을 기준으로 near-future hourly plan을 생성한다
     - [ ] hourly plan이 시간 순서로 정렬된다
 
 - [ ] `P1` minute plan(5~15분 단위) 생성기를 구현한다
   - Depends on: hourly plan 생성기 구현
   - DoD:
     - [ ] minute plan 단위가 5~15분 범위를 만족한다
+    - [ ] 현재 시점의 active hourly plan 항목을 기준으로 near-future minute plan을 생성한다
     - [ ] 현재 시점 기준 다음 실행 항목을 즉시 찾을 수 있다
 
 ### 3-B. Tick react 판정과 부분 재계획

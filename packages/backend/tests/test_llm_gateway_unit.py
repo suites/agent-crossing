@@ -366,60 +366,67 @@ def test_day_plan_prompt_contains_persona_and_json_shape() -> None:
 
     assert "Name: Eddy Lin (age: 19)" in prompt
     assert "Innate traits: friendly, outgoing, hospitable" in prompt
-    assert "Today is Wednesday February 13" in prompt
+    assert "Today is Friday February 13 2026" in prompt
     assert "Draft Eddy Lin's structured day plan." in prompt
+    assert "Use the same calendar date as `Today is ...`" in prompt
     assert "Framing reference (for style, not output format):" in prompt
     assert "Return strict JSON only with this exact shape and no extra text:" in prompt
     assert '"items": [' in prompt
-    assert '"start_time": "<ISO-8601 datetime on exact hour>"' in prompt
+    assert '"start_time": "<ISO-8601 datetime>"' in prompt
+    assert '"end_time": "<ISO-8601 datetime later than start_time>"' in prompt
 
 
 def test_hourly_plan_prompt_contains_context_and_json_shape() -> None:
     prompt = build_hourly_plan_prompt(
         agent_name="Eddy Lin",
-        current_time=datetime.datetime(2026, 2, 13, 8, 0, 0),
-        day_plan_items=[
-            DayPlanItem(
-                start_time=datetime.datetime(2026, 2, 13, 8, 0, 0),
-                duration_minutes=120,
-                location="Town > Home > Kitchen",
-                action_content="Review composition notes and plan",
-            ),
-            DayPlanItem(
-                start_time=datetime.datetime(2026, 2, 13, 10, 0, 0),
-                duration_minutes=120,
-                location="Town > College > Lab",
-                action_content="Attend class",
-            ),
-        ],
+        current_time=datetime.datetime(2026, 2, 13, 8, 45, 0),
+        day_plan_item=DayPlanItem(
+            start_time=datetime.datetime(2026, 2, 13, 8, 0, 0),
+            end_time=datetime.datetime(2026, 2, 13, 10, 0, 0),
+            location="Town > Home > Kitchen",
+            action_content="Review composition notes and plan",
+        ),
     )
 
-    assert "Convert the day plan into a chronological hourly plan." in prompt
-    assert "Friday February 13 at 8:00 AM" in prompt
+    assert (
+        "Decompose the active day-plan block into a chronological hourly plan for the near future."
+        in prompt
+    )
+    assert "Friday February 13 2026 at 8:45 AM" in prompt
+    assert "Planning date (must stay consistent): 2026-02-13" in prompt
+    assert "Prefer 30-180 minute blocks" in prompt
+    assert "Do not restate or regenerate the entire day plan." in prompt
+    assert "Review composition notes and plan" in prompt
+    assert "Attend class" not in prompt
+    assert "Study alone" not in prompt
     assert "Return strict JSON only with this exact shape and no extra text:" in prompt
     assert "'items': [" not in prompt
     assert '"items": [' in prompt
+    assert '"end_time": "<ISO-8601 datetime later than start_time>"' in prompt
 
 
 def test_minute_plan_prompt_contains_context_and_json_shape() -> None:
     prompt = build_minute_plan_prompt(
         agent_name="Eddy Lin",
-        current_time=datetime.datetime(2026, 2, 13, 12, 0, 0),
-        hourly_plan_items=[
-            HourlyPlanItem(
-                start_time=datetime.datetime(2026, 2, 13, 12, 0, 0),
-                duration_minutes=60,
-                location="Town > Home > Study",
-                action_content="Draft project outline",
-            ),
-        ],
+        current_time=datetime.datetime(2026, 2, 13, 12, 20, 0),
+        hourly_plan_item=HourlyPlanItem(
+            start_time=datetime.datetime(2026, 2, 13, 12, 0, 0),
+            end_time=datetime.datetime(2026, 2, 13, 13, 0, 0),
+            location="Town > Home > Study",
+            action_content="Draft project outline",
+        ),
     )
 
     assert "Generate an executable minute plan for the current phase." in prompt
-    assert "Friday February 13 at 12:00 PM" in prompt
-    assert "duration_minutes" in prompt
+    assert "Friday February 13 2026 at 12:20 PM" in prompt
+    assert "Planning date (must stay consistent): 2026-02-13" in prompt
+    assert "Do not simply copy hourly-plan summaries" in prompt
+    assert "Draft project outline" in prompt
+    assert "Take lunch break" not in prompt
+    assert "Resume focused writing" not in prompt
+    assert "end_time" in prompt
     assert "Return strict JSON only with this exact shape and no extra text:" in prompt
-    assert '"duration_minutes": <int 5-15>' in prompt
+    assert '"end_time": "<ISO-8601 datetime 5-15 minutes after start_time>"' in prompt
 
 
 def test_salient_prompt_uses_strict_json_contract_line() -> None:
@@ -483,13 +490,13 @@ def test_generate_hour_plan_parses_json_items() -> None:
                         "items": [
                             {
                                 "start_time": "2026-02-13T08:00:00",
-                                "duration_minutes": 120,
+                                "end_time": "2026-02-13T10:00:00",
                                 "location": "Town > Home > Kitchen",
                                 "action_content": "Review composition notes over breakfast.",
                             },
                             {
                                 "start_time": "2026-02-13T10:00:00",
-                                "duration_minutes": 60,
+                                "end_time": "2026-02-13T11:00:00",
                                 "location": "Town > College > Theory Room",
                                 "action_content": "Attend morning music theory class.",
                             },
@@ -503,20 +510,12 @@ def test_generate_hour_plan_parses_json_items() -> None:
     items = service.generate_hour_plan(
         agent_name="Eddy Lin",
         current_time=datetime.datetime(2026, 2, 13, 8, 0, 0),
-        day_plan_items=[
-            DayPlanItem(
-                start_time=datetime.datetime(2026, 2, 13, 8, 0, 0),
-                duration_minutes=120,
-                location="Town > Home > Kitchen",
-                action_content="Review composition notes and plan",
-            ),
-            DayPlanItem(
-                start_time=datetime.datetime(2026, 2, 13, 10, 0, 0),
-                duration_minutes=120,
-                location="Town > College > Lab",
-                action_content="Attend class",
-            ),
-        ],
+        day_plan_item=DayPlanItem(
+            start_time=datetime.datetime(2026, 2, 13, 8, 0, 0),
+            end_time=datetime.datetime(2026, 2, 13, 10, 0, 0),
+            location="Town > Home > Kitchen",
+            action_content="Review composition notes and plan",
+        ),
     )
 
     assert len(items) == 2
@@ -524,22 +523,150 @@ def test_generate_hour_plan_parses_json_items() -> None:
     assert items[0].start_time == datetime.datetime(2026, 2, 13, 8, 0, 0)
 
 
+def test_generate_hour_plan_prompt_uses_single_day_plan_item() -> None:
+    client = StubOllamaClient(
+        responses=[
+            json.dumps({"items": []}),
+            json.dumps({"items": []}),
+            json.dumps({"items": []}),
+        ]
+    )
+    service = LlmGateway(client)
+
+    _ = service.generate_hour_plan(
+        agent_name="Eddy Lin",
+        current_time=datetime.datetime(2026, 2, 13, 8, 45, 0),
+        day_plan_item=DayPlanItem(
+            start_time=datetime.datetime(2026, 2, 13, 7, 0, 0),
+            end_time=datetime.datetime(2026, 2, 13, 9, 0, 0),
+            location="Town > Home > Kitchen",
+            action_content="Morning routine",
+        ),
+    )
+
+    prompt = cast(str, client.call_kwargs[0]["prompt"])
+    assert "Morning routine" in prompt
+    assert "Attend lecture" not in prompt
+    assert "Independent study" not in prompt
+
+
+def test_generate_day_plan_coerces_year_to_today_when_month_day_match() -> None:
+    service = LlmGateway(
+        StubOllamaClient(
+            responses=[
+                json.dumps(
+                    {
+                        "items": [
+                            {
+                                "start_time": "2023-02-13T08:00:00",
+                                "end_time": "2023-02-13T09:00:00",
+                                "location": "Town > Home > Room",
+                                "action_content": "Wake up and stretch.",
+                            },
+                            {
+                                "start_time": "2023-02-13T09:00:00",
+                                "end_time": "2023-02-13T10:00:00",
+                                "location": "Town > Home > Kitchen",
+                                "action_content": "Eat breakfast.",
+                            },
+                            {
+                                "start_time": "2023-02-13T10:00:00",
+                                "end_time": "2023-02-13T12:00:00",
+                                "location": "Town > College > Theory Room",
+                                "action_content": "Attend class.",
+                            },
+                            {
+                                "start_time": "2023-02-13T12:00:00",
+                                "end_time": "2023-02-13T13:00:00",
+                                "location": "Town > Cafe > Patio",
+                                "action_content": "Lunch with classmates.",
+                            },
+                            {
+                                "start_time": "2023-02-13T13:00:00",
+                                "end_time": "2023-02-13T15:00:00",
+                                "location": "Town > Home > Desk",
+                                "action_content": "Revise composition notes.",
+                            },
+                        ]
+                    }
+                )
+            ]
+        )
+    )
+
+    items = service.generate_day_plan(
+        agent_name="Eddy Lin",
+        age=19,
+        innate_traits=["friendly", "outgoing", "hospitable"],
+        persona_background="Music theory student focusing on composition.",
+        yesterday_date=datetime.datetime(2026, 2, 12),
+        yesterday_summary="Studied harmony and practiced composition in the evening.",
+        today_date=datetime.datetime(2026, 2, 13),
+    )
+
+    assert len(items) == 5
+    assert all(item.start_time.year == 2026 for item in items)
+    assert all(item.end_time.year == 2026 for item in items)
+
+
+def test_generate_hour_plan_coerces_year_to_current_date_when_month_day_match() -> None:
+    service = LlmGateway(
+        StubOllamaClient(
+            responses=[
+                json.dumps(
+                    {
+                        "items": [
+                            {
+                                "start_time": "2023-02-13T08:00:00",
+                                "end_time": "2023-02-13T10:00:00",
+                                "location": "Town > Home > Kitchen",
+                                "action_content": "Review composition notes over breakfast.",
+                            },
+                            {
+                                "start_time": "2023-02-13T10:00:00",
+                                "end_time": "2023-02-13T11:00:00",
+                                "location": "Town > College > Theory Room",
+                                "action_content": "Attend morning music theory class.",
+                            },
+                        ]
+                    }
+                )
+            ]
+        )
+    )
+
+    items = service.generate_hour_plan(
+        agent_name="Eddy Lin",
+        current_time=datetime.datetime(2026, 2, 13, 8, 0, 0),
+        day_plan_item=DayPlanItem(
+            start_time=datetime.datetime(2026, 2, 13, 8, 0, 0),
+            end_time=datetime.datetime(2026, 2, 13, 10, 0, 0),
+            location="Town > Home > Kitchen",
+            action_content="Review composition notes and plan",
+        ),
+    )
+
+    assert len(items) == 2
+    assert all(item.start_time.year == 2026 for item in items)
+    assert all(item.end_time.year == 2026 for item in items)
+
+
 def test_generate_hour_plan_retries_once_on_truncated_json() -> None:
     client = StubOllamaClient(
         responses=[
-            '{"items": [{"start_time": "2026-02-13T08:00:00", "duration_minutes": 90',
+            '{"items": [{"start_time": "2026-02-13T08:00:00", "end_time": "2026-02-13T09:30:00"',
             json.dumps(
                 {
                     "items": [
                         {
                             "start_time": "2026-02-13T08:00:00",
-                            "duration_minutes": 120,
+                            "end_time": "2026-02-13T10:00:00",
                             "location": "Town > Home > Kitchen",
                             "action_content": "Review composition notes over breakfast.",
                         },
                         {
                             "start_time": "2026-02-13T10:00:00",
-                            "duration_minutes": 60,
+                            "end_time": "2026-02-13T11:00:00",
                             "location": "Town > College > Theory Room",
                             "action_content": "Attend morning music theory class.",
                         },
@@ -553,20 +680,12 @@ def test_generate_hour_plan_retries_once_on_truncated_json() -> None:
     items = service.generate_hour_plan(
         agent_name="Eddy Lin",
         current_time=datetime.datetime(2026, 2, 13),
-        day_plan_items=[
-            DayPlanItem(
-                start_time=datetime.datetime(2026, 2, 13, 8, 0, 0),
-                duration_minutes=120,
-                location="Town > Home > Kitchen",
-                action_content="Review composition notes and plan",
-            ),
-            DayPlanItem(
-                start_time=datetime.datetime(2026, 2, 13, 10, 0, 0),
-                duration_minutes=120,
-                location="Town > College > Lab",
-                action_content="Attend class",
-            ),
-        ],
+        day_plan_item=DayPlanItem(
+            start_time=datetime.datetime(2026, 2, 13, 8, 0, 0),
+            end_time=datetime.datetime(2026, 2, 13, 10, 0, 0),
+            location="Town > Home > Kitchen",
+            action_content="Review composition notes and plan",
+        ),
     )
 
     assert len(items) == 2
@@ -582,7 +701,7 @@ def test_generate_hour_plan_returns_empty_after_retry_exhaustion() -> None:
                     "items": [
                         {
                             "start_time": "bad-time",
-                            "duration_minutes": 30,
+                            "end_time": "2026-02-13T08:30:00",
                             "location": "Town > Home > Kitchen",
                             "action_content": "Wake up",
                         }
@@ -594,7 +713,7 @@ def test_generate_hour_plan_returns_empty_after_retry_exhaustion() -> None:
                     "items": [
                         {
                             "start_time": "also-bad",
-                            "duration_minutes": 30,
+                            "end_time": "2026-02-13T09:30:00",
                             "location": "Town > Home > Kitchen",
                             "action_content": "Breakfast",
                         }
@@ -608,20 +727,12 @@ def test_generate_hour_plan_returns_empty_after_retry_exhaustion() -> None:
     items = service.generate_hour_plan(
         agent_name="Eddy Lin",
         current_time=datetime.datetime(2026, 2, 13, 8, 0, 0),
-        day_plan_items=[
-            DayPlanItem(
-                start_time=datetime.datetime(2026, 2, 13, 8, 0, 0),
-                duration_minutes=120,
-                location="Town > Home > Kitchen",
-                action_content="Review composition notes and plan",
-            ),
-            DayPlanItem(
-                start_time=datetime.datetime(2026, 2, 13, 10, 0, 0),
-                duration_minutes=120,
-                location="Town > College > Lab",
-                action_content="Attend class",
-            ),
-        ],
+        day_plan_item=DayPlanItem(
+            start_time=datetime.datetime(2026, 2, 13, 8, 0, 0),
+            end_time=datetime.datetime(2026, 2, 13, 10, 0, 0),
+            location="Town > Home > Kitchen",
+            action_content="Review composition notes and plan",
+        ),
     )
 
     assert items == []
@@ -637,13 +748,13 @@ def test_generate_minute_plan_parses_json_items() -> None:
                         "items": [
                             {
                                 "start_time": "2026-02-13T12:00:00",
-                                "duration_minutes": 10,
+                                "end_time": "2026-02-13T12:10:00",
                                 "location": "Town > Home > Study",
                                 "action_content": "Review motif variations.",
                             },
                             {
                                 "start_time": "2026-02-13T12:10:00",
-                                "duration_minutes": 5,
+                                "end_time": "2026-02-13T12:15:00",
                                 "location": "Town > Home > Study",
                                 "action_content": "Write transition phrase.",
                             },
@@ -657,19 +768,88 @@ def test_generate_minute_plan_parses_json_items() -> None:
     items = service.generate_minute_plan(
         agent_name="Eddy Lin",
         current_time=datetime.datetime(2026, 2, 13, 12, 0, 0),
-        hourly_plan_items=[
-            HourlyPlanItem(
-                start_time=datetime.datetime(2026, 2, 13, 12, 0, 0),
-                duration_minutes=60,
-                location="Town > Home > Study",
-                action_content="Draft project outline",
-            )
-        ],
+        hourly_plan_item=HourlyPlanItem(
+            start_time=datetime.datetime(2026, 2, 13, 12, 0, 0),
+            end_time=datetime.datetime(2026, 2, 13, 13, 0, 0),
+            location="Town > Home > Study",
+            action_content="Draft project outline",
+        ),
     )
 
     assert len(items) == 2
     assert items[1].duration_minutes == 5
     assert items[0].action_content == "Review motif variations."
+
+
+def test_generate_minute_plan_prompt_uses_single_hourly_plan_item() -> None:
+    client = StubOllamaClient(
+        responses=[
+            json.dumps({"items": []}),
+            json.dumps({"items": []}),
+            json.dumps({"items": []}),
+        ]
+    )
+    service = LlmGateway(client)
+
+    _ = service.generate_minute_plan(
+        agent_name="Eddy Lin",
+        current_time=datetime.datetime(2026, 2, 13, 12, 20, 0),
+        hourly_plan_item=HourlyPlanItem(
+            start_time=datetime.datetime(2026, 2, 13, 12, 0, 0),
+            end_time=datetime.datetime(2026, 2, 13, 13, 0, 0),
+            location="Town > Home > Study",
+            action_content="Draft project outline",
+        ),
+    )
+
+    prompt = cast(str, client.call_kwargs[0]["prompt"])
+    assert "Draft project outline" in prompt
+    assert "Take lunch break" not in prompt
+    assert "Resume focused writing" not in prompt
+
+
+def test_generate_minute_plan_coerces_year_to_current_date_when_month_day_match() -> (
+    None
+):
+    service = LlmGateway(
+        StubOllamaClient(
+            responses=[
+                json.dumps(
+                    {
+                        "items": [
+                            {
+                                "start_time": "2023-02-13T12:00:00",
+                                "end_time": "2023-02-13T12:10:00",
+                                "location": "Town > Home > Study",
+                                "action_content": "Review motif variations.",
+                            },
+                            {
+                                "start_time": "2023-02-13T12:10:00",
+                                "end_time": "2023-02-13T12:15:00",
+                                "location": "Town > Home > Study",
+                                "action_content": "Write transition phrase.",
+                            },
+                        ]
+                    }
+                )
+            ]
+        )
+    )
+
+    items = service.generate_minute_plan(
+        agent_name="Eddy Lin",
+        current_time=datetime.datetime(2026, 2, 13, 12, 0, 0),
+        hourly_plan_item=HourlyPlanItem(
+            start_time=datetime.datetime(2026, 2, 13, 12, 0, 0),
+            end_time=datetime.datetime(2026, 2, 13, 13, 0, 0),
+            location="Town > Home > Study",
+            action_content="Draft project outline",
+        ),
+    )
+
+    assert len(items) == 2
+    assert all(item.start_time.year == 2026 for item in items)
+    assert all(item.end_time.year == 2026 for item in items)
 
 
 def test_generate_minute_plan_retries_once_on_schema_validation_error() -> None:
@@ -681,7 +861,7 @@ def test_generate_minute_plan_retries_once_on_schema_validation_error() -> None:
                     "items": [
                         {
                             "start_time": "2026-02-13T12:00:00",
-                            "duration_minutes": 12,
+                            "end_time": "2026-02-13T12:12:00",
                             "location": "Town > Home > Study",
                             "action_content": "Review motif variations.",
                         }
@@ -695,14 +875,12 @@ def test_generate_minute_plan_retries_once_on_schema_validation_error() -> None:
     items = service.generate_minute_plan(
         agent_name="Eddy Lin",
         current_time=datetime.datetime(2026, 2, 13, 12, 0, 0),
-        hourly_plan_items=[
-            HourlyPlanItem(
-                start_time=datetime.datetime(2026, 2, 13, 12, 0, 0),
-                duration_minutes=60,
-                location="Town > Home > Study",
-                action_content="Draft project outline",
-            )
-        ],
+        hourly_plan_item=HourlyPlanItem(
+            start_time=datetime.datetime(2026, 2, 13, 12, 0, 0),
+            end_time=datetime.datetime(2026, 2, 13, 13, 0, 0),
+            location="Town > Home > Study",
+            action_content="Draft project outline",
+        ),
     )
 
     assert len(items) == 1
@@ -718,31 +896,31 @@ def test_generate_day_plan_parses_json_items() -> None:
                     "items": [
                         {
                             "start_time": "2026-02-13T08:00:00",
-                            "duration_minutes": 120,
+                            "end_time": "2026-02-13T10:00:00",
                             "location": "Town > Home > Kitchen",
                             "action_content": "Review composition notes over breakfast.",
                         },
                         {
                             "start_time": "2026-02-13T10:00:00",
-                            "duration_minutes": 120,
+                            "end_time": "2026-02-13T12:00:00",
                             "location": "Town > College > Theory Room",
                             "action_content": "Attend morning music theory class.",
                         },
                         {
                             "start_time": "2026-02-13T12:00:00",
-                            "duration_minutes": 120,
+                            "end_time": "2026-02-13T14:00:00",
                             "location": "Town > College > Studio",
                             "action_content": "Draft harmonic progression for project.",
                         },
                         {
                             "start_time": "2026-02-13T15:00:00",
-                            "duration_minutes": 60,
+                            "end_time": "2026-02-13T16:00:00",
                             "location": "Town > Cafe > Patio",
                             "action_content": "Meet classmate for feedback session.",
                         },
                         {
                             "start_time": "2026-02-13T17:00:00",
-                            "duration_minutes": 120,
+                            "end_time": "2026-02-13T19:00:00",
                             "location": "Town > Home > Desk",
                             "action_content": "Revise composition and annotate changes.",
                         },
@@ -794,19 +972,19 @@ def test_generate_day_plan_returns_empty_if_too_few_items() -> None:
                     "items": [
                         {
                             "start_time": "2026-02-13T08:00:00",
-                            "duration_minutes": 60,
+                            "end_time": "2026-02-13T09:00:00",
                             "location": "Town > Home > Room",
                             "action_content": "Wake up and brush teeth.",
                         },
                         {
                             "start_time": "2026-02-13T09:00:00",
-                            "duration_minutes": 60,
+                            "end_time": "2026-02-13T10:00:00",
                             "location": "Town > Home > Kitchen",
                             "action_content": "Have breakfast.",
                         },
                         {
                             "start_time": "2026-02-13T10:00:00",
-                            "duration_minutes": 60,
+                            "end_time": "2026-02-13T11:00:00",
                             "location": "Town > Street > Bus Stop",
                             "action_content": "Head to class.",
                         },
@@ -838,55 +1016,55 @@ def test_generate_day_plan_dedupes_and_truncates_to_max() -> None:
                     "items": [
                         {
                             "start_time": "2026-02-13T08:00:00",
-                            "duration_minutes": 120,
+                            "end_time": "2026-02-13T10:00:00",
                             "location": "Town > Home > Kitchen",
                             "action_content": "Review composition notes over breakfast.",
                         },
                         {
                             "start_time": "2026-02-13T08:00:00",
-                            "duration_minutes": 120,
+                            "end_time": "2026-02-13T10:00:00",
                             "location": "Town > Home > Kitchen",
                             "action_content": "Review composition notes over breakfast. ",
                         },
                         {
                             "start_time": "2026-02-13T10:00:00",
-                            "duration_minutes": 60,
+                            "end_time": "2026-02-13T11:00:00",
                             "location": "Town > College > Theory Room",
                             "action_content": "Attend morning music theory class.",
                         },
                         {
                             "start_time": "2026-02-13T12:00:00",
-                            "duration_minutes": 120,
+                            "end_time": "2026-02-13T14:00:00",
                             "location": "Town > College > Studio",
                             "action_content": "Draft harmonic progression for project.",
                         },
                         {
                             "start_time": "2026-02-13T14:00:00",
-                            "duration_minutes": 60,
+                            "end_time": "2026-02-13T15:00:00",
                             "location": "Town > Cafe > Patio",
                             "action_content": "Meet classmate for feedback session.",
                         },
                         {
                             "start_time": "2026-02-13T16:00:00",
-                            "duration_minutes": 120,
+                            "end_time": "2026-02-13T18:00:00",
                             "location": "Town > Home > Desk",
                             "action_content": "Revise composition and annotate changes.",
                         },
                         {
                             "start_time": "2026-02-13T18:00:00",
-                            "duration_minutes": 60,
+                            "end_time": "2026-02-13T19:00:00",
                             "location": "Town > Cafe > Table",
                             "action_content": "Take lunch with classmate.",
                         },
                         {
                             "start_time": "2026-02-13T20:00:00",
-                            "duration_minutes": 60,
+                            "end_time": "2026-02-13T21:00:00",
                             "location": "Town > Home > Practice Room",
                             "action_content": "Practice instrument for 30 minutes.",
                         },
                         {
                             "start_time": "2026-02-13T21:00:00",
-                            "duration_minutes": 60,
+                            "end_time": "2026-02-13T22:00:00",
                             "location": "Town > Home > Desk",
                             "action_content": "Log today's notes in planner.",
                         },
@@ -916,43 +1094,43 @@ def test_generate_day_plan_dedupes_and_truncates_to_max() -> None:
 def test_generate_day_plan_retries_once_on_truncated_json() -> None:
     client = StubOllamaClient(
         responses=[
-            '{"items": [{"start_time": "2026-02-13T08:00:00", "duration_minutes": 20',
+            '{"items": [{"start_time": "2026-02-13T08:00:00", "end_time": "2026-02-13T08:20:00"',
             json.dumps(
                 {
                     "items": [
                         {
                             "start_time": "2026-02-13T08:00:00",
-                            "duration_minutes": 60,
+                            "end_time": "2026-02-13T09:00:00",
                             "location": "Town > Home > Room",
                             "action_content": "Wake up",
                         },
                         {
                             "start_time": "2026-02-13T09:00:00",
-                            "duration_minutes": 60,
+                            "end_time": "2026-02-13T10:00:00",
                             "location": "Town > Home > Kitchen",
                             "action_content": "Eat breakfast",
                         },
                         {
                             "start_time": "2026-02-13T10:00:00",
-                            "duration_minutes": 60,
+                            "end_time": "2026-02-13T11:00:00",
                             "location": "Town > College > Theory Room",
                             "action_content": "Class",
                         },
                         {
                             "start_time": "2026-02-13T11:00:00",
-                            "duration_minutes": 60,
+                            "end_time": "2026-02-13T12:00:00",
                             "location": "Town > Home > Practice Room",
                             "action_content": "Practice",
                         },
                         {
                             "start_time": "2026-02-13T12:00:00",
-                            "duration_minutes": 60,
+                            "end_time": "2026-02-13T13:00:00",
                             "location": "Town > Home > Desk",
                             "action_content": "Review",
                         },
                         {
                             "start_time": "2026-02-13T13:00:00",
-                            "duration_minutes": 60,
+                            "end_time": "2026-02-13T14:00:00",
                             "location": "Town > Park > Bench",
                             "action_content": "Reflect",
                         },
@@ -987,31 +1165,31 @@ def test_generate_day_plan_retries_once_on_schema_validation_error() -> None:
                     "items": [
                         {
                             "start_time": "2026-02-13T08:00:00",
-                            "duration_minutes": 120,
+                            "end_time": "2026-02-13T10:00:00",
                             "location": "Town > Home > Kitchen",
                             "action_content": "Review composition notes over breakfast.",
                         },
                         {
                             "start_time": "2026-02-13T10:00:00",
-                            "duration_minutes": 60,
+                            "end_time": "2026-02-13T11:00:00",
                             "location": "Town > College > Theory Room",
                             "action_content": "Attend morning music theory class.",
                         },
                         {
                             "start_time": "2026-02-13T12:00:00",
-                            "duration_minutes": 120,
+                            "end_time": "2026-02-13T14:00:00",
                             "location": "Town > College > Studio",
                             "action_content": "Draft harmonic progression for project.",
                         },
                         {
                             "start_time": "2026-02-13T14:00:00",
-                            "duration_minutes": 60,
+                            "end_time": "2026-02-13T15:00:00",
                             "location": "Town > Cafe > Patio",
                             "action_content": "Meet classmate for feedback session.",
                         },
                         {
                             "start_time": "2026-02-13T16:00:00",
-                            "duration_minutes": 120,
+                            "end_time": "2026-02-13T18:00:00",
                             "location": "Town > Home > Desk",
                             "action_content": "Revise composition and annotate changes.",
                         },
@@ -1045,13 +1223,13 @@ def test_generate_day_plan_returns_empty_after_retry_exhaustion() -> None:
                     "items": [
                         {
                             "start_time": "2026-02-13T08:00:00",
-                            "duration_minutes": 30,
+                            "end_time": "2026-02-13T08:30:00",
                             "location": "Town > Home > Room",
                             "action_content": "Too few",
                         },
                         {
                             "start_time": "2026-02-13T08:40:00",
-                            "duration_minutes": 20,
+                            "end_time": "2026-02-13T09:00:00",
                             "location": "Town > Home > Kitchen",
                             "action_content": "items",
                         },
@@ -1063,31 +1241,31 @@ def test_generate_day_plan_returns_empty_after_retry_exhaustion() -> None:
                     "items": [
                         {
                             "start_time": "bad-time",
-                            "duration_minutes": 20,
+                            "end_time": "2026-02-13T08:20:00",
                             "location": "Town > Home > Room",
                             "action_content": "Wake",
                         },
                         {
                             "start_time": "bad-time",
-                            "duration_minutes": 20,
+                            "end_time": "2026-02-13T08:20:00",
                             "location": "Town > Home > Room",
                             "action_content": "Eat",
                         },
                         {
                             "start_time": "bad-time",
-                            "duration_minutes": 20,
+                            "end_time": "2026-02-13T08:20:00",
                             "location": "Town > Home > Room",
                             "action_content": "Class",
                         },
                         {
                             "start_time": "bad-time",
-                            "duration_minutes": 20,
+                            "end_time": "2026-02-13T08:20:00",
                             "location": "Town > Home > Room",
                             "action_content": "Practice",
                         },
                         {
                             "start_time": "bad-time",
-                            "duration_minutes": 20,
+                            "end_time": "2026-02-13T08:20:00",
                             "location": "Town > Home > Room",
                             "action_content": "Review",
                         },

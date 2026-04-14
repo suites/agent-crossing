@@ -33,55 +33,65 @@ IMPORTANCE_JSON_SHAPE = '{"importance": <int 1-10>, "reason": "<short>"}'
 
 DAY_PLAN_JSON_SHAPE = (
     '{"items": ['
-    '{"start_time": "<ISO-8601 datetime on exact hour>", "duration_minutes": <positive int multiple of 60>, '
+    '{"start_time": "<ISO-8601 datetime>", "end_time": "<ISO-8601 datetime later than start_time>", '
     '"location": "<location>", "action_content": "<action text>"}'
     "]}"
 )
 
 HOURLY_PLAN_JSON_SHAPE = (
     '{"items": ['
-    '{"start_time": "<ISO-8601 datetime on exact hour>", "duration_minutes": <positive int multiple of 60>, '
+    '{"start_time": "<ISO-8601 datetime>", "end_time": "<ISO-8601 datetime later than start_time>", '
     '"location": "<location>", "action_content": "<action text>"}'
     "]}"
 )
 
 MINUTE_PLAN_JSON_SHAPE = (
     '{"items": ['
-    '{"start_time": "<ISO-8601 datetime to minute precision>", "duration_minutes": <int 5-15>, '
+    '{"start_time": "<ISO-8601 datetime to minute precision>", "end_time": "<ISO-8601 datetime 5-15 minutes after start_time>", '
     '"location": "<location>", "action_content": "<action text>"}'
     "]}"
 )
 
 
-def _format_date_text(value: datetime.datetime) -> str:
-    return value.strftime("%A %B %d").replace(" 0", " ")
+def _format_date_text(value: datetime.datetime, *, include_year: bool = True) -> str:
+    format_string = "%A %B %d %Y" if include_year else "%A %B %d"
+    return value.strftime(format_string).replace(" 0", " ")
 
 
 def _format_time_text(value: datetime.datetime) -> str:
     return value.strftime("%I:%M %p").lstrip("0")
 
 
-def _format_datetime_text(value: datetime.datetime) -> str:
-    return f"{_format_date_text(value)} at {_format_time_text(value)}"
+def _format_datetime_text(
+    value: datetime.datetime, *, include_year: bool = True
+) -> str:
+    return (
+        f"{_format_date_text(value, include_year=include_year)} "
+        f"at {_format_time_text(value)}"
+    )
+
+
+def _format_time_span_text(
+    start_time: datetime.datetime, end_time: datetime.datetime
+) -> str:
+    if start_time.date() == end_time.date():
+        return (
+            f"From {_format_date_text(start_time)} at {_format_time_text(start_time)} "
+            f"to {_format_time_text(end_time)}"
+        )
+    return (
+        f"From {_format_datetime_text(start_time)} to {_format_datetime_text(end_time)}"
+    )
 
 
 def _format_plan_line(
     *,
     start_time: datetime.datetime,
-    duration_minutes: int,
+    end_time: datetime.datetime,
     location: str,
     action_content: str,
 ) -> str:
-    duration_hours = duration_minutes / 60
-    if duration_hours.is_integer():
-        duration_text = f"{int(duration_hours)}h"
-    else:
-        duration_text = f"{duration_minutes}m"
-
-    return (
-        f"- {_format_datetime_text(start_time)} ({duration_text}) | "
-        f"{location} | {action_content}"
-    )
+    return f"- {_format_time_span_text(start_time, end_time)} | {location} | {action_content}"
 
 
 def build_salient_questions_prompt(
@@ -162,24 +172,20 @@ def build_hourly_plan_prompt(
     *,
     agent_name: str,
     current_time: datetime.datetime,
-    day_plan_items: list[DayPlanItem],
+    day_plan_item: DayPlanItem,
 ) -> str:
-    day_plan_lines = "\n".join(
-        _format_plan_line(
-            start_time=item.start_time,
-            duration_minutes=item.duration_minutes,
-            location=item.location,
-            action_content=item.action_content,
-        )
-        for item in day_plan_items
+    day_plan_lines = _format_plan_line(
+        start_time=day_plan_item.start_time,
+        end_time=day_plan_item.end_time,
+        location=day_plan_item.location,
+        action_content=day_plan_item.action_content,
     )
-    if not day_plan_lines:
-        day_plan_lines = "- no day plan items"
 
     return render_template(
         "hourly_plan_instruction.md",
         agent_name=agent_name,
         current_time=_format_datetime_text(current_time),
+        planning_date=current_time.date().isoformat(),
         day_plan_lines=day_plan_lines,
         json_shape=HOURLY_PLAN_JSON_SHAPE,
     )
@@ -189,24 +195,20 @@ def build_minute_plan_prompt(
     *,
     agent_name: str,
     current_time: datetime.datetime,
-    hourly_plan_items: list[HourlyPlanItem],
+    hourly_plan_item: HourlyPlanItem,
 ) -> str:
-    hourly_plan_lines = "\n".join(
-        _format_plan_line(
-            start_time=item.start_time,
-            duration_minutes=item.duration_minutes,
-            location=item.location,
-            action_content=item.action_content,
-        )
-        for item in hourly_plan_items
+    hourly_plan_lines = _format_plan_line(
+        start_time=hourly_plan_item.start_time,
+        end_time=hourly_plan_item.end_time,
+        location=hourly_plan_item.location,
+        action_content=hourly_plan_item.action_content,
     )
-    if not hourly_plan_lines:
-        hourly_plan_lines = "- no hourly plan items"
 
     return render_template(
         "minute_plan_instruction.md",
         agent_name=agent_name,
         current_time=_format_datetime_text(current_time),
+        planning_date=current_time.date().isoformat(),
         hourly_plan_lines=hourly_plan_lines,
         json_shape=MINUTE_PLAN_JSON_SHAPE,
     )

@@ -26,10 +26,11 @@ Framing reference (for style, not output format):
 ## Requirements
 
 - Return 5 to 8 plan items in `items`.
-- Each item must include all required fields: `start_time`, `duration_minutes`, `location`, `action_content`.
-- `start_time` must be an ISO 8601 datetime string aligned to the exact hour (`minutes=00`, `seconds=00`).
-- `duration_minutes` must be a positive integer in whole-hour increments (`60`, `120`, `180`, ...).
-- This is a broad-strokes day plan, so do not use sub-hour start times or sub-hour durations.
+- Each item must include all required fields: `start_time`, `end_time`, `location`, `action_content`.
+- `start_time` and `end_time` must be ISO 8601 datetime strings with minute precision (`seconds=00`).
+- `end_time` must be later than `start_time`.
+- Use the same calendar date as `Today is ...` for every plan item unless an item clearly crosses past midnight.
+- This is a broad-strokes day plan. Use natural human time spans and allow non-hour boundaries like `5:30 pm` when they fit the routine.
 - Keep chronological flow from morning to night.
 - Keep `location` and `action_content` behavior-oriented and non-empty.
 - Do not add numbering, bullets, markdown, explanatory text, or additional keys.

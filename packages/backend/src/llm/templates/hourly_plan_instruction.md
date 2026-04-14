@@ -2,24 +2,29 @@
 
 - Agent: $agent_name
 - Date: $current_time
+- Planning date (must stay consistent): $planning_date
 
-## Input Day Plan
+## Input Active Day Plan Context
 
 $day_plan_lines
 
 ## Task
 
-Convert the day plan into a chronological hourly plan.
+Decompose the active day-plan block into a chronological hourly plan for the near future.
 
 ## Requirements
 
 - Return the result in `items`.
-- Each item must include all required fields: `start_time`, `duration_minutes`, `location`, `action_content`.
-- `start_time` must be an ISO 8601 datetime string aligned to the exact hour (`minutes=00`, `seconds=00`).
-- `duration_minutes` must be a positive integer in whole-hour increments (`60`, `120`, ...).
-- Keep this plan at hourly granularity only. Do not use sub-hour start times or sub-hour durations.
+- Each item must include all required fields: `start_time`, `end_time`, `location`, `action_content`.
+- `start_time` and `end_time` must be ISO 8601 datetime strings with minute precision (`seconds=00`).
+- `end_time` must be later than `start_time`.
+- Use the same calendar date as `Planning date` unless an item clearly crosses past midnight.
+- Keep this plan at hourly granularity. Use hour-scale chunks, but do not force exact clock-hour boundaries when a natural schedule suggests otherwise.
+- Keep this broader than a minute plan. Prefer 30-180 minute blocks and do not decompose an activity into 5-15 minute micro-steps.
+- Focus on the currently active day-plan item and, if useful, the immediate next transition only.
+- Do not restate or regenerate the entire day plan.
 - Keep items ordered from earlier to later time.
-- Keep each item aligned with the given day plan context.
+- Keep each item aligned with the given active day-plan context.
 - Do not add numbering, bullets, markdown, explanatory text, or additional keys.
 
 ## Output Contract

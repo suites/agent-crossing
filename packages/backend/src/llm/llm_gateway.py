@@ -181,7 +181,10 @@ class LlmGateway:
             )
 
             try:
-                return try_parse_day_plan(response_text).items
+                return try_parse_day_plan(
+                    response_text,
+                    reference_date=today_date.date(),
+                ).items
             except DayPlanParseError as exc:
                 if attempt >= max_parse_retries:
                     return []
@@ -199,13 +202,13 @@ class LlmGateway:
         *,
         agent_name: str,
         current_time: datetime.datetime,
-        day_plan_items: list[DayPlanItem],
+        day_plan_item: DayPlanItem,
     ) -> list[HourlyPlanItem]:
         """Generate structured hourly plan with bounded retries on parse failures."""
         prompt = prompt_builders.build_hourly_plan_prompt(
             agent_name=agent_name,
             current_time=current_time,
-            day_plan_items=day_plan_items,
+            day_plan_item=day_plan_item,
         )
 
         current_prompt = prompt
@@ -218,7 +221,10 @@ class LlmGateway:
             )
 
             try:
-                return try_parse_hour_plan(response_text).items
+                return try_parse_hour_plan(
+                    response_text,
+                    reference_date=current_time.date(),
+                ).items
             except HourPlanParseError as exc:
                 if attempt >= max_parse_retries:
                     return []
@@ -238,13 +244,13 @@ class LlmGateway:
         *,
         agent_name: str,
         current_time: datetime.datetime,
-        hourly_plan_items: list[HourlyPlanItem],
+        hourly_plan_item: HourlyPlanItem,
     ) -> list[MinutePlanItem]:
         """Generate structured minute plan with bounded retries on parse failures."""
         prompt = prompt_builders.build_minute_plan_prompt(
             agent_name=agent_name,
             current_time=current_time,
-            hourly_plan_items=hourly_plan_items,
+            hourly_plan_item=hourly_plan_item,
         )
 
         current_prompt = prompt
@@ -257,7 +263,10 @@ class LlmGateway:
             )
 
             try:
-                return try_parse_minute_plan(response_text).items
+                return try_parse_minute_plan(
+                    response_text,
+                    reference_date=current_time.date(),
+                ).items
             except MinutePlanParseError as exc:
                 if attempt >= max_parse_retries:
                     return []

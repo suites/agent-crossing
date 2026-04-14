@@ -27,7 +27,7 @@ class PlanGenerator(Protocol):
         *,
         agent_name: str,
         current_time: datetime.datetime,
-        day_plan_items: list[DayPlanItem],
+        day_plan_item: DayPlanItem,
     ) -> list[HourlyPlanItem]: ...
 
     def generate_minute_plan(
@@ -35,7 +35,7 @@ class PlanGenerator(Protocol):
         *,
         agent_name: str,
         current_time: datetime.datetime,
-        hourly_plan_items: list[HourlyPlanItem],
+        hourly_plan_item: HourlyPlanItem,
     ) -> list[MinutePlanItem]: ...
 
 
@@ -64,13 +64,13 @@ class Planner:
         *,
         agent_name: str,
         current_time: datetime.datetime,
-        day_plan_items: list[DayPlanItem],
+        day_plan_item: DayPlanItem,
     ) -> list[HourlyPlanItem]:
         """시간 단위 계획을 생성합니다."""
         return self.plan_generator.generate_hour_plan(
             agent_name=agent_name,
             current_time=current_time,
-            day_plan_items=day_plan_items,
+            day_plan_item=day_plan_item,
         )
 
     def generate_minute_plan(
@@ -78,11 +78,11 @@ class Planner:
         *,
         agent_name: str,
         current_time: datetime.datetime,
-        hourly_plan_items: list[HourlyPlanItem],
+        hourly_plan_item: HourlyPlanItem,
     ) -> list[MinutePlanItem]:
         """분 단위 계획을 생성합니다."""
         return self.plan_generator.generate_minute_plan(
             agent_name=agent_name,
             current_time=current_time,
-            hourly_plan_items=hourly_plan_items,
+            hourly_plan_item=hourly_plan_item,
         )

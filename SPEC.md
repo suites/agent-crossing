@@ -158,15 +158,27 @@ Backend 레이어 책임:
 계획 계층:
 
 1. Day plan: 하루 거시 일정(5~8 broad strokes)
-2. Hourly plan: 시간 단위 계획
-3. Minute plan: 5~15분 단위 실행 액션
+2. Hourly plan: **현재 시점이 속한 day plan 항목**을 시간 단위로 세분화한 근미래 계획
+3. Minute plan: **현재 시점이 속한 hourly plan 항목**을 5~15분 단위로 세분화한 실행 액션
 
 각 액션 필수 필드:
 
 - `start_time`
-- `duration_minutes`
+- `end_time`
 - `location`
 - `action_content`
+
+시간 표현 규칙:
+
+- canonical 저장 필드는 `start_time`, `end_time`
+- `end_time`는 항상 `start_time`보다 이후여야 함
+- `duration_minutes`는 저장 필드가 아니라 `end_time - start_time`으로부터 계산되는 파생값으로 취급
+- day/hourly/minute plan 모두 초 단위 없이 minute precision 사용
+- day/hourly plan은 exact-hour 정렬을 강제하지 않으며 `5:30 pm` 같은 자연스러운 broad-strokes 시간을 허용
+- minute plan은 `end_time - start_time`이 5~15분 범위를 만족해야 함
+- day plan만 하루 전체를 미리 생성하고, hourly/minute plan은 near future만 just-in-time으로 재귀 분해한다
+- hourly plan은 현재 시점의 active day-plan item(필요 시 다음 전이 1개 포함) 범위를 벗어나지 않는다
+- minute plan은 현재 시점의 active hourly-plan item(필요 시 다음 전이 1개 포함) 범위를 벗어나지 않는다
 
 react 정책:
 
