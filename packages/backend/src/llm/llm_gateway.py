@@ -5,15 +5,17 @@ from typing import cast
 
 from agents.memory.memory_object import MemoryObject
 from agents.planning.models import DayPlanItem, HourlyPlanItem, MinutePlanItem
+from agents.reaction import (
+    GenerateClient,
+    ReactionDecision,
+    ReactionDecisionInput,
+    ReactionGraphRunner,
+)
 from llm.clients.ollama import JsonObject, LlmGenerateOptions
 from llm.governance import (
     DayPlanParseError,
-    GenerateClient,
     HourPlanParseError,
     MinutePlanParseError,
-    ReactionDecision,
-    ReactionDecisionInput,
-    ReactionPipeline,
     try_parse_day_plan,
     try_parse_hour_plan,
     try_parse_minute_plan,
@@ -56,7 +58,7 @@ class LlmGateway:
     ):
         self.ollama_client: GenerateClient = ollama_client
         self.embedding_encoder: EmbeddingEncoder | None = embedding_encoder
-        self.reaction_pipeline: ReactionPipeline = ReactionPipeline(
+        self.reaction_graph: ReactionGraphRunner = ReactionGraphRunner(
             ollama_client=ollama_client,
             embedding_encoder=embedding_encoder,
         )
@@ -318,4 +320,4 @@ class LlmGateway:
         self,
         input: ReactionDecisionInput,
     ) -> ReactionDecision:
-        return self.reaction_pipeline.decide_reaction(input)
+        return self.reaction_graph.decide_reaction(input)

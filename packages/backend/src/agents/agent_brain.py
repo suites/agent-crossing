@@ -5,12 +5,12 @@ from typing import Literal, Protocol, cast
 
 import numpy as np
 from agents.agent import AgentIdentity, AgentProfile
-from llm.embedding_encoder import EmbeddingEncodingContext
-from llm.governance import (
+from agents.reaction import (
     ReactionDecision,
     ReactionDecisionInput,
     ReactionDecisionTrace,
 )
+from llm.embedding_encoder import EmbeddingEncodingContext
 from llm.llm_gateway import LlmGateway
 
 from .decision_diagnostics import ActionDiagnostics, build_action_diagnostics

@@ -3,15 +3,14 @@ import datetime
 from dataclasses import dataclass, replace
 from typing import Callable, TypeVar, cast
 
-from agents.planning.models import DayPlanItem, HourlyPlanItem, MinutePlanItem
-from llm.clients.ollama import JsonObject
-
-from .contracts import (
+from agents.reaction.contracts import (
     ReactionDecision,
     ReactionDecisionTrace,
     ReactionIntent,
     ReactionUtterance,
 )
+from agents.planning.models import DayPlanItem, HourlyPlanItem, MinutePlanItem
+from llm.clients.ollama import JsonObject
 
 
 @dataclass(frozen=True)

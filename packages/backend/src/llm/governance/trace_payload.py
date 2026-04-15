@@ -1,7 +1,7 @@
 from dataclasses import asdict
 from typing import cast
 
-from .contracts import ReactionDecisionTrace
+from agents.reaction.contracts import ReactionDecisionTrace
 
 
 def reaction_trace_to_payload(

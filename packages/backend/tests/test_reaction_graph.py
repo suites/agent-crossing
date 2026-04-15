@@ -2,7 +2,7 @@ import datetime
 import json
 
 from agents.agent import AgentIdentity, AgentProfile, ExtendedPersona, FixedPersona
-from llm.governance import (
+from agents.reaction import (
     ReactionDecisionInput,
     ReactionGraphRunner,
 )

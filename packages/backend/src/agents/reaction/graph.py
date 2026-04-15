@@ -19,6 +19,7 @@ from llm.guardrails.similarity import (
     recent_self_utterances,
     semantic_overlap_check,
 )
+from llm.governance.parsing import parse_reaction_intent, parse_reaction_utterance
 
 from .contracts import (
     GenerateClient,
@@ -27,7 +28,6 @@ from .contracts import (
     ReactionIntent,
     ReactionUtterance,
 )
-from .parsing import parse_reaction_intent, parse_reaction_utterance
 
 REACTION_GENERATE_OPTIONS = LlmGenerateOptions(
     temperature=0.35,
@@ -58,15 +58,6 @@ class ReactionGraphBuilder(Protocol):
     def compile(self) -> "ReactionGraphInvoker": ...
 
 
-class StateGraphFactory(Protocol):
-    def __call__(
-        self, state_schema: type["ReactionGraphState"]
-    ) -> ReactionGraphBuilder: ...
-
-
-STATE_GRAPH = cast(StateGraphFactory, getattr(LANGGRAPH_GRAPH_MODULE, "StateGraph"))
-
-
 class ReactionGraphState(TypedDict):
     input: ReactionDecisionInput
     system_prompt: str
@@ -90,6 +81,15 @@ class ReactionGraphState(TypedDict):
 
 class ReactionGraphInvoker(Protocol):
     def invoke(self, input: ReactionGraphState) -> ReactionGraphState: ...
+
+
+class StateGraphFactory(Protocol):
+    def __call__(
+        self, state_schema: type["ReactionGraphState"]
+    ) -> ReactionGraphBuilder: ...
+
+
+STATE_GRAPH = cast(StateGraphFactory, getattr(LANGGRAPH_GRAPH_MODULE, "StateGraph"))
 
 
 class ReactionGraphRunner:
@@ -168,10 +168,7 @@ class ReactionGraphRunner:
             input=input,
             system_prompt="",
             intent_prompt="",
-            intent=ReactionIntent(
-                should_react=False,
-                reason="uninitialized",
-            ),
+            intent=ReactionIntent(should_react=False, reason="uninitialized"),
             utterance_prompt="",
             working_prompt="",
             recent_sentences=[],
@@ -184,10 +181,7 @@ class ReactionGraphRunner:
             semantic_check=SemanticOverlapCheck(max_similarity=0.0, trigger="none"),
             semantic_status="continue",
             overlap_status="final",
-            utterance_result=ReactionUtterance(
-                utterance="",
-                reason="uninitialized",
-            ),
+            utterance_result=ReactionUtterance(utterance="", reason="uninitialized"),
             decision=ReactionDecision(
                 should_react=False,
                 reaction="",

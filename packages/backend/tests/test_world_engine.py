@@ -4,7 +4,7 @@ from typing import Literal, cast
 
 from agents.agent_brain import ActionLoopInput, ActionLoopResult
 from agents.decision_diagnostics import ActionDiagnostics
-from llm.governance import ReactionDecisionTrace
+from agents.reaction import ReactionDecisionTrace
 from agents.sim_agent import SimAgent
 from world.engine import SimulationEngine, SimulationEngineConfig
 from world.session import WorldConversationSession

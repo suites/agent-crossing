@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from llm.governance import ReactionDecision
+from agents.reaction import ReactionDecision
 
 
 @dataclass(frozen=True)

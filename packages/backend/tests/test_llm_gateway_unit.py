@@ -6,8 +6,8 @@ import numpy as np
 from agents.agent import AgentIdentity, AgentProfile, ExtendedPersona, FixedPersona
 from agents.memory.memory_object import MemoryObject, NodeType
 from agents.planning.models import DayPlanItem, HourlyPlanItem
+from agents.reaction import ReactionDecisionInput
 from llm.embedding_encoder import EmbeddingEncodingContext
-from llm.governance import ReactionDecisionInput
 from llm.guardrails.similarity import EmbeddingEncoder
 from llm.llm_gateway import LlmGateway
 from llm.prompt_builders import (
