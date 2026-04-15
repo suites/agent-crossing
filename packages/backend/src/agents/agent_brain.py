@@ -16,7 +16,7 @@ from llm.llm_gateway import LlmGateway
 from .decision_diagnostics import ActionDiagnostics, build_action_diagnostics
 from .memory.memory_manager import MemoryManager, ObservationContext
 from .memory.memory_object import MemoryObject
-from .reflection_workflow import ReflectionWorkflow
+from .reflection_graph import ReflectionGraphRunner
 
 
 @dataclass(frozen=True)
@@ -90,11 +90,11 @@ class AgentBrain:
         *,
         agent_identity: AgentIdentity,
         memory_manager: MemoryManager,
-        reflection_workflow: ReflectionWorkflow,
+        reflection_graph: ReflectionGraphRunner,
         llm_gateway: LlmGateway,
     ):
         self.memory_manager: MemoryManager = memory_manager
-        self.reflection_workflow: ReflectionWorkflow = reflection_workflow
+        self.reflection_graph: ReflectionGraphRunner = reflection_graph
         self.llm_gateway: LlmGateway = llm_gateway
         self.agent_identity: AgentIdentity = agent_identity
 
@@ -123,7 +123,7 @@ class AgentBrain:
             ),
             importance=importance,
         )
-        self.reflection_workflow.record_observation_importance(
+        self.reflection_graph.record_observation_importance(
             importance=memory.importance
         )
 
@@ -146,7 +146,7 @@ class AgentBrain:
             ),
             importance=importance,
         )
-        self.reflection_workflow.record_observation_importance(
+        self.reflection_graph.record_observation_importance(
             importance=memory.importance
         )
 
@@ -165,8 +165,8 @@ class AgentBrain:
 
         # 2. 인지된 정보들을 observation으로 메모리에 저장 (reflection 조건 충족 시 reflection도 함께 저장)
         self._save_observation_memory(observation, input.profile)
-        if self.reflection_workflow.should_reflect():
-            self.reflection_workflow.reflect(now=input.current_time)
+        if self.reflection_graph.should_reflect():
+            self.reflection_graph.reflect(now=input.current_time)
 
         # 3. 상황판단을 한다.
         determine_result = self._determine_reaction(
@@ -367,6 +367,6 @@ class AgentBrain:
             importance=observation.importance,
         )
 
-        self.reflection_workflow.record_observation_importance(
+        self.reflection_graph.record_observation_importance(
             importance=memory.importance
         )

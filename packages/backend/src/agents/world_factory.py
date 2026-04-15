@@ -5,7 +5,7 @@ from agents.agent import AgentContext, AgentProfile, ExtendedPersona, FixedPerso
 from agents.agent_brain import AgentBrain
 from agents.persona_loader import AgentPersona, PersonaLoader, apply_persona_to_brain
 from agents.reflection import Reflection
-from agents.reflection_workflow import ReflectionWorkflow
+from agents.reflection_graph import ReflectionGraphRunner
 from agents.sim_agent import SimAgent
 from llm.clients.provider_factory import ProviderClient
 from llm.embedding_encoder import OllamaEmbeddingEncoder
@@ -40,7 +40,7 @@ def _build_agent(
         embedding_encoder=embedding_encoder,
     )
     llm_gateway = LlmGateway(llm_client, embedding_encoder=embedding_encoder)
-    reflection_workflow = ReflectionWorkflow(
+    reflection_graph = ReflectionGraphRunner(
         reflection=Reflection(),
         memory_manager=memory_manager,
         llm_gateway=llm_gateway,
@@ -50,7 +50,7 @@ def _build_agent(
     brain = AgentBrain(
         agent_identity=persona.agent,
         memory_manager=memory_manager,
-        reflection_workflow=reflection_workflow,
+        reflection_graph=reflection_graph,
         llm_gateway=llm_gateway,
     )
     context = AgentContext(
