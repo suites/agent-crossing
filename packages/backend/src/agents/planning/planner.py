@@ -1,7 +1,6 @@
 import datetime
-from typing import Protocol
 
-from .graph import PlanningGraphRunner
+from .graph import PlanningCompletionClient, PlanningGraphRunner
 from .models import (
     DayPlanBroadStrokesRequest,
     DayPlanItem,
@@ -10,42 +9,12 @@ from .models import (
 )
 
 
-class PlanGenerator(Protocol):
-    def generate_day_plan(
-        self,
-        *,
-        agent_name: str,
-        age: int,
-        innate_traits: list[str],
-        persona_background: str,
-        yesterday_date: datetime.datetime,
-        yesterday_summary: str,
-        today_date: datetime.datetime,
-    ) -> list[DayPlanItem]: ...
-
-    def generate_hour_plan(
-        self,
-        *,
-        agent_name: str,
-        current_time: datetime.datetime,
-        day_plan_item: DayPlanItem,
-    ) -> list[HourlyPlanItem]: ...
-
-    def generate_minute_plan(
-        self,
-        *,
-        agent_name: str,
-        current_time: datetime.datetime,
-        hourly_plan_item: HourlyPlanItem,
-    ) -> list[MinutePlanItem]: ...
-
-
 class Planner:
-    def __init__(self, plan_generator: PlanGenerator):
+    def __init__(self, planning_client: PlanningCompletionClient):
         """계획 생성을 위임하는 생성기 구현체."""
-        self.plan_generator: PlanGenerator = plan_generator
+        self.planning_client: PlanningCompletionClient = planning_client
         self.planning_graph: PlanningGraphRunner = PlanningGraphRunner(
-            plan_generator=plan_generator
+            planning_client=planning_client
         )
 
     def generate_day_plan(

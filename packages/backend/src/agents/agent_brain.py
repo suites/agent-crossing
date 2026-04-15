@@ -1,6 +1,7 @@
 import datetime
 
 from agents.agent import AgentIdentity, AgentProfile
+from agents.planning import Planner
 from llm.llm_gateway import LlmGateway
 
 from .brain import ActionLoopInput, ActionLoopResult, AgentBrainGraphRunner
@@ -18,6 +19,7 @@ class AgentBrain:
         memory_manager: MemoryManager,
         reflection_graph: ReflectionGraphRunner,
         llm_gateway: LlmGateway,
+        planner: Planner | None = None,
     ):
         self.memory_manager: MemoryManager = memory_manager
         self.reflection_graph: ReflectionGraphRunner = reflection_graph
@@ -30,6 +32,7 @@ class AgentBrain:
             reflection_graph=reflection_graph,
             llm_gateway=llm_gateway,
             observation_writer=self.queue_observation,
+            planner=planner,
         )
 
     def queue_observation(

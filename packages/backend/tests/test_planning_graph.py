@@ -1,76 +1,103 @@
 import datetime
+import json
 
 from agents.planning.graph import PlanningGraphRunner
 from agents.planning.models import (
     DayPlanBroadStrokesRequest,
-    DayPlanItem,
-    HourlyPlanItem,
-    MinutePlanItem,
 )
 from agents.planning.planner import Planner
+from llm.clients.ollama import LlmGenerateOptions
 
 
-class StubPlanGenerator:
+class StubPlanningClient:
     def __init__(self) -> None:
-        self.calls: list[str] = []
+        self.call_labels: list[str] = []
+        self.responses_by_label: dict[str, list[str]] = {
+            "day": [
+                json.dumps(
+                    {
+                        "items": [
+                            {
+                                "start_time": "2026-02-13T08:00:00",
+                                "end_time": "2026-02-13T09:00:00",
+                                "location": "Town > Home > Desk",
+                                "action_content": "Plan the morning composition session.",
+                            },
+                            {
+                                "start_time": "2026-02-13T09:00:00",
+                                "end_time": "2026-02-13T10:00:00",
+                                "location": "Town > College > Studio",
+                                "action_content": "Review harmony exercises.",
+                            },
+                            {
+                                "start_time": "2026-02-13T10:00:00",
+                                "end_time": "2026-02-13T11:00:00",
+                                "location": "Town > Cafe > Patio",
+                                "action_content": "Meet classmates to compare notes.",
+                            },
+                            {
+                                "start_time": "2026-02-13T11:00:00",
+                                "end_time": "2026-02-13T12:00:00",
+                                "location": "Town > Home > Desk",
+                                "action_content": "Sketch melodic ideas.",
+                            },
+                            {
+                                "start_time": "2026-02-13T12:00:00",
+                                "end_time": "2026-02-13T13:00:00",
+                                "location": "Town > Home > Kitchen",
+                                "action_content": "Eat lunch and rest.",
+                            },
+                        ]
+                    }
+                )
+            ],
+            "hour": [
+                json.dumps(
+                    {
+                        "items": [
+                            {
+                                "start_time": "2026-02-13T08:00:00",
+                                "end_time": "2026-02-13T09:00:00",
+                                "location": "Town > Home > Desk",
+                                "action_content": "Draft composition motifs.",
+                            }
+                        ]
+                    }
+                )
+            ],
+            "minute": [
+                json.dumps(
+                    {
+                        "items": [
+                            {
+                                "start_time": "2026-02-13T08:00:00",
+                                "end_time": "2026-02-13T08:10:00",
+                                "location": "Town > Home > Desk",
+                                "action_content": "Sketch the first phrase.",
+                            }
+                        ]
+                    }
+                )
+            ],
+        }
 
-    def generate_day_plan(
+    def complete_planning_prompt(
         self,
         *,
-        agent_name: str,
-        age: int,
-        innate_traits: list[str],
-        persona_background: str,
-        yesterday_date: datetime.datetime,
-        yesterday_summary: str,
-        today_date: datetime.datetime,
-    ) -> list[DayPlanItem]:
-        self.calls.append(f"day:{agent_name}:{age}:{innate_traits[0]}")
-        _ = persona_background, yesterday_date, yesterday_summary, today_date
-        return [
-            DayPlanItem(
-                start_time=datetime.datetime(2026, 2, 13, 8, 0, 0),
-                end_time=datetime.datetime(2026, 2, 13, 9, 0, 0),
-                location="Town > Home > Desk",
-                action_content="Plan the morning composition session.",
-            )
-        ]
-
-    def generate_hour_plan(
-        self,
-        *,
-        agent_name: str,
-        current_time: datetime.datetime,
-        day_plan_item: DayPlanItem,
-    ) -> list[HourlyPlanItem]:
-        self.calls.append(f"hour:{agent_name}:{current_time.isoformat()}")
-        _ = day_plan_item
-        return [
-            HourlyPlanItem(
-                start_time=datetime.datetime(2026, 2, 13, 8, 0, 0),
-                end_time=datetime.datetime(2026, 2, 13, 9, 0, 0),
-                location="Town > Home > Desk",
-                action_content="Draft composition motifs.",
-            )
-        ]
-
-    def generate_minute_plan(
-        self,
-        *,
-        agent_name: str,
-        current_time: datetime.datetime,
-        hourly_plan_item: HourlyPlanItem,
-    ) -> list[MinutePlanItem]:
-        self.calls.append(f"minute:{agent_name}:{current_time.isoformat()}")
-        _ = hourly_plan_item
-        return [
-            MinutePlanItem(
-                start_time=datetime.datetime(2026, 2, 13, 8, 0, 0),
-                end_time=datetime.datetime(2026, 2, 13, 8, 10, 0),
-                location="Town > Home > Desk",
-                action_content="Sketch the first phrase.",
-            )
-        ]
+        prompt: str,
+        options: LlmGenerateOptions,
+    ) -> str:
+        normalized_prompt = prompt.lower()
+        if options.num_predict == 3072:
+            label = "minute"
+        elif "hourly plan" in normalized_prompt:
+            label = "hour"
+        elif "day plan" in normalized_prompt:
+            label = "day"
+        else:
+            raise AssertionError(f"Unknown planning prompt: {prompt[:120]!r}")
+        self.call_labels.append(label)
+        return self.responses_by_label[label].pop(0)
 
 
 def _day_plan_request() -> DayPlanBroadStrokesRequest:
@@ -85,9 +112,9 @@ def _day_plan_request() -> DayPlanBroadStrokesRequest:
     )
 
 
-def test_planning_graph_runner_delegates_day_hour_and_minute_generation() -> None:
-    generator = StubPlanGenerator()
-    graph = PlanningGraphRunner(plan_generator=generator)
+def test_planning_graph_runner_parses_day_hour_and_minute_plans() -> None:
+    client = StubPlanningClient()
+    graph = PlanningGraphRunner(planning_client=client)
 
     day_items = graph.generate_day_plan(_day_plan_request())
     hourly_items = graph.generate_hourly_plan(
@@ -101,19 +128,29 @@ def test_planning_graph_runner_delegates_day_hour_and_minute_generation() -> Non
         hourly_plan_item=hourly_items[0],
     )
 
-    assert len(day_items) == 1
+    assert len(day_items) == 5
     assert len(hourly_items) == 1
     assert len(minute_items) == 1
-    assert generator.calls == [
-        "day:Eddy Lin:19:friendly",
-        "hour:Eddy Lin:2026-02-13T08:30:00",
-        "minute:Eddy Lin:2026-02-13T08:10:00",
+    assert client.call_labels == ["day", "hour", "minute"]
+
+
+def test_planning_graph_runner_retries_invalid_day_plan_once() -> None:
+    client = StubPlanningClient()
+    client.responses_by_label["day"] = [
+        '{"items": [{"start_time": "2026-02-13T08:00:00"}',
+        client.responses_by_label["day"][0],
     ]
+    graph = PlanningGraphRunner(planning_client=client)
+
+    items = graph.generate_day_plan(_day_plan_request())
+
+    assert len(items) == 5
+    assert client.call_labels == ["day", "day"]
 
 
 def test_planner_uses_planning_graph_for_existing_entrypoints() -> None:
-    generator = StubPlanGenerator()
-    planner = Planner(generator)
+    client = StubPlanningClient()
+    planner = Planner(client)
 
     day_items = planner.generate_day_plan(_day_plan_request())
     hourly_items = planner.generate_hourly_plan(
@@ -127,11 +164,7 @@ def test_planner_uses_planning_graph_for_existing_entrypoints() -> None:
         hourly_plan_item=hourly_items[0],
     )
 
-    assert len(day_items) == 1
+    assert len(day_items) == 5
     assert len(hourly_items) == 1
     assert len(minute_items) == 1
-    assert generator.calls == [
-        "day:Eddy Lin:19:friendly",
-        "hour:Eddy Lin:2026-02-13T08:30:00",
-        "minute:Eddy Lin:2026-02-13T08:10:00",
-    ]
+    assert client.call_labels == ["day", "hour", "minute"]

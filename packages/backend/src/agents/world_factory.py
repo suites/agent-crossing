@@ -3,6 +3,7 @@ from pathlib import Path
 
 from agents.agent import AgentContext, AgentProfile, ExtendedPersona, FixedPersona
 from agents.agent_brain import AgentBrain
+from agents.planning import Planner
 from agents.persona_loader import AgentPersona, PersonaLoader, apply_persona_to_brain
 from agents.reflection import Reflection, ReflectionGraphRunner
 from agents.sim_agent import SimAgent
@@ -39,6 +40,7 @@ def _build_agent(
         embedding_encoder=embedding_encoder,
     )
     llm_gateway = LlmGateway(llm_client, embedding_encoder=embedding_encoder)
+    planner = Planner(llm_gateway)
     reflection_graph = ReflectionGraphRunner(
         reflection=Reflection(),
         memory_manager=memory_manager,
@@ -51,6 +53,7 @@ def _build_agent(
         memory_manager=memory_manager,
         reflection_graph=reflection_graph,
         llm_gateway=llm_gateway,
+        planner=planner,
     )
     context = AgentContext(
         identity=persona.agent,

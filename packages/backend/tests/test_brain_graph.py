@@ -4,6 +4,7 @@ from typing import Literal, cast
 import numpy as np
 from agents.agent import AgentIdentity, AgentProfile, ExtendedPersona, FixedPersona
 from agents.brain import ActionLoopInput, ActionLoopResult, AgentBrainGraphRunner
+from agents.planning.models import DayPlanBroadStrokesRequest, DayPlanItem
 from agents.memory.memory_object import MemoryObject, NodeType
 from agents.reaction import ReactionDecision, ReactionDecisionTrace
 
@@ -88,6 +89,25 @@ class StubLlmGateway:
             reason="skip",
             trace=ReactionDecisionTrace(raw_response="", parse_success=True),
         )
+
+
+class StubPlanner:
+    def __init__(self, calls: list[str]):
+        self.calls: list[str] = calls
+
+    def generate_day_plan(
+        self,
+        request: DayPlanBroadStrokesRequest,
+    ) -> list[DayPlanItem]:
+        self.calls.append(f"generate_day_plan:{request.agent_name}")
+        return [
+            DayPlanItem(
+                start_time=datetime.datetime(2026, 3, 3, 9, 0, 0),
+                end_time=datetime.datetime(2026, 3, 3, 10, 0, 0),
+                location="Town > Home > Desk",
+                action_content="Draft a composition exercise.",
+            )
+        ]
 
 
 def _profile() -> AgentProfile:
@@ -215,3 +235,35 @@ def test_brain_graph_runs_reflection_before_retrieval_when_needed() -> None:
         "get_retrieval_memories",
         "decide_reaction",
     ]
+
+
+def test_brain_graph_seeds_plan_context_with_planner_when_missing() -> None:
+    calls: list[str] = []
+    memory = StubMemoryManager(calls)
+    profile = _profile()
+    graph = AgentBrainGraphRunner(
+        agent_identity=AgentIdentity(
+            id="jiho",
+            name="Jiho",
+            age=29,
+            traits=["kind"],
+        ),
+        memory_manager=memory,
+        embedding_encoder=memory.embedding_encoder,
+        reflection_graph=StubReflectionGraph(calls, should_reflect=False),
+        llm_gateway=StubLlmGateway(calls),
+        observation_writer=_ignore_observation,
+        planner=StubPlanner(calls),
+    )
+
+    _ = graph.run(
+        ActionLoopInput(
+            current_time=datetime.datetime(2026, 3, 3, 12, 0, 0),
+            dialogue_history=[],
+            profile=profile,
+            language=cast(Literal["ko", "en"], "ko"),
+        )
+    )
+
+    assert profile.extended.current_plan_context == ["Draft a composition exercise."]
+    assert calls[0] == "generate_day_plan:Jiho"

@@ -4,22 +4,20 @@ from dataclasses import dataclass
 from typing import cast
 
 from agents.memory.memory_object import MemoryObject
-from agents.planning.models import DayPlanItem, HourlyPlanItem, MinutePlanItem
+from agents.planning.graph import PlanningGraphRunner
+from agents.planning.models import (
+    DayPlanBroadStrokesRequest,
+    DayPlanItem,
+    HourlyPlanItem,
+    MinutePlanItem,
+)
 from agents.reaction import (
     GenerateClient,
     ReactionDecision,
     ReactionDecisionInput,
-    ReactionGraphRunner,
 )
+from agents.reaction.graph import ReactionGraphRunner
 from llm.clients.ollama import JsonObject, LlmGenerateOptions
-from llm.governance import (
-    DayPlanParseError,
-    HourPlanParseError,
-    MinutePlanParseError,
-    try_parse_day_plan,
-    try_parse_hour_plan,
-    try_parse_minute_plan,
-)
 from llm.guardrails.similarity import EmbeddingEncoder
 
 from . import prompt_builders
@@ -61,6 +59,9 @@ class LlmGateway:
         self.reaction_graph: ReactionGraphRunner = ReactionGraphRunner(
             ollama_client=ollama_client,
             embedding_encoder=embedding_encoder,
+        )
+        self.planning_graph: PlanningGraphRunner = PlanningGraphRunner(
+            planning_client=self
         )
 
     def generate_salient_high_level_questions(
@@ -162,42 +163,17 @@ class LlmGateway:
         yesterday_summary: str,
         today_date: datetime.datetime,
     ) -> list[DayPlanItem]:
-        """Generate structured day plan with bounded retries on parse failures."""
-        prompt = prompt_builders.build_day_plan_prompt(
-            agent_name=agent_name,
-            age=age,
-            innate_traits=innate_traits,
-            persona_background=persona_background,
-            yesterday_date=yesterday_date,
-            yesterday_summary=yesterday_summary,
-            today_date=today_date,
-        )
-
-        current_prompt = prompt
-        max_parse_retries = 2
-        for attempt in range(max_parse_retries + 1):
-            response_text = self.ollama_client.generate(
-                prompt=current_prompt,
-                format_json=True,
-                options=DAY_PLAN_GENERATE_OPTIONS,
+        return self.planning_graph.generate_day_plan(
+            DayPlanBroadStrokesRequest(
+                agent_name=agent_name,
+                age=age,
+                innate_traits=innate_traits,
+                persona_background=persona_background,
+                yesterday_date=yesterday_date,
+                yesterday_summary=yesterday_summary,
+                today_date=today_date,
             )
-
-            try:
-                return try_parse_day_plan(
-                    response_text,
-                    reference_date=today_date.date(),
-                ).items
-            except DayPlanParseError as exc:
-                if attempt >= max_parse_retries:
-                    return []
-
-                current_prompt = self._build_day_plan_retry_prompt(
-                    base_prompt=prompt,
-                    previous_error=exc.reason,
-                    previous_response=response_text,
-                )
-
-        return []
+        )
 
     def generate_hour_plan(
         self,
@@ -206,40 +182,11 @@ class LlmGateway:
         current_time: datetime.datetime,
         day_plan_item: DayPlanItem,
     ) -> list[HourlyPlanItem]:
-        """Generate structured hourly plan with bounded retries on parse failures."""
-        prompt = prompt_builders.build_hourly_plan_prompt(
+        return self.planning_graph.generate_hourly_plan(
             agent_name=agent_name,
             current_time=current_time,
             day_plan_item=day_plan_item,
         )
-
-        current_prompt = prompt
-        max_parse_retries = 2
-        for attempt in range(max_parse_retries + 1):
-            response_text = self.ollama_client.generate(
-                prompt=current_prompt,
-                format_json=True,
-                options=HOURLY_PLAN_GENERATE_OPTIONS,
-            )
-
-            try:
-                return try_parse_hour_plan(
-                    response_text,
-                    reference_date=current_time.date(),
-                ).items
-            except HourPlanParseError as exc:
-                if attempt >= max_parse_retries:
-                    return []
-
-                current_prompt = self._build_plan_retry_prompt(
-                    base_prompt=prompt,
-                    plan_name="hourly plan",
-                    json_shape=prompt_builders.HOURLY_PLAN_JSON_SHAPE,
-                    previous_error=exc.reason,
-                    previous_response=response_text,
-                )
-
-        return []
 
     def generate_minute_plan(
         self,
@@ -248,72 +195,22 @@ class LlmGateway:
         current_time: datetime.datetime,
         hourly_plan_item: HourlyPlanItem,
     ) -> list[MinutePlanItem]:
-        """Generate structured minute plan with bounded retries on parse failures."""
-        prompt = prompt_builders.build_minute_plan_prompt(
+        return self.planning_graph.generate_minute_plan(
             agent_name=agent_name,
             current_time=current_time,
             hourly_plan_item=hourly_plan_item,
         )
 
-        current_prompt = prompt
-        max_parse_retries = 2
-        for attempt in range(max_parse_retries + 1):
-            response_text = self.ollama_client.generate(
-                prompt=current_prompt,
-                format_json=True,
-                options=MINUTE_PLAN_GENERATE_OPTIONS,
-            )
-
-            try:
-                return try_parse_minute_plan(
-                    response_text,
-                    reference_date=current_time.date(),
-                ).items
-            except MinutePlanParseError as exc:
-                if attempt >= max_parse_retries:
-                    return []
-
-                current_prompt = self._build_plan_retry_prompt(
-                    base_prompt=prompt,
-                    plan_name="minute plan",
-                    json_shape=prompt_builders.MINUTE_PLAN_JSON_SHAPE,
-                    previous_error=exc.reason,
-                    previous_response=response_text,
-                )
-
-        return []
-
-    @staticmethod
-    def _build_plan_retry_prompt(
+    def complete_planning_prompt(
+        self,
         *,
-        base_prompt: str,
-        plan_name: str,
-        json_shape: str,
-        previous_error: str,
-        previous_response: str,
+        prompt: str,
+        options: LlmGenerateOptions,
     ) -> str:
-        return (
-            f"{base_prompt}\n\n"
-            f"The previous response did not match the required {plan_name} JSON schema.\n"
-            f"Failure reason: {previous_error}.\n\n"
-            f"Return strict JSON only with this exact shape and no extra text: {json_shape}\n"
-            f"Do not repeat this invalid output: {previous_response[:180]!r}"
-        )
-
-    @staticmethod
-    def _build_day_plan_retry_prompt(
-        *,
-        base_prompt: str,
-        previous_error: str,
-        previous_response: str,
-    ) -> str:
-        """Build a stricter follow-up prompt when prior JSON output is invalid."""
-        return LlmGateway._build_plan_retry_prompt(
-            base_prompt=base_prompt,
-            plan_name="day-plan",
-            json_shape=prompt_builders.DAY_PLAN_JSON_SHAPE,
-            previous_error=previous_error,
-            previous_response=previous_response,
+        return self.ollama_client.generate(
+            prompt=prompt,
+            format_json=True,
+            options=options,
         )
 
     def decide_reaction(

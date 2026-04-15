@@ -1,23 +1,25 @@
 import datetime
 from importlib import import_module
-from typing import Literal, Protocol, TypeVar, cast
+from typing import Literal, Protocol, cast
 
 import numpy as np
 from typing_extensions import TypedDict
 
 from agents.agent import AgentIdentity, AgentProfile
 from agents.memory.memory_object import MemoryObject
+from agents.planning.models import DayPlanBroadStrokesRequest, DayPlanItem
 from agents.reaction import ReactionDecision, ReactionDecisionInput
 from llm.embedding_encoder import EmbeddingEncodingContext
 
 from ..decision_diagnostics import build_action_diagnostics
+from ..graph_support import (
+    GRAPH_END,
+    GRAPH_START,
+    GRAPH_STATE_FACTORY,
+    require_state_value,
+)
 from ..memory.memory_manager import ObservationContext
 from .types import ActionLoopInput, ActionLoopResult, DetermineContext, Observation
-
-LANGGRAPH_GRAPH_MODULE = import_module("langgraph.graph")
-GRAPH_START = cast(object, getattr(LANGGRAPH_GRAPH_MODULE, "START"))
-GRAPH_END = cast(object, getattr(LANGGRAPH_GRAPH_MODULE, "END"))
-TStateValue = TypeVar("TStateValue")
 
 
 class PromptBuildersModule(Protocol):
@@ -79,6 +81,13 @@ class ReactionGateway(Protocol):
     def decide_reaction(self, input: ReactionDecisionInput) -> ReactionDecision: ...
 
 
+class PlanningRunner(Protocol):
+    def generate_day_plan(
+        self,
+        request: DayPlanBroadStrokesRequest,
+    ) -> list[DayPlanItem]: ...
+
+
 class AgentBrainGraphBuilder(Protocol):
     def add_node(self, node: str, action: object) -> None: ...
 
@@ -104,7 +113,7 @@ class StateGraphFactory(Protocol):
     ) -> AgentBrainGraphBuilder: ...
 
 
-STATE_GRAPH = cast(StateGraphFactory, getattr(LANGGRAPH_GRAPH_MODULE, "StateGraph"))
+STATE_GRAPH = cast(StateGraphFactory, GRAPH_STATE_FACTORY)
 
 
 class AgentBrainGraphState(TypedDict):
@@ -126,6 +135,7 @@ class AgentBrainGraphRunner:
         reflection_graph: ReflectionRunner,
         llm_gateway: ReactionGateway,
         observation_writer: ObservationWriter,
+        planner: PlanningRunner | None = None,
     ):
         self.agent_identity: AgentIdentity = agent_identity
         self.memory_manager: ObservationMemoryManager = memory_manager
@@ -133,6 +143,7 @@ class AgentBrainGraphRunner:
         self.reflection_graph: ReflectionRunner = reflection_graph
         self.llm_gateway: ReactionGateway = llm_gateway
         self.observation_writer: ObservationWriter = observation_writer
+        self.planner: PlanningRunner | None = planner
         self.graph: AgentBrainGraphInvoker = self._build_graph()
 
     def run(self, input: ActionLoopInput) -> ActionLoopResult:
@@ -146,10 +157,11 @@ class AgentBrainGraphRunner:
                 result=None,
             )
         )
-        return _require_state_value(final_state["result"], key="result")
+        return require_state_value(final_state["result"], key="result")
 
     def _build_graph(self) -> AgentBrainGraphInvoker:
         builder = STATE_GRAPH(AgentBrainGraphState)
+        builder.add_node("ensure_plan_context", self._ensure_plan_context)
         # 1. 현재 상황을 인지한다. 인지할때 월드에서 현재 상황을 조회해서 주입한다.
         builder.add_node("perceive", self._perceive)
         # 2. 인지된 정보들을 observation으로 메모리에 저장 (reflection 조건 충족 시 reflection도 함께 저장)
@@ -163,7 +175,8 @@ class AgentBrainGraphRunner:
         # 5. 반응에 때라 구체적인 행동 및 출력을 한다.
         builder.add_node("finalize_action", self._finalize_action)
 
-        builder.add_edge(GRAPH_START, "perceive")
+        builder.add_edge(GRAPH_START, "ensure_plan_context")
+        builder.add_edge("ensure_plan_context", "perceive")
         builder.add_edge("perceive", "persist_observation")
         builder.add_conditional_edges(
             "persist_observation",
@@ -178,6 +191,34 @@ class AgentBrainGraphRunner:
         builder.add_edge("decide_reaction", "finalize_action")
         builder.add_edge("finalize_action", GRAPH_END)
         return builder.compile()
+
+    def _ensure_plan_context(self, state: AgentBrainGraphState) -> dict[str, object]:
+        input = state["input"]
+        if input.profile.extended.current_plan_context or self.planner is None:
+            return {}
+
+        persona_background = " | ".join(input.profile.extended.lifestyle_and_routine)
+        if not persona_background.strip():
+            persona_background = "No background summary available."
+
+        day_plan_items = self.planner.generate_day_plan(
+            DayPlanBroadStrokesRequest(
+                agent_name=self.agent_identity.name,
+                age=self.agent_identity.age,
+                innate_traits=list(self.agent_identity.traits),
+                persona_background=persona_background,
+                yesterday_date=input.current_time - datetime.timedelta(days=1),
+                yesterday_summary="No recorded activity summary.",
+                today_date=input.current_time,
+            )
+        )
+        if not day_plan_items:
+            return {}
+
+        input.profile.extended.current_plan_context = [
+            item.action_content for item in day_plan_items[:2]
+        ]
+        return {}
 
     def _perceive(self, state: AgentBrainGraphState) -> dict[str, Observation]:
         input = state["input"]
@@ -221,7 +262,7 @@ class AgentBrainGraphRunner:
         }
 
     def _persist_observation(self, state: AgentBrainGraphState) -> dict[str, bool]:
-        observation = _require_state_value(state["observation"], key="observation")
+        observation = require_state_value(state["observation"], key="observation")
         input = state["input"]
 
         memory = self.memory_manager.create_observation(
@@ -255,7 +296,7 @@ class AgentBrainGraphRunner:
     def _determine_context(
         self, state: AgentBrainGraphState
     ) -> dict[str, DetermineContext]:
-        observation = _require_state_value(state["observation"], key="observation")
+        observation = require_state_value(state["observation"], key="observation")
         input = state["input"]
 
         prompt_builders_module = cast(
@@ -285,7 +326,7 @@ class AgentBrainGraphRunner:
     def _decide_reaction(
         self, state: AgentBrainGraphState
     ) -> dict[str, ReactionDecision]:
-        determine_context = _require_state_value(
+        determine_context = require_state_value(
             state["determine_context"],
             key="determine_context",
         )
@@ -307,7 +348,7 @@ class AgentBrainGraphRunner:
         self, state: AgentBrainGraphState
     ) -> dict[str, ActionLoopResult]:
         input = state["input"]
-        reaction_decision = _require_state_value(
+        reaction_decision = require_state_value(
             state["reaction_decision"],
             key="reaction_decision",
         )
@@ -356,9 +397,3 @@ class AgentBrainGraphRunner:
                 ),
             )
         }
-
-
-def _require_state_value(value: TStateValue | None, *, key: str) -> TStateValue:
-    if value is None:
-        raise RuntimeError(f"Agent brain graph missing required state: {key}")
-    return value

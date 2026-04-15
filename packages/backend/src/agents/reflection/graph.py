@@ -1,18 +1,14 @@
 import datetime
-from importlib import import_module
 from typing import Literal, Protocol, cast
 
 from typing_extensions import TypedDict
 
 from llm.llm_gateway import InsightWithCitation, LlmGateway
 
+from ..graph_support import GRAPH_END, GRAPH_START, GRAPH_STATE_FACTORY
 from ..memory.memory_manager import MemoryManager, ReflectionContext
 from ..memory.memory_object import MemoryObject
 from .state import Reflection
-
-LANGGRAPH_GRAPH_MODULE = import_module("langgraph.graph")
-GRAPH_START = cast(object, getattr(LANGGRAPH_GRAPH_MODULE, "START"))
-GRAPH_END = cast(object, getattr(LANGGRAPH_GRAPH_MODULE, "END"))
 
 
 class ReflectionGraphBuilder(Protocol):
@@ -40,7 +36,7 @@ class StateGraphFactory(Protocol):
     ) -> ReflectionGraphBuilder: ...
 
 
-STATE_GRAPH = cast(StateGraphFactory, getattr(LANGGRAPH_GRAPH_MODULE, "StateGraph"))
+STATE_GRAPH = cast(StateGraphFactory, GRAPH_STATE_FACTORY)
 
 
 class ReflectionGraphState(TypedDict):

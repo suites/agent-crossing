@@ -1,5 +1,4 @@
 from dataclasses import replace
-from importlib import import_module
 from typing import Literal, Protocol, cast
 
 import numpy as np
@@ -21,6 +20,7 @@ from llm.guardrails.similarity import (
 )
 from llm.governance.parsing import parse_reaction_intent, parse_reaction_utterance
 
+from ..graph_support import GRAPH_END, GRAPH_START, GRAPH_STATE_FACTORY
 from .contracts import (
     GenerateClient,
     ReactionDecision,
@@ -37,10 +37,6 @@ REACTION_GENERATE_OPTIONS = LlmGenerateOptions(
     presence_penalty=0.2,
     frequency_penalty=0.4,
 )
-
-LANGGRAPH_GRAPH_MODULE = import_module("langgraph.graph")
-GRAPH_START = cast(object, getattr(LANGGRAPH_GRAPH_MODULE, "START"))
-GRAPH_END = cast(object, getattr(LANGGRAPH_GRAPH_MODULE, "END"))
 
 
 class ReactionGraphBuilder(Protocol):
@@ -89,7 +85,7 @@ class StateGraphFactory(Protocol):
     ) -> ReactionGraphBuilder: ...
 
 
-STATE_GRAPH = cast(StateGraphFactory, getattr(LANGGRAPH_GRAPH_MODULE, "StateGraph"))
+STATE_GRAPH = cast(StateGraphFactory, GRAPH_STATE_FACTORY)
 
 
 class ReactionGraphRunner:
