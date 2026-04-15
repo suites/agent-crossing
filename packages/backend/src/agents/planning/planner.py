@@ -1,6 +1,7 @@
 import datetime
 from typing import Protocol
 
+from .graph import PlanningGraphRunner
 from .models import (
     DayPlanBroadStrokesRequest,
     DayPlanItem,
@@ -43,21 +44,16 @@ class Planner:
     def __init__(self, plan_generator: PlanGenerator):
         """계획 생성을 위임하는 생성기 구현체."""
         self.plan_generator: PlanGenerator = plan_generator
+        self.planning_graph: PlanningGraphRunner = PlanningGraphRunner(
+            plan_generator=plan_generator
+        )
 
     def generate_day_plan(
         self,
         request: DayPlanBroadStrokesRequest,
     ) -> list[DayPlanItem]:
         """일일 계획을 생성합니다."""
-        return self.plan_generator.generate_day_plan(
-            agent_name=request.agent_name,
-            age=request.age,
-            innate_traits=request.innate_traits,
-            persona_background=request.persona_background,
-            yesterday_date=request.yesterday_date,
-            yesterday_summary=request.yesterday_summary,
-            today_date=request.today_date,
-        )
+        return self.planning_graph.generate_day_plan(request)
 
     def generate_hourly_plan(
         self,
@@ -67,7 +63,7 @@ class Planner:
         day_plan_item: DayPlanItem,
     ) -> list[HourlyPlanItem]:
         """시간 단위 계획을 생성합니다."""
-        return self.plan_generator.generate_hour_plan(
+        return self.planning_graph.generate_hourly_plan(
             agent_name=agent_name,
             current_time=current_time,
             day_plan_item=day_plan_item,
@@ -81,7 +77,7 @@ class Planner:
         hourly_plan_item: HourlyPlanItem,
     ) -> list[MinutePlanItem]:
         """분 단위 계획을 생성합니다."""
-        return self.plan_generator.generate_minute_plan(
+        return self.planning_graph.generate_minute_plan(
             agent_name=agent_name,
             current_time=current_time,
             hourly_plan_item=hourly_plan_item,
