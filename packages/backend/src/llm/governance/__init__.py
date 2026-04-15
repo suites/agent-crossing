@@ -23,6 +23,7 @@ from .parsing import (
     try_parse_minute_plan,
 )
 from .pipeline import ReactionPipeline
+from .reaction_graph import ReactionGraphRunner
 from .trace_payload import (
     is_reaction_parse_failure,
     merge_policy_trace,
@@ -73,6 +74,7 @@ __all__ = [
     "parse_reaction_decision",
     "parse_reaction_intent",
     "parse_reaction_utterance",
+    "ReactionGraphRunner",
     "recent_replies_for_echo_check",
     "reaction_trace_to_payload",
     "semantic_repeat_rate",
