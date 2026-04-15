@@ -5,7 +5,7 @@ import numpy as np
 from agents.memory.memory_manager import MemoryManager
 from agents.memory.memory_object import MemoryObject, NodeType
 from agents.reflection import Reflection
-from agents.reflection_workflow import ReflectionWorkflow
+from agents.reflection_graph import ReflectionGraphRunner
 from llm.llm_gateway import InsightWithCitation, LlmGateway
 
 
@@ -101,7 +101,7 @@ def test_reflection_threshold_triggers_at_150() -> None:
     assert reflection.should_reflect() is True
 
 
-def test_reflection_workflow_clears_importance_after_reflect() -> None:
+def test_reflection_graph_runner_clears_importance_after_reflect() -> None:
     question = "What pattern matters most from the recent events?"
     insight = InsightWithCitation(
         context="Eddy keeps prioritizing composition practice over errands.",
@@ -114,7 +114,7 @@ def test_reflection_workflow_clears_importance_after_reflect() -> None:
         questions=[question],
         insights_by_question={question: [insight]},
     )
-    workflow = ReflectionWorkflow(
+    reflection_graph = ReflectionGraphRunner(
         reflection=Reflection(),
         memory_manager=cast(MemoryManager, cast(object, memory_service)),
         llm_gateway=cast(LlmGateway, cast(object, llm_service)),
@@ -122,12 +122,47 @@ def test_reflection_workflow_clears_importance_after_reflect() -> None:
         identity_stable_set=["composer"],
     )
 
-    workflow.record_observation_importance(150)
-    assert workflow.should_reflect() is True
+    reflection_graph.record_observation_importance(150)
+    assert reflection_graph.should_reflect() is True
 
-    workflow.reflect(now=datetime.datetime(2026, 3, 9, 10, 30, 0))
+    reflection_graph.reflect(now=datetime.datetime(2026, 3, 9, 10, 30, 0))
 
-    assert workflow.reflection.accumulated_importance == 0
-    assert workflow.should_reflect() is False
+    assert reflection_graph.reflection.accumulated_importance == 0
+    assert reflection_graph.should_reflect() is False
     assert memory_service.retrieval_queries == [question]
     assert memory_service.created_reflections == [insight]
+
+
+def test_reflection_graph_runner_processes_multiple_questions() -> None:
+    question_one = "What pattern matters most from the recent events?"
+    question_two = "What should Eddy remember for later?"
+    first_insight = InsightWithCitation(
+        context="Eddy keeps prioritizing composition practice over errands.",
+        citation_memory_ids=[0],
+    )
+    second_insight = InsightWithCitation(
+        context="Eddy should protect focused practice time tomorrow too.",
+        citation_memory_ids=[0],
+    )
+    memory_service = StubMemoryService(
+        recent_memories=[_memory(memory_id=0, content="Eddy practiced composition.")]
+    )
+    llm_service = StubLlmService(
+        questions=[question_one, question_two],
+        insights_by_question={
+            question_one: [first_insight],
+            question_two: [second_insight],
+        },
+    )
+    reflection_graph = ReflectionGraphRunner(
+        reflection=Reflection(),
+        memory_manager=cast(MemoryManager, cast(object, memory_service)),
+        llm_gateway=cast(LlmGateway, cast(object, llm_service)),
+        agent_name="Eddy Lin",
+        identity_stable_set=["composer"],
+    )
+
+    reflection_graph.reflect(now=datetime.datetime(2026, 3, 9, 10, 30, 0))
+
+    assert memory_service.retrieval_queries == [question_one, question_two]
+    assert memory_service.created_reflections == [first_insight, second_insight]
