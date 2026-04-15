@@ -14,6 +14,7 @@ from llm.embedding_encoder import EmbeddingEncodingContext
 from llm.llm_gateway import LlmGateway
 
 from .decision_diagnostics import ActionDiagnostics, build_action_diagnostics
+from .brain_graph import AgentBrainGraphRunner
 from .memory.memory_manager import MemoryManager, ObservationContext
 from .memory.memory_object import MemoryObject
 from .reflection_graph import ReflectionGraphRunner
@@ -97,6 +98,9 @@ class AgentBrain:
         self.reflection_graph: ReflectionGraphRunner = reflection_graph
         self.llm_gateway: LlmGateway = llm_gateway
         self.agent_identity: AgentIdentity = agent_identity
+        self.brain_graph: AgentBrainGraphRunner = AgentBrainGraphRunner(
+            stage_runner=self
+        )
 
     def queue_observation(
         self,
@@ -151,11 +155,15 @@ class AgentBrain:
         )
 
     def action_loop(self, input: ActionLoopInput) -> ActionLoopResult:
-        """
-        AgentBrain의 메인 루프.
-        """
         # 1. 현재 상황을 인지한다. 인지할때 월드에서 현재 상황을 조회해서 주입한다.
-        observation = self._perceive(
+        # 2. 인지된 정보들을 observation으로 메모리에 저장 (reflection 조건 충족 시 reflection도 함께 저장)
+        # 3. 상황판단을 한다.
+        # 4. 상황판단에 따라 반응을 결정한다.
+        # 5. 반응에 때라 구체적인 행동 및 출력을 한다.
+        return cast(ActionLoopResult, self.brain_graph.run(input))
+
+    def perceive(self, input: ActionLoopInput) -> Observation:
+        return self._perceive(
             now=input.current_time,
             current_plan_context=input.profile.extended.current_plan_context,
             world_context=input.world_context,
@@ -163,13 +171,19 @@ class AgentBrain:
             observed_events=input.observed_events,
         )
 
-        # 2. 인지된 정보들을 observation으로 메모리에 저장 (reflection 조건 충족 시 reflection도 함께 저장)
+    def persist_observation(
+        self, observation: Observation, input: ActionLoopInput
+    ) -> bool:
         self._save_observation_memory(observation, input.profile)
-        if self.reflection_graph.should_reflect():
-            self.reflection_graph.reflect(now=input.current_time)
+        return self.reflection_graph.should_reflect()
 
-        # 3. 상황판단을 한다.
-        determine_result = self._determine_reaction(
+    def run_reflection(self, input: ActionLoopInput) -> None:
+        self.reflection_graph.reflect(now=input.current_time)
+
+    def determine_context(
+        self, observation: Observation, input: ActionLoopInput
+    ) -> DetermineContext:
+        return self._determine_reaction(
             current_time=input.current_time,
             observation=observation,
             dialogue_history=input.dialogue_history,
@@ -177,10 +191,12 @@ class AgentBrain:
             language=input.language,
         )
 
-        # 4. 상황판단에 따라 반응을 결정한다.
-        reaction_decision = self._react(determine_result)
-
-        # 5. 반응에 때라 구체적인 행동 및 출력을 한다.
+    def finalize_action(
+        self,
+        *,
+        input: ActionLoopInput,
+        reaction_decision: ReactionDecision,
+    ) -> ActionLoopResult:
         return self._action(
             current_time=input.current_time,
             profile=input.profile,
@@ -328,7 +344,7 @@ class AgentBrain:
             profile=profile,
         )
 
-    def _react(self, determine_context: DetermineContext) -> ReactionDecision:
+    def decide_reaction(self, determine_context: DetermineContext) -> ReactionDecision:
         # 4. 상황판단에 따라 반응을 결정한다.
         # 4-1. 관찰 결과가 단순하다면 기존 계획을 수행한다.
         # 4-2. 관찰 결과가 중요하거나 예상치 못하면 기존 계획을 멈추고 반응한다.
@@ -344,6 +360,9 @@ class AgentBrain:
                 language=determine_context.language,
             )
         )
+
+    def _react(self, determine_context: DetermineContext) -> ReactionDecision:
+        return self.decide_reaction(determine_context)
 
     def _save_observation_memory(
         self,
