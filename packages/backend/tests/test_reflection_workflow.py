@@ -4,8 +4,7 @@ from typing import cast
 import numpy as np
 from agents.memory.memory_manager import MemoryManager
 from agents.memory.memory_object import MemoryObject, NodeType
-from agents.reflection import Reflection
-from agents.reflection_graph import ReflectionGraphRunner
+from agents.reflection import Reflection, ReflectionGraphRunner
 from llm.llm_gateway import InsightWithCitation, LlmGateway
 
 
