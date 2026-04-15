@@ -2,7 +2,7 @@ import datetime
 from dataclasses import dataclass
 from typing import Literal, cast
 
-from agents.agent_brain import ActionLoopInput, ActionLoopResult
+from agents.brain import ActionLoopInput, ActionLoopResult
 from agents.decision_diagnostics import ActionDiagnostics
 from agents.reaction import ReactionDecisionTrace
 from agents.sim_agent import SimAgent

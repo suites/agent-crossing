@@ -2,60 +2,85 @@ import datetime
 from typing import Literal, cast
 
 import numpy as np
-from agents.agent import AgentProfile, ExtendedPersona, FixedPersona
-from agents.agent_brain import (
-    ActionLoopInput,
-    ActionLoopResult,
-    DetermineContext,
-    Observation,
-)
-from agents.brain_graph import AgentBrainGraphRunner
+from agents.agent import AgentIdentity, AgentProfile, ExtendedPersona, FixedPersona
+from agents.brain import ActionLoopInput, ActionLoopResult, AgentBrainGraphRunner
+from agents.memory.memory_object import MemoryObject, NodeType
 from agents.reaction import ReactionDecision, ReactionDecisionTrace
 
 
-class StubStageRunner:
-    def __init__(self, *, should_reflect: bool):
-        self.should_reflect_value: bool = should_reflect
-        self.calls: list[str] = []
+class StubEmbeddingEncoder:
+    def __init__(self, calls: list[str]):
+        self.calls: list[str] = calls
 
-    def perceive(self, input: ActionLoopInput) -> Observation:
-        self.calls.append("perceive")
-        return Observation(
+    def encode(self, context: object) -> np.ndarray:
+        _ = context
+        self.calls.append("encode_observation")
+        return np.zeros(2, dtype=np.float32)
+
+
+class StubMemoryManager:
+    def __init__(self, calls: list[str]):
+        self.calls: list[str] = calls
+        self.embedding_encoder: StubEmbeddingEncoder = StubEmbeddingEncoder(calls)
+
+    def create_observation(
+        self,
+        *,
+        content: str,
+        now: datetime.datetime,
+        embedding: np.ndarray,
+        context: object,
+        importance: int | None,
+    ) -> MemoryObject:
+        _ = content, now, embedding, context, importance
+        self.calls.append("create_observation")
+        return MemoryObject(
+            id=1,
+            node_type=NodeType.OBSERVATION,
+            citations=None,
             content="observation",
-            now=input.current_time,
-            embedding=np.zeros(1, dtype=np.float32),
-            agent_name="Jiho",
-            current_plan=None,
-            importance=None,
+            created_at=now,
+            last_accessed_at=now,
+            importance=7,
+            embedding=np.zeros(2, dtype=np.float32),
         )
 
-    def persist_observation(
-        self, observation: Observation, input: ActionLoopInput
-    ) -> bool:
-        _ = observation
-        _ = input
-        self.calls.append("persist_observation")
+    def get_retrieval_memories(
+        self,
+        *,
+        query: str,
+        current_time: datetime.datetime,
+        top_k: int = 3,
+    ) -> list[MemoryObject]:
+        _ = query, current_time, top_k
+        self.calls.append("get_retrieval_memories")
+        return []
+
+
+class StubReflectionGraph:
+    def __init__(self, calls: list[str], *, should_reflect: bool):
+        self.calls: list[str] = calls
+        self.should_reflect_value: bool = should_reflect
+
+    def record_observation_importance(self, importance: int) -> None:
+        _ = importance
+        self.calls.append("record_observation_importance")
+
+    def should_reflect(self) -> bool:
+        self.calls.append("should_reflect")
         return self.should_reflect_value
 
-    def run_reflection(self, input: ActionLoopInput) -> None:
-        _ = input
-        self.calls.append("run_reflection")
+    def reflect(self, *, now: datetime.datetime) -> None:
+        _ = now
+        self.calls.append("reflect")
 
-    def determine_context(
-        self, observation: Observation, input: ActionLoopInput
-    ) -> DetermineContext:
-        _ = input
-        self.calls.append("determine_context")
-        return DetermineContext(
-            observation=observation,
-            retrieved_memories=[],
-            dialogue_history=[],
-            profile=input.profile,
-            language="ko",
-        )
 
-    def decide_reaction(self, determine_context: DetermineContext) -> ReactionDecision:
-        _ = determine_context
+class StubLlmGateway:
+    def __init__(self, calls: list[str]):
+        self.calls: list[str] = calls
+
+    def decide_reaction(self, input: object) -> ReactionDecision:
+        _ = input
         self.calls.append("decide_reaction")
         return ReactionDecision(
             should_react=False,
@@ -64,67 +89,129 @@ class StubStageRunner:
             trace=ReactionDecisionTrace(raw_response="", parse_success=True),
         )
 
-    def finalize_action(
-        self,
-        *,
-        input: ActionLoopInput,
-        reaction_decision: ReactionDecision,
-    ) -> ActionLoopResult:
-        _ = input
-        self.calls.append("finalize_action")
-        return ActionLoopResult(
-            current_time=datetime.datetime(2026, 3, 3, 12, 0, 0),
-            talk=None,
-            silent_reason=reaction_decision.reason,
-            reaction_trace=reaction_decision.trace,
-        )
 
-
-class StubProfile:
-    def __init__(self) -> None:
-        self.fixed: FixedPersona = FixedPersona(identity_stable_set=["kind"])
-        self.extended: ExtendedPersona = ExtendedPersona(
+def _profile() -> AgentProfile:
+    return AgentProfile(
+        fixed=FixedPersona(identity_stable_set=["kind"]),
+        extended=ExtendedPersona(
             lifestyle_and_routine=[],
             current_plan_context=[],
-        )
+        ),
+    )
 
 
 def _input() -> ActionLoopInput:
     return ActionLoopInput(
         current_time=datetime.datetime(2026, 3, 3, 12, 0, 0),
         dialogue_history=[],
-        profile=cast(AgentProfile, cast(object, StubProfile())),
+        profile=_profile(),
         language=cast(Literal["ko", "en"], "ko"),
     )
 
 
+def _append_observation(
+    queued: list[str],
+    *,
+    content: str,
+    now: datetime.datetime,
+    profile: AgentProfile,
+    current_plan: str | None = None,
+    importance: int | None = None,
+) -> None:
+    _ = now, profile, current_plan, importance
+    queued.append(content)
+
+
+def _ignore_observation(
+    *,
+    content: str,
+    now: datetime.datetime,
+    profile: AgentProfile,
+    current_plan: str | None = None,
+    importance: int | None = None,
+) -> None:
+    _ = content, now, profile, current_plan, importance
+
+
+def _observation_writer(queued: list[str]):
+    def write_observation(
+        *,
+        content: str,
+        now: datetime.datetime,
+        profile: AgentProfile,
+        current_plan: str | None = None,
+        importance: int | None = None,
+    ) -> None:
+        _append_observation(
+            queued,
+            content=content,
+            now=now,
+            profile=profile,
+            current_plan=current_plan,
+            importance=importance,
+        )
+
+    return write_observation
+
+
 def test_brain_graph_skips_reflection_when_not_needed() -> None:
-    runner = StubStageRunner(should_reflect=False)
-    graph = AgentBrainGraphRunner(stage_runner=runner)
+    calls: list[str] = []
+    queued: list[str] = []
+    memory = StubMemoryManager(calls)
+    graph = AgentBrainGraphRunner(
+        agent_identity=AgentIdentity(
+            id="jiho",
+            name="Jiho",
+            age=29,
+            traits=["kind"],
+        ),
+        memory_manager=memory,
+        embedding_encoder=memory.embedding_encoder,
+        reflection_graph=StubReflectionGraph(calls, should_reflect=False),
+        llm_gateway=StubLlmGateway(calls),
+        observation_writer=_observation_writer(queued),
+    )
 
-    result = cast(ActionLoopResult, graph.run(_input()))
+    result = graph.run(_input())
 
-    assert result.silent_reason == "skip"
-    assert runner.calls == [
-        "perceive",
-        "persist_observation",
-        "determine_context",
+    assert result.silent_reason == "llm_declined_reaction"
+    assert queued == []
+    assert calls == [
+        "encode_observation",
+        "create_observation",
+        "record_observation_importance",
+        "should_reflect",
+        "get_retrieval_memories",
         "decide_reaction",
-        "finalize_action",
     ]
 
 
-def test_brain_graph_runs_reflection_before_determine_context() -> None:
-    runner = StubStageRunner(should_reflect=True)
-    graph = AgentBrainGraphRunner(stage_runner=runner)
+def test_brain_graph_runs_reflection_before_retrieval_when_needed() -> None:
+    calls: list[str] = []
+    memory = StubMemoryManager(calls)
+    graph = AgentBrainGraphRunner(
+        agent_identity=AgentIdentity(
+            id="jiho",
+            name="Jiho",
+            age=29,
+            traits=["kind"],
+        ),
+        memory_manager=memory,
+        embedding_encoder=memory.embedding_encoder,
+        reflection_graph=StubReflectionGraph(calls, should_reflect=True),
+        llm_gateway=StubLlmGateway(calls),
+        observation_writer=_ignore_observation,
+    )
 
-    _ = graph.run(_input())
+    result = graph.run(_input())
 
-    assert runner.calls == [
-        "perceive",
-        "persist_observation",
-        "run_reflection",
-        "determine_context",
+    assert isinstance(result, ActionLoopResult)
+    assert calls == [
+        "encode_observation",
+        "create_observation",
+        "record_observation_importance",
+        "should_reflect",
+        "reflect",
+        "get_retrieval_memories",
         "decide_reaction",
-        "finalize_action",
     ]

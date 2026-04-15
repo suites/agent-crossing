@@ -2,7 +2,7 @@ import datetime
 from dataclasses import dataclass
 from typing import Literal
 
-from agents.agent_brain import ActionLoopInput, ActionLoopResult
+from agents.brain import ActionLoopInput, ActionLoopResult
 from agents.sim_agent import SimAgent
 from llm.governance import (
     apply_reply_policy,
