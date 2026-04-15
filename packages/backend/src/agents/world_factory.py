@@ -4,8 +4,7 @@ from pathlib import Path
 from agents.agent import AgentContext, AgentProfile, ExtendedPersona, FixedPersona
 from agents.agent_brain import AgentBrain
 from agents.persona_loader import AgentPersona, PersonaLoader, apply_persona_to_brain
-from agents.reflection import Reflection
-from agents.reflection_graph import ReflectionGraphRunner
+from agents.reflection import Reflection, ReflectionGraphRunner
 from agents.sim_agent import SimAgent
 from llm.clients.provider_factory import ProviderClient
 from llm.embedding_encoder import OllamaEmbeddingEncoder
