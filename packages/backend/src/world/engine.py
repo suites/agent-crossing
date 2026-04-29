@@ -89,6 +89,12 @@ class SimulationEngine:
         speaker: SimAgent,
         speaking_partner: SimAgent,
     ) -> SimulationStepResult:
+        if not self.session.is_active:
+            return self._build_inactive_step_result(
+                current_time=current_time,
+                speaker=speaker,
+            )
+
         incoming_partner_utterance = self.session.consume_incoming_partner_utterance(
             speaker=speaker
         )
@@ -139,6 +145,8 @@ class SimulationEngine:
             )
             if not silent_reason:
                 silent_reason = "unknown"
+            if action_result.end_dialogue:
+                self.session.finish_dialogue()
             return SimulationStepResult(
                 now=now,
                 speaker_name=speaker.name,
@@ -160,6 +168,8 @@ class SimulationEngine:
             now=now,
             language=self.config.language,
         )
+        if action_result.end_dialogue:
+            self.session.finish_dialogue()
         return SimulationStepResult(
             now=now,
             speaker_name=speaker.name,
@@ -212,8 +222,47 @@ class SimulationEngine:
             "reply": final_reply,
             "action_intent": action_result.action_intent,
             "speak_decision": action_result.speak_decision,
+            "end_dialogue": action_result.end_dialogue,
         }
         return base_process
+
+    def _build_inactive_step_result(
+        self,
+        *,
+        current_time: datetime.datetime,
+        speaker: SimAgent,
+    ) -> SimulationStepResult:
+        now = current_time + datetime.timedelta(
+            seconds=self.config.turn_time_step_seconds
+        )
+        return SimulationStepResult(
+            now=now,
+            speaker_name=speaker.name,
+            trace={"session_state": "ended"},
+            reply="",
+            silent_reason="dialogue_session_ended",
+            parse_failure=False,
+            observability=SimulationStepObservability(
+                thought="",
+                model_thought="",
+                self_critique="",
+                decision_reason="dialogue_session_ended",
+                action_summary="continue_current_plan",
+                decision_process={
+                    "policy": {
+                        "suppress_reason": "",
+                        "fallback_reason": "",
+                        "final_reply_empty": True,
+                    },
+                    "final_output": {
+                        "reply": "",
+                        "action_intent": "continue_current_plan",
+                        "speak_decision": False,
+                        "end_dialogue": False,
+                    },
+                },
+            ),
+        )
 
     def _run_action_loop(
         self,

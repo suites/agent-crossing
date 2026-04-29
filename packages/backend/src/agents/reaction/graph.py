@@ -230,6 +230,7 @@ class ReactionGraphRunner:
                 should_react=False,
                 reaction="",
                 reason=intent.reason,
+                end_dialogue=intent.end_dialogue,
                 thought=intent.thought,
                 critique=intent.critique,
                 trace=replace(
@@ -469,6 +470,7 @@ class ReactionGraphRunner:
             should_react=True,
             reaction=utterance_result.utterance,
             reason=(utterance_result.reason or intent.reason).strip() or "n/a",
+            end_dialogue=utterance_result.end_dialogue or intent.end_dialogue,
             thought=(utterance_result.thought or intent.thought).strip(),
             critique=(utterance_result.critique or intent.critique).strip(),
             trace=utterance_result.trace,

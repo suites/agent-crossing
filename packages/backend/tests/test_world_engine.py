@@ -276,3 +276,66 @@ def test_step_fallbacks_when_meta_leak_reply_and_fallback_enabled() -> None:
     assert result.trace.get("suppress_reason") == "invalid_reply_content"
     assert result.trace.get("fallback_reason") == "empty_reply_fallback"
     assert session.history == [("Jiho", "LLM 응답 오류")]
+
+
+def test_step_finishes_session_when_action_marks_dialogue_end() -> None:
+    speaker = DummyAgent(
+        name="Jiho",
+        profile=object(),
+        brain=DummyBrain(
+            next_result=ActionLoopResult(
+                current_time=datetime.datetime(2026, 3, 3, 12, 0, 0),
+                talk="그럼 난 이만 가볼게.",
+                utterance="그럼 난 이만 가볼게.",
+                end_dialogue=True,
+                diagnostics=_diagnostics(thought="마무리"),
+                reaction_trace=ReactionDecisionTrace(
+                    raw_response="",
+                    parse_success=True,
+                ),
+            ),
+            queued=[],
+            last_input=None,
+        ),
+    )
+    partner = DummyAgent(
+        name="Sujin",
+        profile=object(),
+        brain=DummyBrain(
+            next_result=ActionLoopResult(
+                current_time=datetime.datetime(2026, 3, 3, 12, 0, 0),
+                talk="다음에 봐",
+            ),
+            queued=[],
+            last_input=None,
+        ),
+    )
+    session = WorldConversationSession(
+        agents=cast(list[SimAgent], [speaker, partner]),
+        dialogue_turn_window=None,
+    )
+    engine = SimulationEngine(session=session, config=_engine_config())
+
+    result = engine.step(
+        turn=1,
+        current_time=datetime.datetime(2026, 3, 3, 12, 0, 0),
+        speaker=cast(SimAgent, cast(object, speaker)),
+        speaking_partner=cast(SimAgent, cast(object, partner)),
+    )
+
+    assert result.reply == "그럼 난 이만 가볼게."
+    assert session.is_active is False
+    assert session.dialogue_context_for(
+        speaker=cast(SimAgent, cast(object, speaker))
+    ) == []
+
+    follow_up = engine.step(
+        turn=2,
+        current_time=result.now,
+        speaker=cast(SimAgent, cast(object, partner)),
+        speaking_partner=cast(SimAgent, cast(object, speaker)),
+    )
+
+    assert follow_up.reply == ""
+    assert follow_up.silent_reason == "dialogue_session_ended"
+    assert partner.brain.last_input is None

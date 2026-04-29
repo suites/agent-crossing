@@ -389,6 +389,7 @@ class AgentBrainGraphRunner:
                 utterance=talk,
                 speak_decision=should_speak,
                 action_intent=action_intent,
+                end_dialogue=reaction_decision.end_dialogue,
                 silent_reason=silent_reason,
                 reaction_trace=reaction_decision.trace,
                 diagnostics=build_action_diagnostics(

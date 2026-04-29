@@ -178,6 +178,7 @@ def parse_reaction_decision(response_text: str) -> ReactionDecision:
         should_react=False,
         reaction="",
         reason="fallback",
+        end_dialogue=False,
         thought="",
         critique="",
         trace=default_trace,
@@ -220,10 +221,14 @@ def parse_reaction_decision(response_text: str) -> ReactionDecision:
     if not isinstance(raw_reason, str):
         raw_reason = raw_critique or raw_thought or ""
 
+    raw_end_dialogue = parsed_json.get("end_dialogue")
+    end_dialogue = raw_end_dialogue if isinstance(raw_end_dialogue, bool) else False
+
     return ReactionDecision(
         should_react=raw_should_react,
         reaction=final_reaction,
         reason=raw_reason.strip() or "n/a",
+        end_dialogue=end_dialogue,
         thought=raw_thought.strip(),
         critique=raw_critique.strip(),
         trace=ReactionDecisionTrace(
@@ -244,6 +249,7 @@ def parse_reaction_intent(response_text: str) -> ReactionIntent:
     default_value = ReactionIntent(
         should_react=False,
         reason="fallback",
+        end_dialogue=False,
         thought="",
         critique="",
         trace=default_trace,
@@ -277,9 +283,13 @@ def parse_reaction_intent(response_text: str) -> ReactionIntent:
     if not isinstance(raw_reason, str):
         raw_reason = raw_critique or raw_thought or ""
 
+    raw_end_dialogue = parsed_json.get("end_dialogue")
+    end_dialogue = raw_end_dialogue if isinstance(raw_end_dialogue, bool) else False
+
     return ReactionIntent(
         should_react=raw_should_react,
         reason=raw_reason.strip() or "n/a",
+        end_dialogue=end_dialogue,
         thought=raw_thought.strip(),
         critique=raw_critique.strip(),
         trace=ReactionDecisionTrace(
@@ -300,6 +310,7 @@ def parse_reaction_utterance(response_text: str) -> ReactionUtterance:
     default_value = ReactionUtterance(
         utterance="",
         reason="fallback",
+        end_dialogue=False,
         thought="",
         critique="",
         trace=default_trace,
@@ -335,9 +346,13 @@ def parse_reaction_utterance(response_text: str) -> ReactionUtterance:
     if not isinstance(raw_reason, str):
         raw_reason = raw_critique or raw_thought or ""
 
+    raw_end_dialogue = parsed_json.get("end_dialogue")
+    end_dialogue = raw_end_dialogue if isinstance(raw_end_dialogue, bool) else False
+
     return ReactionUtterance(
         utterance=final_utterance,
         reason=raw_reason.strip() or "n/a",
+        end_dialogue=end_dialogue,
         thought=raw_thought.strip(),
         critique=raw_critique.strip(),
         trace=ReactionDecisionTrace(

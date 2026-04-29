@@ -78,6 +78,7 @@ class WorldConversationSession:
         self.agents: list[SimAgent] = agents
         self.dialogue_turn_window: int | None = dialogue_turn_window
         self.dialogue_target_turns: int = dialogue_target_turns
+        self.is_active: bool = True
         self.turn_index: int = 0
         self.history: list[tuple[str, str]] = []
         self.dialogue_turns_taken: int = 0
@@ -99,6 +100,9 @@ class WorldConversationSession:
         *,
         speaker: SimAgent,
     ) -> str | None:
+        if not self.is_active:
+            return None
+
         incoming_queue = self.incoming_utterances_by_agent[speaker.name]
         if not incoming_queue:
             return None
@@ -114,6 +118,9 @@ class WorldConversationSession:
         *,
         speaker: SimAgent,
     ) -> list[tuple[str, str]]:
+        if not self.is_active:
+            return []
+
         history = self.dialogue_history_by_agent[speaker.name]
         if self.dialogue_turn_window is None:
             return history
@@ -123,7 +130,10 @@ class WorldConversationSession:
         self,
         *,
         speaker: SimAgent,
-    ) -> DialogueArc:
+    ) -> DialogueArc | None:
+        if not self.is_active:
+            return None
+
         if self.dialogue_goal is None:
             self.dialogue_goal = infer_dialogue_goal(speaker=speaker)
 
@@ -151,6 +161,9 @@ class WorldConversationSession:
         incoming_partner_utterance: str | None,
         reply: str,
     ) -> None:
+        if not self.is_active:
+            return
+
         if self.dialogue_goal is None:
             self.dialogue_goal = infer_dialogue_goal(speaker=speaker)
 
@@ -164,6 +177,13 @@ class WorldConversationSession:
 
         self.history.append((speaker.name, reply))
         self.dialogue_turns_taken += 1
+
+    def finish_dialogue(self) -> None:
+        self.is_active = False
+        self.dialogue_turns_taken = 0
+        self.dialogue_goal = None
+        self.dialogue_history_by_agent = {agent.name: [] for agent in self.agents}
+        self.incoming_utterances_by_agent = {agent.name: [] for agent in self.agents}
 
     def broadcast_reply(
         self,

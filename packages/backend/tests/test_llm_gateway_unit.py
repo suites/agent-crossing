@@ -48,6 +48,7 @@ def _reaction_json(
     should_react: bool,
     reaction: str,
     reason: str,
+    end_dialogue: bool = False,
     thought: str = "",
     critique: str = "",
     use_utterance_field: bool = False,
@@ -55,6 +56,7 @@ def _reaction_json(
     payload: dict[str, object] = {
         "should_react": should_react,
         "reason": reason,
+        "end_dialogue": end_dialogue,
     }
     if use_utterance_field:
         payload["utterance"] = reaction
@@ -73,12 +75,14 @@ def _intent_json(
     *,
     should_react: bool,
     reason: str,
+    end_dialogue: bool = False,
     thought: str = "",
     critique: str = "",
 ) -> str:
     payload: dict[str, object] = {
         "should_react": should_react,
         "reason": reason,
+        "end_dialogue": end_dialogue,
     }
     if thought:
         payload["thought"] = thought
@@ -232,6 +236,28 @@ def test_decide_reaction_parses_thought_critique_and_utterance() -> None:
     assert decision.trace.parse_success is True
 
 
+def test_decide_reaction_propagates_end_dialogue_signal() -> None:
+    client = StubOllamaClient(
+        responses=[
+            _intent_json(should_react=True, reason="wrap_up", end_dialogue=True),
+            _reaction_json(
+                should_react=True,
+                reaction="그럼 난 이만 가볼게.",
+                reason="closing",
+                end_dialogue=True,
+                use_utterance_field=True,
+            ),
+        ]
+    )
+    service = LlmGateway(client)
+
+    decision = service.decide_reaction(_input(dialogue_history=[("반가워", "응")]))
+
+    assert decision.should_react is True
+    assert decision.end_dialogue is True
+    assert decision.reaction == "그럼 난 이만 가볼게."
+
+
 def test_decide_reaction_records_parse_failure_trace() -> None:
     client = StubOllamaClient(responses=["not-json"])
     service = LlmGateway(client)
@@ -378,6 +404,7 @@ def test_reaction_prompt_includes_short_dialogue_arc_guidance() -> None:
     assert "Conversation goal: Ask briefly about the decaf blend and wrap up naturally." in prompt
     assert "phase=closing" in prompt
     assert "Do not introduce a new major topic" in prompt
+    assert "set end_dialogue=true" in prompt
 
 
 def test_day_plan_prompt_contains_persona_and_json_shape() -> None:

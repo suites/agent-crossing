@@ -193,6 +193,48 @@ def test_dialogue_arc_for_moves_into_closing_phase_near_target() -> None:
     )
 
 
+def test_finish_dialogue_deactivates_session_and_clears_active_context() -> None:
+    speaker = cast(
+        SimAgent,
+        cast(
+            object,
+            DummyInteractiveAgent(
+                name="Jiho",
+                profile=_profile(plans=["Greet Sujin briefly."]),
+                brain=DummyBrain(queued=[]),
+            ),
+        ),
+    )
+    partner = cast(
+        SimAgent,
+        cast(
+            object,
+            DummyInteractiveAgent(
+                name="Sujin",
+                profile=_profile(plans=["Talk with Jiho."]),
+                brain=DummyBrain(queued=[]),
+            ),
+        ),
+    )
+    session = WorldConversationSession(
+        agents=[speaker, partner],
+        dialogue_turn_window=None,
+    )
+    session.commit_speaker_reply(
+        speaker=speaker,
+        incoming_partner_utterance=None,
+        reply="안녕",
+    )
+
+    session.finish_dialogue()
+
+    assert session.is_active is False
+    assert session.dialogue_turns_taken == 0
+    assert session.dialogue_goal is None
+    assert session.dialogue_context_for(speaker=speaker) == []
+    assert session.dialogue_arc_for(speaker=speaker) is None
+
+
 def test_broadcast_reply_enqueues_observations_and_incoming_queue() -> None:
     speaker = DummyInteractiveAgent(
         name="Jiho",

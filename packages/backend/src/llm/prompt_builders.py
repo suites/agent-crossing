@@ -11,12 +11,14 @@ from .template_loader import render_template
 
 REACTION_INTENT_JSON_SHAPE = (
     '{"should_react": <boolean>, "thought": "<string>", '
-    '"critique": "<string>", "reason": "<short string>"}'
+    '"critique": "<string>", "reason": "<short string>", '
+    '"end_dialogue": <boolean>}'
 )
 
 REACTION_UTTERANCE_JSON_SHAPE = (
     '{"utterance": "<string>", "thought": "<string>", '
-    '"critique": "<string>", "reason": "<short string>"}'
+    '"critique": "<string>", "reason": "<short string>", '
+    '"end_dialogue": <boolean>}'
 )
 
 SALIENT_QUESTIONS_JSON_SHAPE = (
@@ -477,6 +479,9 @@ def _build_dialogue_arc_section(*, dialogue_arc: DialogueArc) -> list[str]:
         lines.append(
             "Start wrapping up naturally. Prefer a brief closing remark or one final useful response."
         )
+        lines.append(
+            "If this turn should conclude the exchange, set end_dialogue=true."
+        )
 
     if dialogue_arc.should_wrap_up:
         lines.append(
@@ -484,6 +489,9 @@ def _build_dialogue_arc_section(*, dialogue_arc: DialogueArc) -> list[str]:
         )
         lines.append(
             "If there is no strong reason to continue, it is acceptable to end the exchange and return to the current plan."
+        )
+        lines.append(
+            "If no reply is needed because the exchange is already complete, return should_react=false and end_dialogue=true."
         )
 
     return lines

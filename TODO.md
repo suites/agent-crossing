@@ -211,6 +211,7 @@
     - [x] 대화 세션이 목표 턴 수와 phase(opening/middle/closing)를 계산한다
     - [x] reaction prompt가 goal/remaining turns/wrap-up 지시를 반영한다
     - [x] 관련 단위 테스트로 session 상태와 prompt 반영을 검증한다
+    - [x] closing 결정이 `end_dialogue` 구조화 신호를 통해 세션 종료로 연결된다
 
 ### 4-A. Backend 실시간 파이프라인
 

@@ -54,6 +54,7 @@ class ReactionDecision:
     should_react: bool
     reaction: str
     reason: str
+    end_dialogue: bool = False
     thought: str = ""
     critique: str = ""
     trace: ReactionDecisionTrace = ReactionDecisionTrace(
@@ -67,6 +68,7 @@ class ReactionDecision:
 class ReactionIntent:
     should_react: bool
     reason: str
+    end_dialogue: bool = False
     thought: str = ""
     critique: str = ""
     trace: ReactionDecisionTrace = ReactionDecisionTrace(
@@ -80,6 +82,7 @@ class ReactionIntent:
 class ReactionUtterance:
     utterance: str
     reason: str
+    end_dialogue: bool = False
     thought: str = ""
     critique: str = ""
     trace: ReactionDecisionTrace = ReactionDecisionTrace(

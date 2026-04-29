@@ -57,6 +57,8 @@ class ActionLoopResult:
     """이번 턴에 실제 발화를 수행했는지 여부."""
     action_intent: str = "continue_current_plan"
     """행동 의도를 나타내는 구조화된 문자열."""
+    end_dialogue: bool = False
+    """이번 턴이 현재 대화 세션을 마무리하는지 여부."""
     silent_reason: str = ""
     """발화하지 않았을 때 원인."""
     reaction_trace: ReactionDecisionTrace | None = None
