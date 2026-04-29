@@ -205,6 +205,13 @@
     - [x] 세션 시작 시 semantic threshold 등 상수 필드를 1회만 출력한다
     - [x] 발화 결정 과정을 `decision_process`로 구조화해 턴 로그에 출력한다
 
+- [x] `P1` 짧은 대화 아크를 session/reaction 경계에 도입한다
+  - Depends on: simulation 로그를 운영/디버그 모드로 분리하고 발화 의사결정 과정을 구조화한다
+  - DoD:
+    - [x] 대화 세션이 목표 턴 수와 phase(opening/middle/closing)를 계산한다
+    - [x] reaction prompt가 goal/remaining turns/wrap-up 지시를 반영한다
+    - [x] 관련 단위 테스트로 session 상태와 prompt 반영을 검증한다
+
 ### 4-A. Backend 실시간 파이프라인
 
 - [x] `P1` API runtime에서 world engine step 경로를 재사용한다

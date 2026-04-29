@@ -1,8 +1,28 @@
 import datetime
 from typing import Literal
 
+from agents.reaction import DialogueArc
 from agents.sim_agent import SimAgent
 from world.observation_builder import format_other_said, format_self_said
+
+DEFAULT_DIALOGUE_TARGET_TURNS = 5
+
+
+def infer_dialogue_goal(*, speaker: SimAgent) -> str:
+    profile = getattr(speaker, "profile", None)
+    if profile is None:
+        return "Have a short, friendly exchange and return to the current plan."
+
+    extended = getattr(profile, "extended", None)
+    if extended is None:
+        return "Have a short, friendly exchange and return to the current plan."
+
+    current_plan_context = getattr(extended, "current_plan_context", [])
+    if len(current_plan_context) >= 2 and current_plan_context[1].strip():
+        return current_plan_context[1].strip()
+    if current_plan_context and current_plan_context[0].strip():
+        return current_plan_context[0].strip()
+    return "Have a short, friendly exchange and return to the current plan."
 
 
 def build_turn_world_context(
@@ -46,16 +66,22 @@ class WorldConversationSession:
         *,
         agents: list[SimAgent],
         dialogue_turn_window: int | None,
+        dialogue_target_turns: int = DEFAULT_DIALOGUE_TARGET_TURNS,
     ):
         if len(agents) < 2:
             raise ValueError("At least two agents are required")
         if dialogue_turn_window is not None and dialogue_turn_window < 1:
             raise ValueError("dialogue_turn_window must be at least 1")
+        if dialogue_target_turns < 2:
+            raise ValueError("dialogue_target_turns must be at least 2")
 
         self.agents: list[SimAgent] = agents
         self.dialogue_turn_window: int | None = dialogue_turn_window
+        self.dialogue_target_turns: int = dialogue_target_turns
         self.turn_index: int = 0
         self.history: list[tuple[str, str]] = []
+        self.dialogue_turns_taken: int = 0
+        self.dialogue_goal: str | None = None
         self.dialogue_history_by_agent: dict[str, list[tuple[str, str]]] = {
             agent.name: [] for agent in agents
         }
@@ -93,6 +119,31 @@ class WorldConversationSession:
             return history
         return history[-self.dialogue_turn_window :]
 
+    def dialogue_arc_for(
+        self,
+        *,
+        speaker: SimAgent,
+    ) -> DialogueArc:
+        if self.dialogue_goal is None:
+            self.dialogue_goal = infer_dialogue_goal(speaker=speaker)
+
+        remaining_turns = max(0, self.dialogue_target_turns - self.dialogue_turns_taken)
+        if self.dialogue_turns_taken < 2:
+            phase: Literal["opening", "middle", "closing"] = "opening"
+        elif remaining_turns <= 2:
+            phase = "closing"
+        else:
+            phase = "middle"
+
+        return DialogueArc(
+            goal=self.dialogue_goal,
+            turns_taken=self.dialogue_turns_taken,
+            target_turns=self.dialogue_target_turns,
+            remaining_turns=remaining_turns,
+            phase=phase,
+            should_wrap_up=(phase == "closing"),
+        )
+
     def commit_speaker_reply(
         self,
         *,
@@ -100,6 +151,9 @@ class WorldConversationSession:
         incoming_partner_utterance: str | None,
         reply: str,
     ) -> None:
+        if self.dialogue_goal is None:
+            self.dialogue_goal = infer_dialogue_goal(speaker=speaker)
+
         if incoming_partner_utterance is not None:
             self.dialogue_history_by_agent[speaker.name][-1] = (
                 incoming_partner_utterance,
@@ -109,6 +163,7 @@ class WorldConversationSession:
             self.dialogue_history_by_agent[speaker.name].append(("", reply))
 
         self.history.append((speaker.name, reply))
+        self.dialogue_turns_taken += 1
 
     def broadcast_reply(
         self,

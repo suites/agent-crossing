@@ -1,4 +1,5 @@
 from .contracts import (
+    DialogueArc,
     GenerateClient,
     ReactionDecision,
     ReactionDecisionInput,
@@ -8,6 +9,7 @@ from .contracts import (
 )
 
 __all__ = [
+    "DialogueArc",
     "GenerateClient",
     "ReactionDecision",
     "ReactionDecisionInput",

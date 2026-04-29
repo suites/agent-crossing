@@ -26,6 +26,7 @@ class WorldRuntimeConfig:
     timeout_seconds: float
     persona_dir: str
     dialogue_turn_window: int | None = None
+    dialogue_target_turns: int = 5
     language: Literal["ko", "en"] = "ko"
     fallback_on_empty_reply: bool = False
     suppress_repeated_replies: bool = True
@@ -121,6 +122,7 @@ def build_world_runtime(*, config: WorldRuntimeConfig) -> WorldRuntime:
     session = WorldConversationSession(
         agents=agents,
         dialogue_turn_window=config.dialogue_turn_window,
+        dialogue_target_turns=config.dialogue_target_turns,
     )
     engine = SimulationEngine(
         session=session,

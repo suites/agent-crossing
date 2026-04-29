@@ -6,7 +6,7 @@ import numpy as np
 from agents.agent import AgentIdentity, AgentProfile, ExtendedPersona, FixedPersona
 from agents.memory.memory_object import MemoryObject, NodeType
 from agents.planning.models import DayPlanItem, HourlyPlanItem
-from agents.reaction import ReactionDecisionInput
+from agents.reaction import DialogueArc, ReactionDecisionInput
 from llm.embedding_encoder import EmbeddingEncodingContext
 from llm.guardrails.similarity import EmbeddingEncoder
 from llm.llm_gateway import LlmGateway
@@ -295,6 +295,7 @@ def test_reaction_prompt_includes_concise_utterance_constraint() -> None:
         intent_reason="react",
         intent_thought="",
         intent_critique="",
+        dialogue_arc=None,
     )
 
     assert "Keep utterance concise and short" in prompt
@@ -327,6 +328,7 @@ def test_reaction_prompt_includes_few_shot_and_reflection_anchor() -> None:
         intent_reason="react",
         intent_thought="",
         intent_critique="",
+        dialogue_arc=None,
     )
 
     assert "[Identity Anchor - highest priority]" in prompt
@@ -343,10 +345,39 @@ def test_reaction_intent_prompt_requests_intent_shape() -> None:
         dialogue_history=request.dialogue_history,
         profile=request.profile,
         retrieved_memories=request.retrieved_memories,
+        dialogue_arc=None,
     )
 
     assert "Should [Jiho Park] react to the observation right now?" in prompt
     assert '"should_react": <boolean>' in prompt
+
+
+def test_reaction_prompt_includes_short_dialogue_arc_guidance() -> None:
+    request = _input(dialogue_history=[("안녕", "안녕")])
+    prompt = build_reaction_utterance_prompt(
+        agent_identity=request.agent_identity,
+        current_time=request.current_time,
+        observation_content=request.observation_content,
+        dialogue_history=request.dialogue_history,
+        profile=request.profile,
+        retrieved_memories=request.retrieved_memories,
+        intent_reason="respond",
+        intent_thought="",
+        intent_critique="",
+        dialogue_arc=DialogueArc(
+            goal="Ask briefly about the decaf blend and wrap up naturally.",
+            turns_taken=4,
+            target_turns=5,
+            remaining_turns=1,
+            phase="closing",
+            should_wrap_up=True,
+        ),
+    )
+
+    assert "[Short Conversation Arc]" in prompt
+    assert "Conversation goal: Ask briefly about the decaf blend and wrap up naturally." in prompt
+    assert "phase=closing" in prompt
+    assert "Do not introduce a new major topic" in prompt
 
 
 def test_day_plan_prompt_contains_persona_and_json_shape() -> None:

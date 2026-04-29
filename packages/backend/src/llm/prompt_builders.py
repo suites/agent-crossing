@@ -5,6 +5,7 @@ from typing import Literal
 from agents.agent import AgentIdentity, AgentProfile
 from agents.memory.memory_object import MemoryObject
 from agents.planning.models import DayPlanItem, HourlyPlanItem
+from agents.reaction import DialogueArc
 
 from .template_loader import render_template
 
@@ -279,6 +280,7 @@ def build_reaction_intent_prompt(
     dialogue_history: list[tuple[str, str]],
     profile: AgentProfile,
     retrieved_memories: list[MemoryObject],
+    dialogue_arc: DialogueArc | None = None,
 ) -> str:
     summary_description = _build_summary_description(agent_identity, profile)
     agent_status = _build_agent_status(profile)
@@ -299,6 +301,9 @@ def build_reaction_intent_prompt(
         for index, (partner_talk, my_talk) in enumerate(dialogue_history, start=1):
             sections.append(f"- turn {index} partner: {partner_talk or 'none'}")
             sections.append(f"- turn {index} self: {my_talk or 'none'}")
+
+    if dialogue_arc is not None:
+        sections.extend(_build_dialogue_arc_section(dialogue_arc=dialogue_arc))
 
     sections.extend(
         [
@@ -323,6 +328,7 @@ def build_reaction_utterance_prompt(
     intent_reason: str,
     intent_thought: str,
     intent_critique: str,
+    dialogue_arc: DialogueArc | None = None,
 ) -> str:
     summary_description = _build_summary_description(agent_identity, profile)
     agent_status = _build_agent_status(profile)
@@ -343,6 +349,9 @@ def build_reaction_utterance_prompt(
         for index, (partner_talk, my_talk) in enumerate(dialogue_history, start=1):
             sections.append(f"- turn {index} partner: {partner_talk or 'none'}")
             sections.append(f"- turn {index} self: {my_talk or 'none'}")
+
+    if dialogue_arc is not None:
+        sections.extend(_build_dialogue_arc_section(dialogue_arc=dialogue_arc))
 
     sections.extend(
         [
@@ -440,6 +449,44 @@ def build_partner_response_nudge_block(*, latest_partner_utterance: str) -> str:
         latest_partner_utterance=latest_partner_utterance,
         json_shape=REACTION_UTTERANCE_JSON_SHAPE,
     ).strip()
+
+
+def _build_dialogue_arc_section(*, dialogue_arc: DialogueArc) -> list[str]:
+    lines = [
+        "[Short Conversation Arc]",
+        "Treat this as a short game-style exchange rather than a long open-ended chat.",
+        f"Conversation goal: {dialogue_arc.goal}",
+        (
+            "Arc status: "
+            f"turns_taken={dialogue_arc.turns_taken}, "
+            f"target_turns={dialogue_arc.target_turns}, "
+            f"remaining_turns={dialogue_arc.remaining_turns}, "
+            f"phase={dialogue_arc.phase}"
+        ),
+    ]
+
+    if dialogue_arc.phase == "opening":
+        lines.append(
+            "Open warmly, move into the main topic quickly, and avoid over-explaining."
+        )
+    elif dialogue_arc.phase == "middle":
+        lines.append(
+            "Advance the current topic with one concrete reply or one practical follow-up."
+        )
+    else:
+        lines.append(
+            "Start wrapping up naturally. Prefer a brief closing remark or one final useful response."
+        )
+
+    if dialogue_arc.should_wrap_up:
+        lines.append(
+            "Do not introduce a new major topic unless the partner just introduced important new information."
+        )
+        lines.append(
+            "If there is no strong reason to continue, it is acceptable to end the exchange and return to the current plan."
+        )
+
+    return lines
 
 
 def _build_reaction_base_sections(

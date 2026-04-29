@@ -1,10 +1,24 @@
+from __future__ import annotations
+
 import datetime
 from dataclasses import dataclass
-from typing import Literal, Protocol
+from typing import TYPE_CHECKING, Literal, Protocol
 
 from agents.agent import AgentIdentity, AgentProfile
 from agents.memory.memory_object import MemoryObject
-from llm.clients.ollama import LlmGenerateOptions
+
+if TYPE_CHECKING:
+    from llm.clients.ollama import LlmGenerateOptions
+
+
+@dataclass(frozen=True)
+class DialogueArc:
+    goal: str
+    turns_taken: int
+    target_turns: int
+    remaining_turns: int
+    phase: Literal["opening", "middle", "closing"]
+    should_wrap_up: bool = False
 
 
 @dataclass(frozen=True)
@@ -15,6 +29,7 @@ class ReactionDecisionInput:
     dialogue_history: list[tuple[str, str]]
     profile: AgentProfile
     retrieved_memories: list[MemoryObject]
+    dialogue_arc: DialogueArc | None = None
     language: Literal["ko", "en"] = "ko"
 
 

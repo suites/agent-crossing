@@ -317,6 +317,7 @@ class AgentBrainGraphRunner:
             "determine_context": DetermineContext(
                 observation=observation,
                 dialogue_history=input.dialogue_history,
+                dialogue_arc=input.dialogue_arc,
                 profile=input.profile,
                 retrieved_memories=retrieved_memories,
                 language=input.language,
@@ -339,6 +340,7 @@ class AgentBrainGraphRunner:
                     dialogue_history=determine_context.dialogue_history,
                     profile=determine_context.profile,
                     retrieved_memories=determine_context.retrieved_memories,
+                    dialogue_arc=determine_context.dialogue_arc,
                     language=determine_context.language,
                 )
             )

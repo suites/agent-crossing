@@ -235,6 +235,7 @@ class SimulationEngine:
                 current_time=now,
                 dialogue_history=self.session.dialogue_context_for(speaker=speaker),
                 profile=speaker.profile,
+                dialogue_arc=self.session.dialogue_arc_for(speaker=speaker),
                 language=self.config.language,
                 world_context=build_turn_world_context(
                     speaker_name=speaker.name,

@@ -6,7 +6,7 @@ import numpy as np
 
 from agents.agent import AgentProfile
 from agents.memory.memory_object import MemoryObject
-from agents.reaction import ReactionDecisionTrace
+from agents.reaction import DialogueArc, ReactionDecisionTrace
 
 from ..decision_diagnostics import ActionDiagnostics
 
@@ -26,6 +26,7 @@ class DetermineContext:
     observation: Observation
     retrieved_memories: list[MemoryObject]
     dialogue_history: list[tuple[str, str]]
+    dialogue_arc: DialogueArc | None
     profile: AgentProfile
     language: Literal["ko", "en"]
 
@@ -37,6 +38,7 @@ class ActionLoopInput:
     dialogue_history: list[tuple[str, str]]
     """대화 상황에서, (상대방 발화, 나의 발화) 리스트. 가장 최근 발화가 리스트의 마지막에 위치한다."""
     profile: AgentProfile
+    dialogue_arc: DialogueArc | None = None
     language: Literal["ko", "en"] = "ko"
     world_context: dict[str, str] | None = None
     observed_entities: list[str] | None = None

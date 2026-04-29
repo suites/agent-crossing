@@ -196,6 +196,7 @@ class ReactionGraphRunner:
                 dialogue_history=input.dialogue_history,
                 profile=input.profile,
                 retrieved_memories=input.retrieved_memories,
+                dialogue_arc=input.dialogue_arc,
             ),
         }
 
@@ -256,6 +257,7 @@ class ReactionGraphRunner:
             intent_reason=intent.reason,
             intent_thought=intent.thought,
             intent_critique=intent.critique,
+            dialogue_arc=input.dialogue_arc,
         )
         semantic_history = recent_self_utterances(input.dialogue_history, window=5)
         return {

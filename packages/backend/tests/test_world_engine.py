@@ -14,9 +14,10 @@ from world.session import WorldConversationSession
 class DummyBrain:
     next_result: ActionLoopResult
     queued: list[str]
+    last_input: ActionLoopInput | None = None
 
     def action_loop(self, input: ActionLoopInput) -> ActionLoopResult:
-        _ = input
+        self.last_input = input
         return self.next_result
 
     def queue_observation(
@@ -79,6 +80,7 @@ def test_step_commits_reply_and_broadcasts_to_partner() -> None:
                 ),
             ),
             queued=[],
+            last_input=None,
         ),
     )
     partner = DummyAgent(
@@ -90,6 +92,7 @@ def test_step_commits_reply_and_broadcasts_to_partner() -> None:
                 talk=None,
             ),
             queued=[],
+            last_input=None,
         ),
     )
     session = WorldConversationSession(
@@ -108,6 +111,10 @@ def test_step_commits_reply_and_broadcasts_to_partner() -> None:
     assert result.reply == "안녕하세요"
     assert result.silent_reason == ""
     assert session.history == [("Jiho", "안녕하세요")]
+    assert speaker.brain.last_input is not None
+    assert speaker.brain.last_input.dialogue_arc is not None
+    assert speaker.brain.last_input.dialogue_arc.phase == "opening"
+    assert speaker.brain.last_input.dialogue_arc.target_turns == 5
     assert speaker.brain.queued == ["나는 이렇게 말했다: 안녕하세요"]
     assert partner.brain.queued == ["Jiho가 이렇게 말했다: 안녕하세요"]
 
@@ -129,6 +136,7 @@ def test_step_suppresses_repeated_reply_when_policy_enabled() -> None:
                 ),
             ),
             queued=[],
+            last_input=None,
         ),
     )
     partner = DummyAgent(
@@ -140,6 +148,7 @@ def test_step_suppresses_repeated_reply_when_policy_enabled() -> None:
                 talk=None,
             ),
             queued=[],
+            last_input=None,
         ),
     )
     session = WorldConversationSession(
@@ -181,6 +190,7 @@ def test_step_suppresses_meta_leak_reply() -> None:
                 ),
             ),
             queued=[],
+            last_input=None,
         ),
     )
     partner = DummyAgent(
@@ -192,6 +202,7 @@ def test_step_suppresses_meta_leak_reply() -> None:
                 talk=None,
             ),
             queued=[],
+            last_input=None,
         ),
     )
     session = WorldConversationSession(
@@ -230,6 +241,7 @@ def test_step_fallbacks_when_meta_leak_reply_and_fallback_enabled() -> None:
                 ),
             ),
             queued=[],
+            last_input=None,
         ),
     )
     partner = DummyAgent(
@@ -241,6 +253,7 @@ def test_step_fallbacks_when_meta_leak_reply_and_fallback_enabled() -> None:
                 talk=None,
             ),
             queued=[],
+            last_input=None,
         ),
     )
     session = WorldConversationSession(

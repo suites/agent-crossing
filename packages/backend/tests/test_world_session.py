@@ -3,8 +3,11 @@ from dataclasses import dataclass
 from typing import cast
 
 import pytest
+from agents.agent import AgentProfile, ExtendedPersona, FixedPersona
+from agents.reaction import DialogueArc
 from agents.sim_agent import SimAgent
 from world.session import (
+    infer_dialogue_goal,
     WorldConversationSession,
     build_turn_observed_events,
     build_turn_world_context,
@@ -37,6 +40,16 @@ class DummyInteractiveAgent:
     name: str
     profile: object
     brain: DummyBrain
+
+
+def _profile(*, plans: list[str]) -> AgentProfile:
+    return AgentProfile(
+        fixed=FixedPersona(identity_stable_set=[]),
+        extended=ExtendedPersona(
+            lifestyle_and_routine=[],
+            current_plan_context=plans,
+        ),
+    )
 
 
 def test_dialogue_context_for_returns_full_history_when_window_is_none() -> None:
@@ -97,6 +110,87 @@ def test_build_turn_observed_events_uses_partner_utterance_when_available() -> N
     )
 
     assert events == ["Heard Sujin's latest utterance: How was the decaf test?"]
+
+
+def test_infer_dialogue_goal_prefers_second_plan_context_when_available() -> None:
+    speaker = cast(
+        SimAgent,
+        cast(
+            object,
+            DummyInteractiveAgent(
+                name="Jiho",
+                profile=_profile(
+                    plans=[
+                        "Jiho is visiting Morning Dew Cafe to talk with Sujin.",
+                        "Jiho wants to ask how Sujin's new decaf blend is going.",
+                    ]
+                ),
+                brain=DummyBrain(queued=[]),
+            ),
+        ),
+    )
+
+    assert (
+        infer_dialogue_goal(speaker=speaker)
+        == "Jiho wants to ask how Sujin's new decaf blend is going."
+    )
+
+
+def test_dialogue_arc_for_moves_into_closing_phase_near_target() -> None:
+    speaker = cast(
+        SimAgent,
+        cast(
+            object,
+            DummyInteractiveAgent(
+                name="Jiho",
+                profile=_profile(
+                    plans=[
+                        "Jiho is visiting Morning Dew Cafe to talk with Sujin.",
+                        "Jiho wants to ask how Sujin's new decaf blend is going.",
+                    ]
+                ),
+                brain=DummyBrain(queued=[]),
+            ),
+        ),
+    )
+    partner = cast(
+        SimAgent,
+        cast(
+            object,
+            DummyInteractiveAgent(
+                name="Sujin",
+                profile=_profile(
+                    plans=[
+                        "Sujin is at Morning Dew Cafe and expecting Jiho to stop by.",
+                    ]
+                ),
+                brain=DummyBrain(queued=[]),
+            ),
+        ),
+    )
+    session = WorldConversationSession(
+        agents=[speaker, partner],
+        dialogue_turn_window=None,
+        dialogue_target_turns=5,
+    )
+
+    for reply in ["안녕", "반가워", "잘 지냈어"]:
+        session.commit_speaker_reply(
+            speaker=speaker,
+            incoming_partner_utterance=None,
+            reply=reply,
+        )
+
+    arc = session.dialogue_arc_for(speaker=speaker)
+
+    assert arc == DialogueArc(
+        goal="Jiho wants to ask how Sujin's new decaf blend is going.",
+        turns_taken=3,
+        target_turns=5,
+        remaining_turns=2,
+        phase="closing",
+        should_wrap_up=True,
+    )
 
 
 def test_broadcast_reply_enqueues_observations_and_incoming_queue() -> None:
