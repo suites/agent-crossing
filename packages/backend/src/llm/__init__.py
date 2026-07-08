@@ -4,7 +4,6 @@ from .embedding_encoder import (
     LlmEmbeddingEncoder,
     OllamaEmbeddingEncoder,
 )
-from .clients.google_ai_studio import GoogleAiStudioClient, GoogleAiStudioClientError
 from .clients.litellm_client import LiteLlmClient, LiteLlmClientError
 from .importance_scorer import (
     ImportanceScorer,
@@ -22,8 +21,6 @@ __all__ = [
     "EmbeddingEncoder",
     "EmbeddingEncodingContext",
     "ImportanceScorer",
-    "GoogleAiStudioClient",
-    "GoogleAiStudioClientError",
     "LiteLlmClient",
     "LiteLlmClientError",
     "LlmEmbeddingEncoder",
