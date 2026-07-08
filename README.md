@@ -58,27 +58,15 @@ pnpm dev:frontend
 
 ### LLM provider switch
 
-Backend runtime uses LiteLLM by default so Ollama-compatible gateways and Gemini can share one adapter. Set env vars before running backend:
+Backend runtime uses LiteLLM as the provider adapter. Switch model backends with `LLM_BACKEND`; each backend maps to the project-approved model names in `settings.py`.
 
 ```bash
-# default: LiteLLM via Fredly model gateway
-export LLM_PROVIDER=litellm
-export LLM_BASE_URL=https://model.fredly.dev
-export LLM_API_KEY=
-export LLM_MODEL=ollama_chat/qwen2.5:7b-instruct
-export EMBEDDING_MODEL=ollama/bge-m3
+# Fredly Ollama gateway
+export LLM_BACKEND=ollama
 
-# local Ollama direct adapter
-export LLM_PROVIDER=ollama
-export LLM_BASE_URL=http://localhost:11434
-export LLM_MODEL=qwen2.5:7b-instruct
-export EMBEDDING_MODEL=bge-m3
-
-# Google AI Studio direct adapter
-export LLM_PROVIDER=google_ai_studio
+# Google AI Studio
+export LLM_BACKEND=google_ai_studio
 export GOOGLE_AI_STUDIO_API_KEY=your_api_key
-export LLM_MODEL=gemini-2.5-flash-lite
-export EMBEDDING_MODEL=gemini-embedding-001
 ```
 
 ### PostgreSQL + pgvector (Docker)
