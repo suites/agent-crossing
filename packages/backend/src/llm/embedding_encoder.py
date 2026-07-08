@@ -44,6 +44,3 @@ class LlmEmbeddingEncoder:
             expected_dimension=EMBEDDING_DIMENSION,
         )
         return np.asarray(vector, dtype=np.float32)
-
-
-OllamaEmbeddingEncoder = LlmEmbeddingEncoder

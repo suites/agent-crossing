@@ -2,12 +2,24 @@ import json
 
 from llm import (
     ImportanceScoringContext,
-    OllamaClient,
-    OllamaImportanceScorer,
+    LlmImportanceScorer,
     clamp_importance,
     parse_importance_value,
 )
-from llm.clients.ollama import JsonObject
+
+
+class StubGenerationClient:
+    def __init__(self, response: str | Exception):
+        self.response = response
+        self.calls: int = 0
+        self.last_format_json: bool | None = None
+
+    def generate(self, **kwargs: object) -> str:
+        self.calls += 1
+        self.last_format_json = kwargs.get("format_json") is True
+        if isinstance(self.response, Exception):
+            raise self.response
+        return self.response
 
 
 def test_clamp_importance_bounds() -> None:
@@ -30,16 +42,9 @@ def test_parse_importance_value_malformed_fallback() -> None:
     assert parse_importance_value("not-json", fallback_importance=3) == 3
 
 
-def test_ollama_importance_scorer_success() -> None:
-    def request_fn(url: str, payload: JsonObject, timeout_seconds: float) -> JsonObject:
-        assert url.endswith("/api/generate")
-        assert payload["model"] == "qwen2.5:7b-instruct"
-        assert payload["format"] == "json"
-        assert timeout_seconds == 5.0
-        return {"response": '{"importance": 7, "reason": "goal relevant"}'}
-
-    client = OllamaClient(timeout_seconds=5.0, request_fn=request_fn)
-    scorer = OllamaImportanceScorer(client=client)
+def test_llm_importance_scorer_success() -> None:
+    client = StubGenerationClient('{"importance": 7, "reason": "goal relevant"}')
+    scorer = LlmImportanceScorer(client=client)
 
     score = scorer.score(
         ImportanceScoringContext(
@@ -51,16 +56,13 @@ def test_ollama_importance_scorer_success() -> None:
     )
 
     assert score == 7
+    assert client.calls == 1
+    assert client.last_format_json is True
 
 
-def test_ollama_importance_scorer_fallback_on_client_error() -> None:
-    def request_fn(
-        _url: str, _payload: JsonObject, _timeout_seconds: float
-    ) -> JsonObject:
-        raise TimeoutError("timed out")
-
-    client = OllamaClient(request_fn=request_fn)
-    scorer = OllamaImportanceScorer(client=client, fallback_importance=3)
+def test_llm_importance_scorer_fallback_on_client_error() -> None:
+    client = StubGenerationClient(TimeoutError("timed out"))
+    scorer = LlmImportanceScorer(client=client, fallback_importance=3)
 
     score = scorer.score(
         ImportanceScoringContext(

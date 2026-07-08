@@ -4,7 +4,7 @@ from typing import Any, cast
 import litellm
 from settings import EMBEDDING_DIMENSION
 
-from .ollama import LlmGenerateOptions
+from .types import LlmGenerateOptions
 
 
 class LiteLlmClientError(RuntimeError):

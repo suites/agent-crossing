@@ -6,7 +6,7 @@ from agents.planning.models import (
     DayPlanBroadStrokesRequest,
 )
 from agents.planning.planner import Planner
-from llm.clients.ollama import LlmGenerateOptions
+from llm.clients.types import LlmGenerateOptions
 
 
 class StubPlanningClient:

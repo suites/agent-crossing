@@ -5,7 +5,7 @@ import numpy as np
 from typing_extensions import TypedDict
 
 from llm import prompt_builders
-from llm.clients.ollama import LlmGenerateOptions
+from llm.clients.types import LlmGenerateOptions
 from llm.guardrails.similarity import (
     EmbeddingEncoder,
     SEMANTIC_HARD_BLOCK_THRESHOLD,
@@ -92,10 +92,10 @@ class ReactionGraphRunner:
     def __init__(
         self,
         *,
-        ollama_client: GenerateClient,
+        generation_client: GenerateClient,
         embedding_encoder: EmbeddingEncoder | None,
     ):
-        self.ollama_client: GenerateClient = ollama_client
+        self.generation_client: GenerateClient = generation_client
         self.embedding_encoder: EmbeddingEncoder | None = embedding_encoder
         self.graph: ReactionGraphInvoker = self._build_graph()
 
@@ -204,7 +204,7 @@ class ReactionGraphRunner:
         self,
         state: ReactionGraphState,
     ) -> dict[str, ReactionIntent]:
-        response = self.ollama_client.generate(
+        response = self.generation_client.generate(
             prompt=state["intent_prompt"],
             system=state["system_prompt"],
             options=REACTION_GENERATE_OPTIONS,
@@ -283,7 +283,7 @@ class ReactionGraphRunner:
         self,
         state: ReactionGraphState,
     ) -> dict[str, object]:
-        response = self.ollama_client.generate(
+        response = self.generation_client.generate(
             prompt=state["working_prompt"],
             system=state["system_prompt"],
             options=REACTION_GENERATE_OPTIONS,

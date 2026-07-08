@@ -1,12 +1,12 @@
 from .litellm_client import LiteLlmClient, LiteLlmClientError
-from .ollama import OllamaClient, OllamaClientError
 from .provider_factory import ProviderClient, build_provider_client
+from .types import JsonObject, LlmGenerateOptions
 
 __all__ = [
+    "JsonObject",
     "LiteLlmClient",
     "LiteLlmClientError",
-    "OllamaClient",
-    "OllamaClientError",
+    "LlmGenerateOptions",
     "ProviderClient",
     "build_provider_client",
 ]

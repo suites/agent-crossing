@@ -3,7 +3,7 @@ from typing import Literal, Protocol, cast
 
 from ..graph_support import GRAPH_END, GRAPH_START, GRAPH_STATE_FACTORY
 from llm import prompt_builders
-from llm.clients.ollama import LlmGenerateOptions
+from llm.clients.types import LlmGenerateOptions
 from llm.governance import (
     DayPlanParseError,
     HourPlanParseError,

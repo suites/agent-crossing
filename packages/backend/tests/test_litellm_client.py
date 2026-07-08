@@ -5,7 +5,7 @@ from typing import Any
 import litellm
 
 from llm.clients.litellm_client import LiteLlmClient
-from llm.clients.ollama import LlmGenerateOptions
+from llm.clients.types import LlmGenerateOptions
 
 
 def test_generate_uses_litellm_completion_shape(monkeypatch) -> None:

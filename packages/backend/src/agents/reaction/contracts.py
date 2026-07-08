@@ -8,7 +8,7 @@ from agents.agent import AgentIdentity, AgentProfile
 from agents.memory.memory_object import MemoryObject
 
 if TYPE_CHECKING:
-    from llm.clients.ollama import LlmGenerateOptions
+    from llm.clients.types import LlmGenerateOptions
 
 
 @dataclass(frozen=True)

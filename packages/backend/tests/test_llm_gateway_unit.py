@@ -20,7 +20,7 @@ from llm.prompt_builders import (
 )
 
 
-class StubOllamaClient:
+class StubGenerationClient:
     def __init__(self, responses: list[str]):
         self.responses: list[str] = list(responses)
         self.calls: int = 0
@@ -120,7 +120,7 @@ def _input(
 
 
 def test_decide_reaction_retries_when_first_output_is_repetitive() -> None:
-    client = StubOllamaClient(
+    client = StubGenerationClient(
         responses=[
             _intent_json(should_react=True, reason="react"),
             _reaction_json(
@@ -150,7 +150,7 @@ def test_decide_reaction_retries_when_first_output_is_repetitive() -> None:
 
 
 def test_decide_reaction_uses_first_output_when_not_repetitive() -> None:
-    client = StubOllamaClient(
+    client = StubGenerationClient(
         responses=[
             _intent_json(should_react=True, reason="react"),
             _reaction_json(
@@ -175,7 +175,7 @@ def test_decide_reaction_uses_first_output_when_not_repetitive() -> None:
 
 
 def test_decide_reaction_semantic_retry_when_embedding_similarity_is_high() -> None:
-    client = StubOllamaClient(
+    client = StubGenerationClient(
         responses=[
             _intent_json(should_react=True, reason="react"),
             _reaction_json(
@@ -209,7 +209,7 @@ def test_decide_reaction_semantic_retry_when_embedding_similarity_is_high() -> N
 
 
 def test_decide_reaction_parses_thought_critique_and_utterance() -> None:
-    client = StubOllamaClient(
+    client = StubGenerationClient(
         responses=[
             _intent_json(
                 should_react=True,
@@ -237,7 +237,7 @@ def test_decide_reaction_parses_thought_critique_and_utterance() -> None:
 
 
 def test_decide_reaction_propagates_end_dialogue_signal() -> None:
-    client = StubOllamaClient(
+    client = StubGenerationClient(
         responses=[
             _intent_json(should_react=True, reason="wrap_up", end_dialogue=True),
             _reaction_json(
@@ -259,7 +259,7 @@ def test_decide_reaction_propagates_end_dialogue_signal() -> None:
 
 
 def test_decide_reaction_records_parse_failure_trace() -> None:
-    client = StubOllamaClient(responses=["not-json"])
+    client = StubGenerationClient(responses=["not-json"])
     service = LlmGateway(client)
 
     decision = service.decide_reaction(_input(dialogue_history=[]))
@@ -270,7 +270,7 @@ def test_decide_reaction_records_parse_failure_trace() -> None:
 
 
 def test_decide_reaction_retries_once_for_partner_utterance_when_silent() -> None:
-    client = StubOllamaClient(
+    client = StubGenerationClient(
         responses=[
             _intent_json(should_react=True, reason="react"),
             _reaction_json(should_react=True, reaction="", reason="first_silent"),
@@ -293,7 +293,7 @@ def test_decide_reaction_retries_once_for_partner_utterance_when_silent() -> Non
 
 
 def test_decide_reaction_repairs_truncated_json_once() -> None:
-    client = StubOllamaClient(
+    client = StubGenerationClient(
         responses=[
             _intent_json(should_react=True, reason="react"),
             '{"should_react": true, "utterance": "좋아요", "reason": "ok"',
@@ -505,7 +505,7 @@ def test_salient_prompt_uses_strict_json_contract_line() -> None:
 
 
 def test_generate_salient_questions_requests_json_format() -> None:
-    client = StubOllamaClient(
+    client = StubGenerationClient(
         responses=[
             json.dumps(
                 {
@@ -541,7 +541,7 @@ def test_generate_salient_questions_requests_json_format() -> None:
 
 def test_generate_hour_plan_parses_json_items() -> None:
     service = LlmGateway(
-        StubOllamaClient(
+        StubGenerationClient(
             responses=[
                 json.dumps(
                     {
@@ -582,7 +582,7 @@ def test_generate_hour_plan_parses_json_items() -> None:
 
 
 def test_generate_hour_plan_prompt_uses_single_day_plan_item() -> None:
-    client = StubOllamaClient(
+    client = StubGenerationClient(
         responses=[
             json.dumps({"items": []}),
             json.dumps({"items": []}),
@@ -610,7 +610,7 @@ def test_generate_hour_plan_prompt_uses_single_day_plan_item() -> None:
 
 def test_generate_day_plan_coerces_year_to_today_when_month_day_match() -> None:
     service = LlmGateway(
-        StubOllamaClient(
+        StubGenerationClient(
             responses=[
                 json.dumps(
                     {
@@ -669,7 +669,7 @@ def test_generate_day_plan_coerces_year_to_today_when_month_day_match() -> None:
 
 def test_generate_hour_plan_coerces_year_to_current_date_when_month_day_match() -> None:
     service = LlmGateway(
-        StubOllamaClient(
+        StubGenerationClient(
             responses=[
                 json.dumps(
                     {
@@ -710,7 +710,7 @@ def test_generate_hour_plan_coerces_year_to_current_date_when_month_day_match() 
 
 
 def test_generate_hour_plan_retries_once_on_truncated_json() -> None:
-    client = StubOllamaClient(
+    client = StubGenerationClient(
         responses=[
             '{"items": [{"start_time": "2026-02-13T08:00:00", "end_time": "2026-02-13T09:30:00"',
             json.dumps(
@@ -751,7 +751,7 @@ def test_generate_hour_plan_retries_once_on_truncated_json() -> None:
 
 
 def test_generate_hour_plan_returns_empty_after_retry_exhaustion() -> None:
-    client = StubOllamaClient(
+    client = StubGenerationClient(
         responses=[
             "not-json",
             json.dumps(
@@ -799,7 +799,7 @@ def test_generate_hour_plan_returns_empty_after_retry_exhaustion() -> None:
 
 def test_generate_minute_plan_parses_json_items() -> None:
     service = LlmGateway(
-        StubOllamaClient(
+        StubGenerationClient(
             responses=[
                 json.dumps(
                     {
@@ -840,7 +840,7 @@ def test_generate_minute_plan_parses_json_items() -> None:
 
 
 def test_generate_minute_plan_prompt_uses_single_hourly_plan_item() -> None:
-    client = StubOllamaClient(
+    client = StubGenerationClient(
         responses=[
             json.dumps({"items": []}),
             json.dumps({"items": []}),
@@ -870,7 +870,7 @@ def test_generate_minute_plan_coerces_year_to_current_date_when_month_day_match(
     None
 ):
     service = LlmGateway(
-        StubOllamaClient(
+        StubGenerationClient(
             responses=[
                 json.dumps(
                     {
@@ -911,7 +911,7 @@ def test_generate_minute_plan_coerces_year_to_current_date_when_month_day_match(
 
 
 def test_generate_minute_plan_retries_once_on_schema_validation_error() -> None:
-    client = StubOllamaClient(
+    client = StubGenerationClient(
         responses=[
             json.dumps({"items": "invalid-format"}),
             json.dumps(
@@ -947,7 +947,7 @@ def test_generate_minute_plan_retries_once_on_schema_validation_error() -> None:
 
 
 def test_generate_day_plan_parses_json_items() -> None:
-    client = StubOllamaClient(
+    client = StubGenerationClient(
         responses=[
             json.dumps(
                 {
@@ -1006,7 +1006,7 @@ def test_generate_day_plan_parses_json_items() -> None:
 
 
 def test_generate_day_plan_returns_empty_on_parse_failure() -> None:
-    client = StubOllamaClient(responses=["not-json"])
+    client = StubGenerationClient(responses=["not-json"])
     service = LlmGateway(client)
 
     items = service.generate_day_plan(
@@ -1023,7 +1023,7 @@ def test_generate_day_plan_returns_empty_on_parse_failure() -> None:
 
 
 def test_generate_day_plan_returns_empty_if_too_few_items() -> None:
-    client = StubOllamaClient(
+    client = StubGenerationClient(
         responses=[
             json.dumps(
                 {
@@ -1067,7 +1067,7 @@ def test_generate_day_plan_returns_empty_if_too_few_items() -> None:
 
 
 def test_generate_day_plan_dedupes_and_truncates_to_max() -> None:
-    client = StubOllamaClient(
+    client = StubGenerationClient(
         responses=[
             json.dumps(
                 {
@@ -1150,7 +1150,7 @@ def test_generate_day_plan_dedupes_and_truncates_to_max() -> None:
 
 
 def test_generate_day_plan_retries_once_on_truncated_json() -> None:
-    client = StubOllamaClient(
+    client = StubGenerationClient(
         responses=[
             '{"items": [{"start_time": "2026-02-13T08:00:00", "end_time": "2026-02-13T08:20:00"',
             json.dumps(
@@ -1215,7 +1215,7 @@ def test_generate_day_plan_retries_once_on_truncated_json() -> None:
 
 
 def test_generate_day_plan_retries_once_on_schema_validation_error() -> None:
-    client = StubOllamaClient(
+    client = StubGenerationClient(
         responses=[
             json.dumps({"items": "invalid-format"}),
             json.dumps(
@@ -1273,7 +1273,7 @@ def test_generate_day_plan_retries_once_on_schema_validation_error() -> None:
 
 
 def test_generate_day_plan_returns_empty_after_retry_exhaustion() -> None:
-    client = StubOllamaClient(
+    client = StubGenerationClient(
         responses=[
             "not-json",
             json.dumps(

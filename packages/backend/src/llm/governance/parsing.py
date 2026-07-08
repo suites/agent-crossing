@@ -10,7 +10,7 @@ from agents.reaction.contracts import (
     ReactionUtterance,
 )
 from agents.planning.models import DayPlanItem, HourlyPlanItem, MinutePlanItem
-from llm.clients.ollama import JsonObject
+from llm.clients.types import JsonObject
 
 
 @dataclass(frozen=True)

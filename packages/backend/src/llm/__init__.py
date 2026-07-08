@@ -2,33 +2,29 @@ from .embedding_encoder import (
     EmbeddingEncoder,
     EmbeddingEncodingContext,
     LlmEmbeddingEncoder,
-    OllamaEmbeddingEncoder,
 )
 from .clients.litellm_client import LiteLlmClient, LiteLlmClientError
+from .clients.types import JsonObject, LlmGenerateOptions
 from .importance_scorer import (
     ImportanceScorer,
     ImportanceScoringContext,
     LlmImportanceScorer,
-    OllamaImportanceScorer,
     clamp_importance,
     parse_importance_value,
 )
-from .clients.ollama import OllamaClient, OllamaClientError
 from .clients.provider_factory import build_provider_client
 
 __all__ = [
-    "ImportanceScoringContext",
     "EmbeddingEncoder",
     "EmbeddingEncodingContext",
+    "ImportanceScoringContext",
     "ImportanceScorer",
+    "JsonObject",
     "LiteLlmClient",
     "LiteLlmClientError",
+    "LlmGenerateOptions",
     "LlmEmbeddingEncoder",
     "LlmImportanceScorer",
-    "OllamaEmbeddingEncoder",
-    "OllamaClient",
-    "OllamaClientError",
-    "OllamaImportanceScorer",
     "build_provider_client",
     "clamp_importance",
     "parse_importance_value",

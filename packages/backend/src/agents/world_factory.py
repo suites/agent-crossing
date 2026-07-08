@@ -8,8 +8,8 @@ from agents.persona_loader import AgentPersona, PersonaLoader, apply_persona_to_
 from agents.reflection import Reflection, ReflectionGraphRunner
 from agents.sim_agent import SimAgent
 from llm.clients.provider_factory import ProviderClient
-from llm.embedding_encoder import OllamaEmbeddingEncoder
-from llm.importance_scorer import OllamaImportanceScorer
+from llm.embedding_encoder import LlmEmbeddingEncoder
+from llm.importance_scorer import LlmImportanceScorer
 from llm.llm_gateway import LlmGateway
 
 from .memory.memory_manager import MemoryManager
@@ -32,8 +32,8 @@ def _build_agent(
     embedding_model: str,
 ) -> SimAgent:
     memory_stream = MemoryStream()
-    importance_scorer = OllamaImportanceScorer(client=llm_client)
-    embedding_encoder = OllamaEmbeddingEncoder(client=llm_client, model=embedding_model)
+    importance_scorer = LlmImportanceScorer(client=llm_client)
+    embedding_encoder = LlmEmbeddingEncoder(client=llm_client, model=embedding_model)
     memory_manager = MemoryManager(
         memory_stream=memory_stream,
         importance_scorer=importance_scorer,

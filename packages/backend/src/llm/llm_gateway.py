@@ -17,7 +17,7 @@ from agents.reaction import (
     ReactionDecisionInput,
 )
 from agents.reaction.graph import ReactionGraphRunner
-from llm.clients.ollama import JsonObject, LlmGenerateOptions
+from llm.clients.types import JsonObject, LlmGenerateOptions
 from llm.guardrails.similarity import EmbeddingEncoder
 
 from . import prompt_builders
@@ -50,14 +50,14 @@ class InsightWithCitation:
 class LlmGateway:
     def __init__(
         self,
-        ollama_client: GenerateClient,
+        generation_client: GenerateClient,
         *,
         embedding_encoder: EmbeddingEncoder | None = None,
     ):
-        self.ollama_client: GenerateClient = ollama_client
+        self.generation_client: GenerateClient = generation_client
         self.embedding_encoder: EmbeddingEncoder | None = embedding_encoder
         self.reaction_graph: ReactionGraphRunner = ReactionGraphRunner(
-            ollama_client=ollama_client,
+            generation_client=generation_client,
             embedding_encoder=embedding_encoder,
         )
         self.planning_graph: PlanningGraphRunner = PlanningGraphRunner(
@@ -74,7 +74,7 @@ class LlmGateway:
             agent_name=agent_name,
             memories=memories,
         )
-        response_text = self.ollama_client.generate(prompt=prompt, format_json=True)
+        response_text = self.generation_client.generate(prompt=prompt, format_json=True)
 
         try:
             parsed_data = cast(object, json.loads(response_text))
@@ -108,7 +108,7 @@ class LlmGateway:
             agent_name=agent_name,
             memories=memories,
         )
-        response_text = self.ollama_client.generate(prompt=prompt, format_json=True)
+        response_text = self.generation_client.generate(prompt=prompt, format_json=True)
 
         try:
             parsed_data = cast(object, json.loads(response_text))
@@ -207,7 +207,7 @@ class LlmGateway:
         prompt: str,
         options: LlmGenerateOptions,
     ) -> str:
-        return self.ollama_client.generate(
+        return self.generation_client.generate(
             prompt=prompt,
             format_json=True,
             options=options,

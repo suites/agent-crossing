@@ -8,7 +8,7 @@ from agents.reaction import (
 )
 
 
-class StubOllamaClient:
+class StubGenerationClient:
     def __init__(self, responses: list[str]):
         self.responses: list[str] = list(responses)
         self.calls: int = 0
@@ -52,7 +52,7 @@ def _input() -> ReactionDecisionInput:
 
 def test_reaction_graph_runner_finishes_without_utterance_when_intent_rejects() -> None:
     runner = ReactionGraphRunner(
-        ollama_client=StubOllamaClient(
+        generation_client=StubGenerationClient(
             responses=[_intent_json(should_react=False, reason="stay_silent")]
         ),
         embedding_encoder=None,
@@ -67,7 +67,7 @@ def test_reaction_graph_runner_finishes_without_utterance_when_intent_rejects() 
 
 def test_reaction_graph_runner_retries_partner_nudge_once() -> None:
     runner = ReactionGraphRunner(
-        ollama_client=StubOllamaClient(
+        generation_client=StubGenerationClient(
             responses=[
                 _intent_json(should_react=True, reason="react"),
                 _utterance_json(utterance="", reason="silent"),

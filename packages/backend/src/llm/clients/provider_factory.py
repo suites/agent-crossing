@@ -1,7 +1,7 @@
 from typing import Protocol
 
 from .litellm_client import LiteLlmClient
-from .ollama import LlmGenerateOptions
+from .types import LlmGenerateOptions
 
 
 class ProviderClient(Protocol):

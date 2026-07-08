@@ -3,7 +3,7 @@ import re
 from dataclasses import dataclass
 from typing import Protocol, cast
 
-from .clients.ollama import (
+from .clients.types import (
     JsonObject,
     LlmGenerateOptions,
 )
@@ -115,6 +115,3 @@ class LlmImportanceScorer:
             current_plan=context.current_plan,
             observation=context.observation,
         )
-
-
-OllamaImportanceScorer = LlmImportanceScorer
