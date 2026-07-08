@@ -49,8 +49,8 @@ print(json.dumps({
     return json.loads(result.stdout)
 
 
-def test_settings_defaults_to_fredly_ollama_backend() -> None:
-    settings_payload = _load_settings_with_env({})
+def test_settings_ollama_backend_uses_fredly_gateway() -> None:
+    settings_payload = _load_settings_with_env({"LLM_BACKEND": "ollama"})
 
     assert settings_payload == {
         "LLM_BACKEND": "ollama",
@@ -71,7 +71,7 @@ def test_settings_google_backend_uses_gemini_model_and_api_key() -> None:
 
     assert settings_payload == {
         "LLM_BACKEND": "google_ai_studio",
-        "LLM_BASE_URL": "https://generativelanguage.googleapis.com",
+        "LLM_BASE_URL": "https://generativelanguage.googleapis.com/v1beta",
         "LLM_MODEL": "gemini/gemini-2.5-flash-lite",
         "EMBEDDING_MODEL": "gemini/gemini-embedding-001",
         "LLM_API_KEY": "test-google-key",

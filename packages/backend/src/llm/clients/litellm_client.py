@@ -68,17 +68,19 @@ class LiteLlmClient:
             "top_p": final_options.top_p,
             "max_tokens": final_options.num_predict,
             "timeout": self.timeout_seconds,
+            "num_retries": 2,
         }
         if self.base_url:
             kwargs["api_base"] = self.base_url
         if self.api_key:
             kwargs["api_key"] = self.api_key
-        if final_options.repeat_penalty is not None:
-            kwargs["repeat_penalty"] = final_options.repeat_penalty
-        if final_options.presence_penalty is not None:
-            kwargs["presence_penalty"] = final_options.presence_penalty
-        if final_options.frequency_penalty is not None:
-            kwargs["frequency_penalty"] = final_options.frequency_penalty
+        if selected_model.startswith(("ollama/", "ollama_chat/")):
+            if final_options.repeat_penalty is not None:
+                kwargs["repeat_penalty"] = final_options.repeat_penalty
+            if final_options.presence_penalty is not None:
+                kwargs["presence_penalty"] = final_options.presence_penalty
+            if final_options.frequency_penalty is not None:
+                kwargs["frequency_penalty"] = final_options.frequency_penalty
         if format_json:
             if selected_model.startswith(("ollama/", "ollama_chat/")):
                 kwargs["format"] = "json"
@@ -122,6 +124,7 @@ class LiteLlmClient:
             "model": model or self.default_embedding_model,
             "input": [input],
             "timeout": self.timeout_seconds,
+            "num_retries": 2,
             "dimensions": expected_dim,
         }
         if self.base_url:

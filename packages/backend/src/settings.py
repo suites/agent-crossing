@@ -22,7 +22,7 @@ LLM_BACKEND: Final[Literal["ollama", "google_ai_studio"]] = cast(
 _default_base_url = (
     "https://model.fredly.dev"
     if LLM_BACKEND == "ollama"
-    else "https://generativelanguage.googleapis.com"
+    else "https://generativelanguage.googleapis.com/v1beta"
 )
 _default_llm_model = (
     "ollama_chat/qwen2.5:7b-instruct"

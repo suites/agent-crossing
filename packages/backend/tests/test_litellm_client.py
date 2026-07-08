@@ -43,6 +43,7 @@ def test_generate_uses_litellm_completion_shape(monkeypatch) -> None:
     assert captured["api_base"] == "https://model.fredly.dev"
     assert captured["api_key"] == "test-key"
     assert captured["timeout"] == 7.0
+    assert captured["num_retries"] == 2
     assert captured["messages"] == [
         {"role": "system", "content": "You are concise."},
         {"role": "user", "content": "Return JSON"},
@@ -56,7 +57,9 @@ def test_generate_uses_litellm_completion_shape(monkeypatch) -> None:
     assert captured["format"] == "json"
 
 
-def test_generate_uses_response_format_for_non_ollama_json(monkeypatch) -> None:
+def test_generate_uses_response_format_without_penalties_for_non_ollama_json(
+    monkeypatch,
+) -> None:
     captured: dict[str, Any] = {}
 
     def fake_completion(**kwargs: Any) -> dict[str, object]:
@@ -69,9 +72,20 @@ def test_generate_uses_response_format_for_non_ollama_json(monkeypatch) -> None:
         default_embedding_model="gemini/text-embedding-004",
     )
 
-    _ = client.generate(prompt="Return JSON", format_json=True)
+    _ = client.generate(
+        prompt="Return JSON",
+        options=LlmGenerateOptions(
+            repeat_penalty=1.2,
+            presence_penalty=0.4,
+            frequency_penalty=0.1,
+        ),
+        format_json=True,
+    )
 
     assert captured["response_format"] == {"type": "json_object"}
+    assert "repeat_penalty" not in captured
+    assert "presence_penalty" not in captured
+    assert "frequency_penalty" not in captured
 
 
 def test_embed_reads_litellm_embedding_vector(monkeypatch) -> None:
@@ -93,4 +107,5 @@ def test_embed_reads_litellm_embedding_vector(monkeypatch) -> None:
     assert embedding == [0.1, 0.2, 0.3]
     assert captured["model"] == "ollama/bge-m3"
     assert captured["input"] == ["hello"]
+    assert captured["num_retries"] == 2
     assert captured["dimensions"] == 3
