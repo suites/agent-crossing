@@ -16,7 +16,8 @@ dependencies = [
     "transformers",
     "torch",
     "mlx-lm; platform_system == 'Darwin' and platform_machine == 'arm64'",
-    "pydantic"
+    "pydantic",
+    "litellm>=1.91.0",
 ]
 
 [dependency-groups]

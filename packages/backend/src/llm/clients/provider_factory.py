@@ -1,9 +1,10 @@
 from typing import Literal, Protocol
 
 from .google_ai_studio import GoogleAiStudioClient
+from .litellm_client import LiteLlmClient
 from .ollama import LlmGenerateOptions, OllamaClient
 
-ProviderName = Literal["ollama", "google_ai_studio"]
+ProviderName = Literal["ollama", "google_ai_studio", "litellm"]
 
 
 class ProviderClient(Protocol):
@@ -47,6 +48,15 @@ def build_provider_client(
     if provider == "google_ai_studio":
         return GoogleAiStudioClient(
             api_key=api_key or "",
+            timeout_seconds=timeout_seconds,
+            default_generate_model=generation_model,
+            default_embedding_model=embedding_model,
+        )
+
+    if provider == "litellm":
+        return LiteLlmClient(
+            base_url=base_url,
+            api_key=api_key,
             timeout_seconds=timeout_seconds,
             default_generate_model=generation_model,
             default_embedding_model=embedding_model,

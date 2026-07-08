@@ -58,19 +58,26 @@ pnpm dev:frontend
 
 ### LLM provider switch
 
-Backend runtime supports both local Ollama and Google AI Studio. Set env vars before running backend:
+Backend runtime uses LiteLLM by default so Ollama-compatible gateways and Gemini can share one adapter. Set env vars before running backend:
 
 ```bash
-# default (local ollama)
+# default: LiteLLM via Fredly model gateway
+export LLM_PROVIDER=litellm
+export LLM_BASE_URL=https://model.fredly.dev
+export LLM_API_KEY=
+export LLM_MODEL=ollama_chat/qwen2.5:7b-instruct
+export EMBEDDING_MODEL=ollama/bge-m3
+
+# local Ollama direct adapter
 export LLM_PROVIDER=ollama
 export LLM_BASE_URL=http://localhost:11434
 export LLM_MODEL=qwen2.5:7b-instruct
 export EMBEDDING_MODEL=bge-m3
 
-# or Google AI Studio
+# Google AI Studio direct adapter
 export LLM_PROVIDER=google_ai_studio
 export GOOGLE_AI_STUDIO_API_KEY=your_api_key
-export LLM_MODEL=gemini-1.5-flash
+export LLM_MODEL=gemini-2.5-flash-lite
 export EMBEDDING_MODEL=gemini-embedding-001
 ```
 

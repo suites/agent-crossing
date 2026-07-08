@@ -11,6 +11,7 @@ from llm.clients.provider_factory import ProviderName
 from settings import (
     EMBEDDING_MODEL,
     GOOGLE_AI_STUDIO_API_KEY,
+    LLM_API_KEY,
     LLM_BASE_URL,
     LLM_MODEL,
     LLM_PROVIDER,
@@ -62,7 +63,7 @@ DEFAULT_CONFIG = LoopSimulationConfig(
     turns=10,
     llm_provider=LLM_PROVIDER,
     base_url=LLM_BASE_URL,
-    api_key=GOOGLE_AI_STUDIO_API_KEY,
+    api_key=LLM_API_KEY or GOOGLE_AI_STUDIO_API_KEY,
     llm_model=LLM_MODEL,
     embedding_model=EMBEDDING_MODEL,
     timeout_seconds=LLM_TIMEOUT_SECONDS,
