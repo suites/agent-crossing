@@ -7,14 +7,12 @@ from llm.guardrails.similarity import (
     SEMANTIC_HARD_BLOCK_THRESHOLD,
     SEMANTIC_SOFT_PENALTY_THRESHOLD,
 )
-from llm.clients.provider_factory import ProviderName
 from settings import (
     EMBEDDING_MODEL,
     GOOGLE_AI_STUDIO_API_KEY,
     LLM_API_KEY,
     LLM_BASE_URL,
     LLM_MODEL,
-    LLM_PROVIDER,
     LLM_TIMEOUT_SECONDS,
 )
 from world.runtime import WorldRuntimeConfig, build_world_runtime
@@ -26,12 +24,10 @@ class LoopSimulationConfig:
     """시뮬레이션에 참여할 에이전트 persona id 목록."""
     turns: int
     """총 턴 수."""
-    llm_provider: ProviderName
-    """LLM provider 식별자 (ollama | google_ai_studio)."""
     base_url: str | None
-    """Provider 서버 base URL (ollama용)."""
+    """LiteLLM provider server base URL."""
     api_key: str | None
-    """Provider API key (google_ai_studio용)."""
+    """LiteLLM provider API key."""
     llm_model: str
     """발화/추론에 사용할 LLM 모델명."""
     embedding_model: str
@@ -61,7 +57,6 @@ class LoopSimulationConfig:
 DEFAULT_CONFIG = LoopSimulationConfig(
     agent_persona_names=["Jiho", "Sujin"],
     turns=10,
-    llm_provider=LLM_PROVIDER,
     base_url=LLM_BASE_URL,
     api_key=LLM_API_KEY or GOOGLE_AI_STUDIO_API_KEY,
     llm_model=LLM_MODEL,
@@ -83,7 +78,6 @@ def _run_simulation(
     runtime = build_world_runtime(
         config=WorldRuntimeConfig(
             agent_persona_names=agent_persona_names,
-            llm_provider=config.llm_provider,
             base_url=config.base_url,
             api_key=config.api_key,
             llm_model=config.llm_model,
@@ -175,7 +169,6 @@ def _run_simulation(
 def _print_session_log_header(*, config: LoopSimulationConfig) -> None:
     print("Simulation log mode")
     print(f"- mode={config.log_mode}")
-    print(f"- provider={config.llm_provider}")
     print(f"- llm_model={config.llm_model}")
     print(f"- semantic_hard_threshold={SEMANTIC_HARD_BLOCK_THRESHOLD}")
     print(f"- semantic_soft_threshold={SEMANTIC_SOFT_PENALTY_THRESHOLD}")

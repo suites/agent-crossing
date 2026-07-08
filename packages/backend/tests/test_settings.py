@@ -12,7 +12,6 @@ import settings
 
 print(json.dumps({
     "LLM_BACKEND": settings.LLM_BACKEND,
-    "LLM_PROVIDER": settings.LLM_PROVIDER,
     "LLM_BASE_URL": settings.LLM_BASE_URL,
     "LLM_MODEL": settings.LLM_MODEL,
     "EMBEDDING_MODEL": settings.EMBEDDING_MODEL,
@@ -25,7 +24,6 @@ print(json.dumps({
         if key
         not in {
             "LLM_BACKEND",
-            "LLM_PROVIDER",
             "LLM_BASE_URL",
             "LLM_MODEL",
             "EMBEDDING_MODEL",
@@ -56,7 +54,6 @@ def test_settings_defaults_to_fredly_ollama_backend() -> None:
 
     assert settings_payload == {
         "LLM_BACKEND": "ollama",
-        "LLM_PROVIDER": "litellm",
         "LLM_BASE_URL": "https://model.fredly.dev",
         "LLM_MODEL": "ollama_chat/qwen2.5:7b-instruct",
         "EMBEDDING_MODEL": "ollama/bge-m3",
@@ -74,7 +71,6 @@ def test_settings_google_backend_uses_gemini_model_and_api_key() -> None:
 
     assert settings_payload == {
         "LLM_BACKEND": "google_ai_studio",
-        "LLM_PROVIDER": "litellm",
         "LLM_BASE_URL": "https://generativelanguage.googleapis.com",
         "LLM_MODEL": "gemini/gemini-2.5-flash-lite",
         "EMBEDDING_MODEL": "gemini/gemini-embedding-001",

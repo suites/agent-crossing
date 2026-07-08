@@ -15,7 +15,7 @@ from .importance_scorer import (
     parse_importance_value,
 )
 from .clients.ollama import OllamaClient, OllamaClientError
-from .clients.provider_factory import ProviderName, build_provider_client
+from .clients.provider_factory import build_provider_client
 
 __all__ = [
     "ImportanceScoringContext",
@@ -32,7 +32,6 @@ __all__ = [
     "OllamaClient",
     "OllamaClientError",
     "OllamaImportanceScorer",
-    "ProviderName",
     "build_provider_client",
     "clamp_importance",
     "parse_importance_value",

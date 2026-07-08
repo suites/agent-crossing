@@ -10,7 +10,7 @@ from llm.governance import (
     ConversationMetrics,
     build_conversation_metrics,
 )
-from llm.clients.provider_factory import ProviderName, build_provider_client
+from llm.clients.provider_factory import build_provider_client
 from agents.world_factory import init_agents
 
 from .engine import SimulationEngine, SimulationEngineConfig, SimulationStepResult
@@ -20,7 +20,6 @@ from .session import WorldConversationSession
 @dataclass(frozen=True)
 class WorldRuntimeConfig:
     agent_persona_names: list[str]
-    llm_provider: ProviderName
     base_url: str | None
     api_key: str | None
     llm_model: str
@@ -152,7 +151,6 @@ class WorldRuntime:
 def build_world_runtime(*, config: WorldRuntimeConfig) -> WorldRuntime:
     now = datetime.datetime.now()
     llm_client = build_provider_client(
-        provider=config.llm_provider,
         timeout_seconds=config.timeout_seconds,
         generation_model=config.llm_model,
         embedding_model=config.embedding_model,

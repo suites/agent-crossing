@@ -18,11 +18,8 @@ from agents.planning.models import (
 from agents.planning.planner import Planner
 from llm.clients.provider_factory import build_provider_client
 from llm.llm_gateway import LlmGateway
+from settings import EMBEDDING_MODEL, LLM_API_KEY, LLM_BASE_URL, LLM_MODEL
 
-GOOGLE_AI_STUDIO_API_KEY = os.getenv("GOOGLE_AI_STUDIO_API_KEY", "").strip()
-LLM_PROVIDER = os.getenv("LLM_PROVIDER", "google_ai_studio")
-GENERATION_MODEL = os.getenv("LLM_MODEL", "gemini-1.5-flash")
-EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "text-embedding-004")
 TIMEOUT_SECONDS = float(os.getenv("LLM_TIMEOUT_SECONDS", "30"))
 RUN_LIVE_PLANNER = os.getenv("RUN_LIVE_PLANNER", "").strip().lower() in {
     "1",
@@ -56,11 +53,11 @@ def _print_plan_items(title: str, items: Sequence[PlanItem]) -> None:
 
 def test_planner_live_with_provider_factory() -> None:
     provider_client = build_provider_client(
-        provider=LLM_PROVIDER,
         timeout_seconds=TIMEOUT_SECONDS,
-        generation_model=GENERATION_MODEL,
+        generation_model=LLM_MODEL,
         embedding_model=EMBEDDING_MODEL,
-        api_key=GOOGLE_AI_STUDIO_API_KEY,
+        base_url=LLM_BASE_URL,
+        api_key=LLM_API_KEY,
     )
     planner = Planner(LlmGateway(provider_client))
 

@@ -19,8 +19,6 @@ LLM_BACKEND: Final[Literal["ollama", "google_ai_studio"]] = cast(
     _raw_llm_backend,
 )
 
-LLM_PROVIDER: Final[Literal["litellm"]] = "litellm"
-
 _default_base_url = (
     "https://model.fredly.dev"
     if LLM_BACKEND == "ollama"

@@ -16,7 +16,6 @@ from settings import (
     LLM_API_KEY,
     LLM_BASE_URL,
     LLM_MODEL,
-    LLM_PROVIDER,
     LLM_TIMEOUT_SECONDS,
     WORLD_TICK_INTERVAL_SECONDS,
 )
@@ -37,7 +36,6 @@ def on_startup() -> None:
         app.state.world_runtime = build_world_runtime(
             config=WorldRuntimeConfig(
                 agent_persona_names=persona_names[:2],
-                llm_provider=LLM_PROVIDER,
                 base_url=LLM_BASE_URL,
                 api_key=LLM_API_KEY or GOOGLE_AI_STUDIO_API_KEY,
                 llm_model=LLM_MODEL,
