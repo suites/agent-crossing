@@ -7,6 +7,8 @@ import time
 from collections.abc import Sequence
 from dataclasses import asdict
 
+import pytest
+
 from agents.planning.models import (
     DayPlanBroadStrokesRequest,
     DayPlanItem,
@@ -22,6 +24,20 @@ LLM_PROVIDER = os.getenv("LLM_PROVIDER", "google_ai_studio")
 GENERATION_MODEL = os.getenv("LLM_MODEL", "gemini-1.5-flash")
 EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "text-embedding-004")
 TIMEOUT_SECONDS = float(os.getenv("LLM_TIMEOUT_SECONDS", "30"))
+RUN_LIVE_PLANNER = os.getenv("RUN_LIVE_PLANNER", "").strip().lower() in {
+    "1",
+    "true",
+    "yes",
+    "on",
+}
+
+pytestmark = [
+    pytest.mark.live_planner,
+    pytest.mark.skipif(
+        not RUN_LIVE_PLANNER,
+        reason="Set RUN_LIVE_PLANNER=1 to run live planner tests",
+    ),
+]
 
 
 PlanItem = DayPlanItem | HourlyPlanItem | MinutePlanItem

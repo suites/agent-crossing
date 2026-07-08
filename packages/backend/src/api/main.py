@@ -2,7 +2,12 @@ from pathlib import Path
 from typing import cast
 
 from agents.persona_loader import PersonaLoader
-from api.schemas import StatusResponse, WorldStateResponse, WorldStepResponse
+from api.schemas import (
+    StatusResponse,
+    WorldSchedulerResponse,
+    WorldStateResponse,
+    WorldStepResponse,
+)
 from db import init_db
 from fastapi import FastAPI, HTTPException
 from settings import (
@@ -12,6 +17,7 @@ from settings import (
     LLM_MODEL,
     LLM_PROVIDER,
     LLM_TIMEOUT_SECONDS,
+    WORLD_TICK_INTERVAL_SECONDS,
 )
 from world.runtime import WorldRuntime, WorldRuntimeConfig, build_world_runtime
 
@@ -37,8 +43,16 @@ def on_startup() -> None:
                 embedding_model=EMBEDDING_MODEL,
                 timeout_seconds=LLM_TIMEOUT_SECONDS,
                 persona_dir=str(persona_dir),
+                tick_interval_seconds=WORLD_TICK_INTERVAL_SECONDS,
             )
         )
+
+
+@app.on_event("shutdown")
+async def on_shutdown() -> None:
+    runtime = cast(WorldRuntime | None, getattr(app.state, "world_runtime", None))
+    if runtime is not None:
+        await runtime.stop_scheduler()
 
 
 @app.get("/", response_model=StatusResponse)
@@ -63,6 +77,8 @@ async def get_world_state() -> WorldStateResponse:
         current_time=state.current_time.isoformat(),
         history_size=state.history_size,
         agent_names=[agent.name for agent in runtime.agents],
+        scheduler_running=state.scheduler_running,
+        tick_interval_seconds=state.tick_interval_seconds,
     )
 
 
@@ -82,6 +98,30 @@ async def post_world_step() -> WorldStepResponse:
         semantic_repeat_rate=metrics.semantic_repeat_rate,
         topic_progress_rate=metrics.topic_progress_rate,
     )
+
+
+def _scheduler_response(runtime: WorldRuntime) -> WorldSchedulerResponse:
+    state = runtime.state()
+    return WorldSchedulerResponse(
+        running=state.scheduler_running,
+        turn=state.turn,
+        current_time=state.current_time.isoformat(),
+        tick_interval_seconds=state.tick_interval_seconds,
+    )
+
+
+@app.post("/world/tick/start", response_model=WorldSchedulerResponse)
+async def post_world_tick_start() -> WorldSchedulerResponse:
+    runtime = _require_runtime()
+    await runtime.start_scheduler()
+    return _scheduler_response(runtime)
+
+
+@app.post("/world/tick/stop", response_model=WorldSchedulerResponse)
+async def post_world_tick_stop() -> WorldSchedulerResponse:
+    runtime = _require_runtime()
+    await runtime.stop_scheduler()
+    return _scheduler_response(runtime)
 
 
 if __name__ == "__main__":

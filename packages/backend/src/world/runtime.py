@@ -1,4 +1,6 @@
+import asyncio
 import datetime
+import threading
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
@@ -32,6 +34,7 @@ class WorldRuntimeConfig:
     suppress_repeated_replies: bool = True
     repetition_window: int = 4
     turn_time_step_seconds: int = 45
+    tick_interval_seconds: float = 1.0
 
 
 @dataclass(frozen=True)
@@ -41,6 +44,8 @@ class WorldRuntimeState:
     parse_failures: int
     silent_turns: int
     history_size: int
+    scheduler_running: bool
+    tick_interval_seconds: float
 
 
 class WorldRuntime:
@@ -51,38 +56,78 @@ class WorldRuntime:
         session: WorldConversationSession,
         engine: SimulationEngine,
         current_time: datetime.datetime,
+        tick_interval_seconds: float = 1.0,
     ) -> None:
         if len(agents) != 2:
             raise ValueError("WorldRuntime currently supports exactly two agents")
+        if tick_interval_seconds <= 0:
+            raise ValueError("tick_interval_seconds must be greater than 0")
 
         self.agents: list[SimAgent] = agents
         self.session: WorldConversationSession = session
         self.engine: SimulationEngine = engine
         self.current_time: datetime.datetime = current_time
+        self.tick_interval_seconds: float = tick_interval_seconds
         self.turn: int = 0
         self.parse_failures: int = 0
         self.silent_turns: int = 0
         self._initiator: SimAgent = agents[0]
         self._partner: SimAgent = agents[1]
+        self._step_lock: threading.Lock = threading.Lock()
+        self._scheduler_task: asyncio.Task[None] | None = None
 
     def step(self) -> SimulationStepResult:
-        self.turn += 1
-        speaker = self.session.next_speaker()
-        speaking_partner = (
-            self._partner if speaker is self._initiator else self._initiator
-        )
-        step_result = self.engine.step(
-            turn=self.turn,
-            current_time=self.current_time,
-            speaker=speaker,
-            speaking_partner=speaking_partner,
-        )
-        self.current_time = step_result.now
-        if step_result.parse_failure:
-            self.parse_failures += 1
-        if not step_result.reply:
-            self.silent_turns += 1
-        return step_result
+        with self._step_lock:
+            self.turn += 1
+            speaker = self.session.next_speaker()
+            speaking_partner = (
+                self._partner if speaker is self._initiator else self._initiator
+            )
+            step_result = self.engine.step(
+                turn=self.turn,
+                current_time=self.current_time,
+                speaker=speaker,
+                speaking_partner=speaking_partner,
+            )
+            self.current_time = step_result.now
+            if step_result.parse_failure:
+                self.parse_failures += 1
+            if not step_result.reply:
+                self.silent_turns += 1
+            return step_result
+
+    def tick(self) -> SimulationStepResult:
+        """Advance the single runtime clock by one perceive-plan-act tick."""
+        return self.step()
+
+    @property
+    def scheduler_running(self) -> bool:
+        return self._scheduler_task is not None and not self._scheduler_task.done()
+
+    async def start_scheduler(self) -> bool:
+        if self.scheduler_running:
+            return False
+        self._scheduler_task = asyncio.create_task(self._run_scheduler())
+        return True
+
+    async def stop_scheduler(self) -> bool:
+        if self._scheduler_task is None:
+            return False
+        task = self._scheduler_task
+        self._scheduler_task = None
+        if task.done():
+            return False
+        task.cancel()
+        try:
+            await task
+        except asyncio.CancelledError:
+            pass
+        return True
+
+    async def _run_scheduler(self) -> None:
+        while True:
+            await asyncio.to_thread(self.tick)
+            await asyncio.sleep(self.tick_interval_seconds)
 
     def metrics(self) -> ConversationMetrics:
         return build_conversation_metrics(
@@ -99,6 +144,8 @@ class WorldRuntime:
             parse_failures=self.parse_failures,
             silent_turns=self.silent_turns,
             history_size=len(self.session.history),
+            scheduler_running=self.scheduler_running,
+            tick_interval_seconds=self.tick_interval_seconds,
         )
 
 
@@ -139,6 +186,7 @@ def build_world_runtime(*, config: WorldRuntimeConfig) -> WorldRuntime:
         session=session,
         engine=engine,
         current_time=now,
+        tick_interval_seconds=config.tick_interval_seconds,
     )
 
 

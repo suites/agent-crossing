@@ -23,3 +23,6 @@ LLM_MODEL: Final[str] = os.getenv("LLM_MODEL", "qwen2.5:7b-instruct")
 EMBEDDING_MODEL: Final[str] = os.getenv("EMBEDDING_MODEL", "bge-m3")
 LLM_TIMEOUT_SECONDS: Final[float] = float(os.getenv("LLM_TIMEOUT_SECONDS", "30"))
 GOOGLE_AI_STUDIO_API_KEY: Final[str] = os.getenv("GOOGLE_AI_STUDIO_API_KEY", "")
+WORLD_TICK_INTERVAL_SECONDS: Final[float] = float(
+    os.getenv("WORLD_TICK_INTERVAL_SECONDS", "1.0")
+)

@@ -134,23 +134,25 @@
 
 ### 3-A. 계층형 계획 생성
 
-- [ ] `P1` day plan 생성기(5~8 broad strokes)를 구현한다
+- [x] `P1` day plan 생성기(5~8 broad strokes)를 구현한다
   - Depends on: Reflection Loop 핵심 완료
   - DoD:
-    - [ ] day plan 항목 수가 5~8 범위를 만족한다
-    - [ ] 각 항목에 `start_time`, `end_time`, `location`, `action_content`가 포함된다
+    - [x] day plan 항목 수가 5~8 범위를 만족한다
+    - [x] 각 항목에 `start_time`, `end_time`, `location`, `action_content`가 포함된다
 
 - [ ] `P1` hourly plan 생성기를 구현한다
   - Depends on: day plan 생성기 구현
   - DoD:
-    - [ ] 현재 시점의 active day plan 항목을 기준으로 near-future hourly plan을 생성한다
-    - [ ] hourly plan이 시간 순서로 정렬된다
+    - [x] active day plan 항목 입력을 기준으로 near-future hourly plan을 생성한다
+    - [ ] 현재 시점 기준 active day plan 항목을 선택한다
+    - [x] hourly plan이 시간 순서로 정렬된다
 
 - [ ] `P1` minute plan(5~15분 단위) 생성기를 구현한다
   - Depends on: hourly plan 생성기 구현
   - DoD:
-    - [ ] minute plan 단위가 5~15분 범위를 만족한다
-    - [ ] 현재 시점의 active hourly plan 항목을 기준으로 near-future minute plan을 생성한다
+    - [x] minute plan 단위가 5~15분 범위를 만족한다
+    - [x] active hourly plan 항목 입력을 기준으로 near-future minute plan을 생성한다
+    - [ ] 현재 시점 기준 active hourly plan 항목을 선택한다
     - [ ] 현재 시점 기준 다음 실행 항목을 즉시 찾을 수 있다
 
 ### 3-B. Tick react 판정과 부분 재계획
@@ -222,11 +224,11 @@
     - [x] `/world/state`, `/world/step` 엔드포인트로 코어 step을 호출한다
     - [x] API 단위 테스트로 state/step 응답 계약을 검증한다
 
-- [ ] `P1` world clock와 tick scheduler를 붙인다
+- [x] `P1` world clock와 tick scheduler를 붙인다
   - Depends on: Planning & Re-planning 핵심 완료
   - DoD:
-    - [ ] 단일 기준 시계로 tick이 안정적으로 증가한다
-    - [ ] tick loop에서 perceive-plan-act 순서가 유지된다
+    - [x] 단일 기준 시계로 tick이 안정적으로 증가한다
+    - [x] tick loop에서 perceive-plan-act 순서가 유지된다
 
 - [ ] `P1` WebSocket state broadcast를 구현한다
   - Depends on: world clock + tick scheduler 연동

@@ -35,4 +35,7 @@ package-dir = {"" = "src"}
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]
-markers = ["live_ollama: tests that require a running local Ollama daemon"]
+markers = [
+    "live_ollama: tests that require a running local Ollama daemon",
+    "live_planner: tests that require a configured live LLM provider for planning",
+]
